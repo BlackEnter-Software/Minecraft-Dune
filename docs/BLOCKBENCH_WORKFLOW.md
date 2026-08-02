@@ -66,3 +66,17 @@ When replacing geometry in `MuaddibMouseModel.java`, preserve:
 - `root()`
 - `setupAnim(...)`, unless deliberately replacing the animations
 - the 64 × 32 `LayerDefinition` texture dimensions
+
+
+## Animation actions in this revision
+
+The project now contains four useful Blockbench actions:
+
+- `idle` — looping breathing, ear motion, and tail balance
+- `hop` — looping kangaroo-mouse locomotion preview
+- `wiggle_head` — the supplied one-shot head/ear action
+- `sniff_ground` — the supplied one-shot ground-sniffing action
+
+Minecraft does not load `.bbmodel` animations at runtime. Equivalent keyframes
+are compiled in `MuaddibMouseAnimations.java`. After editing animation timing in
+Blockbench, the Java definition must also be regenerated or updated.
