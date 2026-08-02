@@ -1,0 +1,22 @@
+.gradle/
+build/
+run/
+repo/
+out/
+bin/
+
+.idea/
+.run/
+.vscode/
+.classpath
+.project
+.settings/
+*.iml
+*.iws
+*.ipr
+
+src/generated/resources/.cache/
+.DS_Store
+
+# Keep the Gradle wrapper once it has been downloaded.
+!gradle/wrapper/gradle-wrapper.jar
