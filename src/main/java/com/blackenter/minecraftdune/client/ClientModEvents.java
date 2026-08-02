@@ -11,7 +11,6 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 
 @EventBusSubscriber(
         modid = MinecraftDune.MOD_ID,
-        bus = EventBusSubscriber.Bus.MOD,
         value = Dist.CLIENT
 )
 public final class ClientModEvents {
