@@ -65,7 +65,67 @@ public final class MuaddibMouseModel extends HierarchicalModel<MuaddibMouseEntit
     }
 
     public static LayerDefinition createBodyLayer() {
-        MeshDefinition mesh = new MeshDefinition();
+		MeshDefinition meshdefinition = new MeshDefinition();
+		PartDefinition partdefinition = meshdefinition.getRoot();
+
+		PartDefinition root = partdefinition.addOrReplaceChild("root", CubeListBuilder.create(), PartPose.offset(0.0F, 17.0F, 0.0F));
+
+		PartDefinition body = root.addOrReplaceChild("body", CubeListBuilder.create(), PartPose.offset(0.0F, 0.0F, 3.0F));
+
+		PartDefinition lower_body_cube_r1 = body.addOrReplaceChild("lower_body_cube_r1", CubeListBuilder.create().texOffs(38, 0).addBox(-1.5F, -3.0F, -4.0F, 3.0F, 4.0F, 5.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(0.0F, 1.0F, 1.0F, -0.6109F, 0.0F, 0.0F));
+
+		PartDefinition upper_body_cube_r1 = body.addOrReplaceChild("upper_body_cube_r1", CubeListBuilder.create().texOffs(17, 0).addBox(-2.5F, -3.0F, -4.0F, 5.0F, 4.0F, 5.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(0.0F, -2.0F, -3.0F, -0.6109F, 0.0F, 0.0F));
+
+		PartDefinition head = body.addOrReplaceChild("head", CubeListBuilder.create().texOffs(0, 1).addBox(-2.0F, -2.0F, -3.5F, 4.0F, 4.0F, 4.0F, new CubeDeformation(0.0F)).texOffs(13, 0).addBox(-1.0F, -0.5F, -4.5F, 2.0F, 2.0F, 2.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, -5.25F, -7.0F));
+
+		PartDefinition left_ear = head.addOrReplaceChild("left_ear", CubeListBuilder.create(), PartPose.offsetAndRotation(-1.25F, -1.5F, -0.5F, 0.1222F, 0.0F, 0.1833F));
+
+		PartDefinition left_ear_cube_r1 = left_ear.addOrReplaceChild("left_ear_cube_r1", CubeListBuilder.create().texOffs(0, 10).addBox(-1.5F, -6.0F, -0.5F, 3.0F, 6.0F, 1.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, -0.5236F));
+
+		PartDefinition right_ear = head.addOrReplaceChild("right_ear", CubeListBuilder.create(), PartPose.offsetAndRotation(1.25F, -1.5F, -0.5F, 0.1222F, 0.0F, -0.1833F));
+
+		PartDefinition right_ear_cube_r1 = right_ear.addOrReplaceChild("right_ear_cube_r1", CubeListBuilder.create().texOffs(0, 10).mirror().addBox(-1.5F, -6.0F, -0.5F, 3.0F, 6.0F, 1.0F, new CubeDeformation(0.0F)).mirror(false), PartPose.offsetAndRotation(0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.5236F));
+
+		PartDefinition tail_base = body.addOrReplaceChild("tail_base", CubeListBuilder.create().texOffs(9, 10).addBox(-0.5F, -0.5F, 0.0F, 1.0F, 1.0F, 3.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, -0.5F, 3.0F));
+
+		PartDefinition tail_middle = tail_base.addOrReplaceChild("tail_middle", CubeListBuilder.create().texOffs(18, 11).addBox(-0.5F, -0.5F, 0.0F, 1.0F, 1.0F, 2.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 0.0F, 3.0F));
+
+		PartDefinition tail_tip = tail_middle.addOrReplaceChild("tail_tip", CubeListBuilder.create().texOffs(25, 10).addBox(-0.5F, -0.5F, 0.0F, 1.0F, 1.0F, 3.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 0.0F, 2.0F));
+
+		PartDefinition front_leg = body.addOrReplaceChild("front_leg", CubeListBuilder.create(), PartPose.offset(0.0F, 7.0F, -3.0F));
+
+		PartDefinition left_front_leg = front_leg.addOrReplaceChild("left_front_leg", CubeListBuilder.create(), PartPose.offset(-2.0F, -10.0F, -1.5F));
+
+		PartDefinition left_front_leg_cube_r1 = left_front_leg.addOrReplaceChild("left_front_leg_cube_r1", CubeListBuilder.create().texOffs(33, 0).addBox(-0.25F, -1.5F, -0.5F, 1.0F, 3.0F, 1.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(-0.75F, 1.5F, -1.0F, -0.6545F, 0.0F, 0.0F));
+
+		PartDefinition right_front_leg = front_leg.addOrReplaceChild("right_front_leg", CubeListBuilder.create(), PartPose.offset(2.0F, -10.0F, -1.5F));
+
+		PartDefinition right_front_leg_cube_r1 = right_front_leg.addOrReplaceChild("right_front_leg_cube_r1", CubeListBuilder.create().texOffs(33, 0).mirror().addBox(-6.25F, -1.5F, -0.5F, 1.0F, 3.0F, 1.0F, new CubeDeformation(0.0F)).mirror(false), PartPose.offsetAndRotation(6.25F, 1.5F, -1.0F, -0.6545F, 0.0F, 0.0F));
+
+		PartDefinition left_hind_rump = root.addOrReplaceChild("left_hind_rump", CubeListBuilder.create().texOffs(0, 18).addBox(-0.75F, -1.5846F, -2.6168F, 2.0F, 4.0F, 4.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(-2.25F, -0.5F, 4.0F, -0.1222F, 0.0F, 0.0F));
+
+		PartDefinition left_hind_stifle = left_hind_rump.addOrReplaceChild("left_hind_stifle", CubeListBuilder.create(), PartPose.offset(0.25F, 2.5F, -2.0F));
+
+		PartDefinition left_hind_stifle_cube_r1 = left_hind_stifle.addOrReplaceChild("left_hind_stifle_cube_r1", CubeListBuilder.create().texOffs(13, 17).addBox(-1.0F, -0.5F, -3.0F, 2.0F, 1.0F, 5.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(0.0F, 1.5F, 2.0F, -0.6109F, 0.0F, 0.0F));
+
+		PartDefinition left_hind_feet = left_hind_stifle.addOrReplaceChild("left_hind_feet", CubeListBuilder.create(), PartPose.offset(0.0F, 2.0F, 3.0F));
+
+		PartDefinition left_hind_feet_cube_r1 = left_hind_feet.addOrReplaceChild("left_hind_feet_cube_r1", CubeListBuilder.create().texOffs(28, 17).addBox(-3.0F, -0.5F, -2.5F, 2.0F, 1.0F, 5.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(2.0F, 1.5F, -1.0F, 0.1309F, 0.0F, 0.0F));
+
+		PartDefinition right_hind_rump = root.addOrReplaceChild("right_hind_rump", CubeListBuilder.create().texOffs(0, 18).mirror().addBox(-1.25F, -1.5846F, -2.6168F, 2.0F, 4.0F, 4.0F, new CubeDeformation(0.0F)).mirror(false), PartPose.offsetAndRotation(2.25F, -0.5F, 4.0F, -0.1222F, 0.0F, 0.0F));
+
+		PartDefinition right_hinde_stifle = right_hind_rump.addOrReplaceChild("right_hinde_stifle", CubeListBuilder.create(), PartPose.offset(-0.25F, 2.5F, -2.0F));
+
+		PartDefinition right_hind_stifle_cube_r1 = right_hinde_stifle.addOrReplaceChild("right_hind_stifle_cube_r1", CubeListBuilder.create().texOffs(13, 17).mirror().addBox(-1.0F, -0.5F, -3.0F, 2.0F, 1.0F, 5.0F, new CubeDeformation(0.0F)).mirror(false), PartPose.offsetAndRotation(0.0F, 1.5F, 2.0F, -0.6109F, 0.0F, 0.0F));
+
+		PartDefinition right_hind_feet = right_hinde_stifle.addOrReplaceChild("right_hind_feet", CubeListBuilder.create(), PartPose.offset(0.0F, 2.0F, 3.0F));
+
+		PartDefinition right_hind_feet_cube_r1 = right_hind_feet.addOrReplaceChild("right_hind_feet_cube_r1", CubeListBuilder.create().texOffs(28, 17).mirror().addBox(1.0F, -0.5F, -2.5F, 2.0F, 1.0F, 5.0F, new CubeDeformation(0.0F)).mirror(false), PartPose.offsetAndRotation(-2.0F, 1.5F, -1.0F, 0.1309F, 0.0F, 0.0F));
+
+		return LayerDefinition.create(meshdefinition, 64, 32);
+	}
+    /** ChatGPT
+		MeshDefinition mesh = new MeshDefinition();
         PartDefinition meshRoot = mesh.getRoot();
 
         PartDefinition rootPart = meshRoot.addOrReplaceChild(
@@ -267,7 +327,7 @@ public final class MuaddibMouseModel extends HierarchicalModel<MuaddibMouseEntit
         );
 
         return LayerDefinition.create(mesh, 64, 32);
-    }
+    } */
 
     private static float radians(float degrees) {
         return degrees * Mth.DEG_TO_RAD;
