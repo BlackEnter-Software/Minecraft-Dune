@@ -2,6 +2,8 @@ package com.blackenter.minecraftdune.worldgen.prototype;
 
 import com.blackenter.minecraftdune.MinecraftDune;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -18,15 +20,17 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import java.util.Locale;
 
 /**
- * Operator-only commands for generating and clearing prototype dunes in Arrakis Dev.
+ * Operator-only commands for generating, tuning, and clearing prototype dunes in Arrakis Dev.
  */
 @EventBusSubscriber(modid = MinecraftDune.MOD_ID)
 public final class DunePrototypeCommand {
     private static final int REQUIRED_PERMISSION_LEVEL = 2;
     private static final int BLOCK_UPDATE_FLAGS = 2;
     private static final int FIRST_DUNE_Y = DuneSimulation.BASE_SURFACE_Y + 1;
-    private static final int LAST_DUNE_Y =
-            DuneSimulation.BASE_SURFACE_Y + DuneSimulation.MAXIMUM_PROTOTYPE_HEIGHT;
+    private static final int LAST_DUNE_Y = DuneSimulation.BASE_SURFACE_Y
+            + DuneSimulation.Settings.MAXIMUM_ALLOWED_HEIGHT;
+
+    private static DuneSimulation.Settings currentSettings = DuneSimulation.Settings.defaults();
 
     private DunePrototypeCommand() {
     }
@@ -53,9 +57,90 @@ public final class DunePrototypeCommand {
                                                         DuneMode.BARCHAN
                                                 ))))
                                 .then(Commands.literal("clear")
-                                        .executes(DunePrototypeCommand::clear))
+                                        .executes(DunePrototypeCommand::clearCurrentRegion)
+                                        .then(Commands.argument(
+                                                        "cell_size",
+                                                        IntegerArgumentType.integer(
+                                                                DuneSimulation.Settings.MINIMUM_CELL_SIZE,
+                                                                DuneSimulation.Settings.MAXIMUM_CELL_SIZE
+                                                        )
+                                                )
+                                                .executes(DunePrototypeCommand::clearExplicitRegion)))
                                 .then(Commands.literal("info")
-                                        .executes(DunePrototypeCommand::info)))
+                                        .executes(DunePrototypeCommand::info))
+                                .then(Commands.literal("settings")
+                                        .executes(DunePrototypeCommand::showSettings)
+                                        .then(Commands.literal("reset")
+                                                .executes(DunePrototypeCommand::resetSettings))
+                                        .then(Commands.literal("cell_size")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                IntegerArgumentType.integer(
+                                                                        DuneSimulation.Settings.MINIMUM_CELL_SIZE,
+                                                                        DuneSimulation.Settings.MAXIMUM_CELL_SIZE
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setCellSize)))
+                                        .then(Commands.literal("max_height")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                IntegerArgumentType.integer(
+                                                                        0,
+                                                                        DuneSimulation.Settings.MAXIMUM_ALLOWED_HEIGHT
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setMaximumHeight)))
+                                        .then(Commands.literal("stable_slope")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                DoubleArgumentType.doubleArg(
+                                                                        DuneSimulation.Settings.MINIMUM_STABLE_SLOPE,
+                                                                        DuneSimulation.Settings.MAXIMUM_STABLE_SLOPE
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setStableSlope)))
+                                        .then(Commands.literal("cascade_passes")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                IntegerArgumentType.integer(
+                                                                        0,
+                                                                        DuneSimulation.Settings.MAXIMUM_CASCADE_PASSES
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setCascadePasses)))
+                                        .then(Commands.literal("iterations")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                IntegerArgumentType.integer(
+                                                                        0,
+                                                                        DuneSimulation.Settings.MAXIMUM_TRANSPORT_ITERATIONS
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setTransportIterations)))
+                                        .then(Commands.literal("wind_angle")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                DoubleArgumentType.doubleArg(-360.0, 360.0)
+                                                        )
+                                                        .executes(DunePrototypeCommand::setWindAngle)))
+                                        .then(Commands.literal("edge_blend")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                IntegerArgumentType.integer(
+                                                                        0,
+                                                                        DuneSimulation.Settings.MAXIMUM_EDGE_BLEND_CELLS
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setEdgeBlend)))
+                                        .then(Commands.literal("transport_strength")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                DoubleArgumentType.doubleArg(
+                                                                        DuneSimulation.Settings.MINIMUM_TRANSPORT_STRENGTH,
+                                                                        DuneSimulation.Settings.MAXIMUM_TRANSPORT_STRENGTH
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setTransportStrength)))))
         );
     }
 
@@ -65,7 +150,8 @@ public final class DunePrototypeCommand {
     ) {
         CommandSourceStack source = context.getSource();
         ServerLevel level = source.getLevel();
-        Region region = regionAt(source);
+        DuneSimulation.Settings settings = currentSettings;
+        Region region = regionAt(source, settings.regionBlockSize());
         long seed = regionalSeed(level.getSeed(), region.minimumX(), region.minimumZ(), mode);
 
         source.sendSuccess(
@@ -77,15 +163,17 @@ public final class DunePrototypeCommand {
         );
 
         long startNanoseconds = System.nanoTime();
-        DuneSimulation.Result result = DuneSimulation.simulate(mode, seed);
+        DuneSimulation.Result result = DuneSimulation.simulate(mode, seed, settings);
         int changedBlocks = applyHeightField(level, region, result);
         double elapsedSeconds = (System.nanoTime() - startNanoseconds) / 1_000_000_000.0;
 
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
-                        "Generated %s dunes: %d changed blocks, maximum +%d Y, %.3f sand-mass drift, %.2f s. Seed %s.",
+                        "Generated %s dunes: %dx%d blocks, %d changed blocks, maximum +%d Y, %.3f sand-mass drift, %.2f s. Seed %s.",
                         mode.commandName(),
+                        settings.regionBlockSize(),
+                        settings.regionBlockSize(),
                         changedBlocks,
                         result.maximumHeight(),
                         result.massDifference(),
@@ -94,14 +182,23 @@ public final class DunePrototypeCommand {
                 )),
                 true
         );
-
         return changedBlocks;
     }
 
-    private static int clear(CommandContext<CommandSourceStack> context) {
+    private static int clearCurrentRegion(CommandContext<CommandSourceStack> context) {
+        return clear(context, currentSettings.cellSize());
+    }
+
+    private static int clearExplicitRegion(CommandContext<CommandSourceStack> context) {
+        int cellSize = IntegerArgumentType.getInteger(context, "cell_size");
+        return clear(context, cellSize);
+    }
+
+    private static int clear(CommandContext<CommandSourceStack> context, int cellSize) {
         CommandSourceStack source = context.getSource();
         ServerLevel level = source.getLevel();
-        Region region = regionAt(source);
+        int regionBlockSize = DuneSimulation.GRID_SIZE * cellSize;
+        Region region = regionAt(source, regionBlockSize);
         int changedBlocks = clearPrototypeSand(level, region);
 
         source.sendSuccess(
@@ -116,14 +213,134 @@ public final class DunePrototypeCommand {
 
     private static int info(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
-        Region region = regionAt(source);
+        DuneSimulation.Settings settings = currentSettings;
+        Region region = regionAt(source, settings.regionBlockSize());
+
         source.sendSuccess(
                 () -> Component.literal(
                         "Arrakis Dev dune region: " + region.description()
                                 + ", base surface Y=" + DuneSimulation.BASE_SURFACE_Y
-                                + ", size=" + DuneSimulation.REGION_BLOCK_SIZE + "x"
-                                + DuneSimulation.REGION_BLOCK_SIZE
-                                + ", wind=24 degrees toward +X/+Z."
+                                + ", wind=" + formatDouble(settings.windAngleDegrees()) + " degrees."
+                ),
+                false
+        );
+        return showSettings(context);
+    }
+
+    private static int showSettings(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        DuneSimulation.Settings settings = currentSettings;
+
+        String maximumHeight = settings.maximumHeightOverride() == 0
+                ? "mode default (transverse=" + DuneMode.TRANSVERSE.maximumHeight()
+                        + ", barchan=" + DuneMode.BARCHAN.maximumHeight() + ")"
+                : Integer.toString(settings.maximumHeightOverride());
+        String iterations = settings.transportIterationsOverride() == 0
+                ? "mode default (transverse=" + DuneMode.TRANSVERSE.transportIterations()
+                        + ", barchan=" + DuneMode.BARCHAN.transportIterations() + ")"
+                : Integer.toString(settings.transportIterationsOverride());
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Dune settings: cell_size=" + settings.cellSize()
+                                + " -> region=" + settings.regionBlockSize() + "x"
+                                + settings.regionBlockSize()
+                                + ", max_height=" + maximumHeight
+                                + ", stable_slope=" + formatDouble(settings.maximumStableSlope())
+                                + ", cascade_passes=" + settings.cascadePasses() + "."
+                ),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Dune settings: iterations=" + iterations
+                                + ", wind_angle=" + formatDouble(settings.windAngleDegrees())
+                                + ", edge_blend=" + settings.edgeBlendCells()
+                                + ", transport_strength=" + formatDouble(settings.transportStrength()) + "."
+                ),
+                false
+        );
+        return 1;
+    }
+
+    private static int resetSettings(CommandContext<CommandSourceStack> context) {
+        currentSettings = DuneSimulation.Settings.defaults();
+        context.getSource().sendSuccess(
+                () -> Component.literal("Reset Arrakis Dev dune settings to prototype defaults."),
+                false
+        );
+        return showSettings(context);
+    }
+
+    private static int setCellSize(CommandContext<CommandSourceStack> context) {
+        int value = IntegerArgumentType.getInteger(context, "value");
+        currentSettings = currentSettings.withCellSize(value);
+        return settingChanged(context, "cell_size", Integer.toString(value));
+    }
+
+    private static int setMaximumHeight(CommandContext<CommandSourceStack> context) {
+        int value = IntegerArgumentType.getInteger(context, "value");
+        currentSettings = currentSettings.withMaximumHeightOverride(value);
+        return settingChanged(
+                context,
+                "max_height",
+                value == 0 ? "mode default" : Integer.toString(value)
+        );
+    }
+
+    private static int setStableSlope(CommandContext<CommandSourceStack> context) {
+        double value = DoubleArgumentType.getDouble(context, "value");
+        currentSettings = currentSettings.withMaximumStableSlope(value);
+        return settingChanged(context, "stable_slope", formatDouble(value));
+    }
+
+    private static int setCascadePasses(CommandContext<CommandSourceStack> context) {
+        int value = IntegerArgumentType.getInteger(context, "value");
+        currentSettings = currentSettings.withCascadePasses(value);
+        return settingChanged(context, "cascade_passes", Integer.toString(value));
+    }
+
+    private static int setTransportIterations(CommandContext<CommandSourceStack> context) {
+        int value = IntegerArgumentType.getInteger(context, "value");
+        currentSettings = currentSettings.withTransportIterationsOverride(value);
+        return settingChanged(
+                context,
+                "iterations",
+                value == 0 ? "mode default" : Integer.toString(value)
+        );
+    }
+
+    private static int setWindAngle(CommandContext<CommandSourceStack> context) {
+        double value = DoubleArgumentType.getDouble(context, "value");
+        currentSettings = currentSettings.withWindAngleDegrees(value);
+        return settingChanged(
+                context,
+                "wind_angle",
+                formatDouble(currentSettings.windAngleDegrees())
+        );
+    }
+
+    private static int setEdgeBlend(CommandContext<CommandSourceStack> context) {
+        int value = IntegerArgumentType.getInteger(context, "value");
+        currentSettings = currentSettings.withEdgeBlendCells(value);
+        return settingChanged(context, "edge_blend", Integer.toString(value));
+    }
+
+    private static int setTransportStrength(CommandContext<CommandSourceStack> context) {
+        double value = DoubleArgumentType.getDouble(context, "value");
+        currentSettings = currentSettings.withTransportStrength(value);
+        return settingChanged(context, "transport_strength", formatDouble(value));
+    }
+
+    private static int settingChanged(
+            CommandContext<CommandSourceStack> context,
+            String name,
+            String value
+    ) {
+        context.getSource().sendSuccess(
+                () -> Component.literal(
+                        "Set dune " + name + "=" + value
+                                + ". Regenerate a test region to see the change."
                 ),
                 false
         );
@@ -140,14 +357,17 @@ public final class DunePrototypeCommand {
         BlockState sand = Blocks.SAND.defaultBlockState();
         BlockState air = Blocks.AIR.defaultBlockState();
         int changedBlocks = 0;
+        int regionBlockSize = result.settings().regionBlockSize();
 
-        for (int localZ = 0; localZ < DuneSimulation.REGION_BLOCK_SIZE; localZ++) {
+        for (int localZ = 0; localZ < regionBlockSize; localZ++) {
             int worldZ = region.minimumZ() + localZ;
-            for (int localX = 0; localX < DuneSimulation.REGION_BLOCK_SIZE; localX++) {
+            for (int localX = 0; localX < regionBlockSize; localX++) {
                 int worldX = region.minimumX() + localX;
                 int targetTopY = DuneSimulation.BASE_SURFACE_Y
                         + result.heightAt(localX, localZ);
 
+                // Clear up to the hard prototype ceiling so lowering max_height immediately
+                // removes peaks generated by a previous run in the same footprint.
                 for (int y = LAST_DUNE_Y; y > targetTopY; y--) {
                     position.set(worldX, y, worldZ);
                     if (level.getBlockState(position).is(Blocks.SAND)) {
@@ -170,7 +390,6 @@ public final class DunePrototypeCommand {
                 }
             }
         }
-
         return changedBlocks;
     }
 
@@ -191,7 +410,6 @@ public final class DunePrototypeCommand {
                 }
             }
         }
-
         return changedBlocks;
     }
 
@@ -200,7 +418,6 @@ public final class DunePrototypeCommand {
         int maximumChunkX = region.maximumX() >> 4;
         int minimumChunkZ = region.minimumZ() >> 4;
         int maximumChunkZ = region.maximumZ() >> 4;
-
         for (int chunkZ = minimumChunkZ; chunkZ <= maximumChunkZ; chunkZ++) {
             for (int chunkX = minimumChunkX; chunkX <= maximumChunkX; chunkX++) {
                 level.getChunk(chunkX, chunkZ);
@@ -208,14 +425,12 @@ public final class DunePrototypeCommand {
         }
     }
 
-    private static Region regionAt(CommandSourceStack source) {
+    private static Region regionAt(CommandSourceStack source, int regionBlockSize) {
         int blockX = Mth.floor(source.getPosition().x);
         int blockZ = Mth.floor(source.getPosition().z);
-        int minimumX = Math.floorDiv(blockX, DuneSimulation.REGION_BLOCK_SIZE)
-                * DuneSimulation.REGION_BLOCK_SIZE;
-        int minimumZ = Math.floorDiv(blockZ, DuneSimulation.REGION_BLOCK_SIZE)
-                * DuneSimulation.REGION_BLOCK_SIZE;
-        return new Region(minimumX, minimumZ);
+        int minimumX = Math.floorDiv(blockX, regionBlockSize) * regionBlockSize;
+        int minimumZ = Math.floorDiv(blockZ, regionBlockSize) * regionBlockSize;
+        return new Region(minimumX, minimumZ, regionBlockSize);
     }
 
     private static long regionalSeed(
@@ -234,18 +449,23 @@ public final class DunePrototypeCommand {
         return value ^ value >>> 31;
     }
 
-    private record Region(int minimumX, int minimumZ) {
+    private static String formatDouble(double value) {
+        return String.format(Locale.ROOT, "%.3f", value);
+    }
+
+    private record Region(int minimumX, int minimumZ, int size) {
         int maximumX() {
-            return minimumX + DuneSimulation.REGION_BLOCK_SIZE - 1;
+            return minimumX + size - 1;
         }
 
         int maximumZ() {
-            return minimumZ + DuneSimulation.REGION_BLOCK_SIZE - 1;
+            return minimumZ + size - 1;
         }
 
         String description() {
             return "X=" + minimumX + ".." + maximumX()
-                    + ", Z=" + minimumZ + ".." + maximumZ();
+                    + ", Z=" + minimumZ + ".." + maximumZ()
+                    + " (" + size + "x" + size + ")";
         }
     }
 }

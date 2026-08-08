@@ -1,30 +1,5 @@
 # Minecraft: Dune patch notes
 
-## 0.5.1 — Arrakis Dev dune tuning commands
-
-- Added live operator controls for the dune prototype so terrain can be tuned without
-  recompiling or restarting the client.
-- Added `/minecraftdune dunes settings` and `/minecraftdune dunes settings reset`.
-- Exposed these simulation parameters:
-  - `cell_size` (1-8);
-  - `max_height` (0-32, where 0 uses the dune-mode default);
-  - `stable_slope` (0.10-4.0);
-  - `cascade_passes` (0-8);
-  - `iterations` (0-1000, where 0 uses the dune-mode default);
-  - `wind_angle` (-360 to 360 degrees, normalized internally);
-  - `edge_blend` (0-32 simulation cells);
-  - `transport_strength` (0.0-4.0).
-- Made the output region size dynamic: the fixed 64 x 64 simulation grid now expands to
-  `64 * cell_size` Minecraft blocks per side.
-- Made wind direction, slope stabilization, cascade count, transport strength, output
-  height, and interpolation footprint runtime parameters.
-- Added `/minecraftdune dunes clear <cell_size>` for clearing a previously generated
-  footprint after changing horizontal scale.
-- Generation now clears prototype sand up to the hard development ceiling (Y=96) inside
-  the active footprint so lowering `max_height` removes old peaks immediately.
-- Updated dune documentation and README with a recommended first gentle/wide test profile.
-- Corrected the project version metadata to `0.5.1`.
-
 ## 0.5.0 — Arrakis Dev dune prototype
 
 - Added deterministic prototype dune generation for the Arrakis Dev world.

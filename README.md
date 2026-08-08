@@ -2,13 +2,14 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.0**
+Current development version: **0.5.1**
 
 The project currently contains:
 
 - the Muad'dib desert mouse test entity, model, texture, and animations;
 - the selectable **Arrakis Dev** flat desert world preset;
-- an operator-only deterministic dune prototype for the Arrakis Dev world.
+- an operator-only deterministic dune prototype for the Arrakis Dev world;
+- live in-game tuning commands for the dune prototype.
 
 ## Requirements
 
@@ -24,12 +25,6 @@ Open PowerShell in this directory:
 ```powershell
 .\gradlew.bat runClient
 ```
-
-The first run downloads:
-
-1. The official Gradle wrapper JAR from the NeoForge 1.21.1 MDK repository.
-2. Gradle 9.2.1.
-3. Minecraft, NeoForge, mappings, and development dependencies.
 
 ## Arrakis Dev world
 
@@ -50,26 +45,11 @@ The Nether and End retain normal vanilla generation.
 
 ## Dune prototype
 
-The 0.5.0 prototype generates a deterministic 128 x 128 block dune test region aligned
-to the world grid. It uses a reduced 64 x 64 sand-thickness simulation with two blocks
-per simulation cell.
+The dune prototype uses a deterministic 64 x 64 sand-thickness simulation and expands
+that grid into Minecraft blocks. Version 0.5.1 makes the important prototype parameters
+changeable from commands so dune scale and shape can be tuned without rebuilding the mod.
 
-The simulation includes:
-
-- a fixed regional wind directed 24 degrees toward positive X and positive Z;
-- saltation-like directional sand hops;
-- reduced erosion in lee-side wind shadow;
-- repeated slope stabilization approximating sand avalanching;
-- deterministic regional seeding from the world seed and region coordinates;
-- edge blending back into the flat Arrakis Dev surface.
-
-The prototype intentionally supports only two initial dune families:
-
-- `transverse` for a high-sand-supply ridge field;
-- `barchan` for lower-supply isolated crescent dunes.
-
-Enable cheats or use operator permission level 2, stand inside the target 128 x 128
-region, and run one of these commands:
+Generation commands:
 
 ```mcfunction
 /minecraftdune dunes generate transverse
@@ -78,15 +58,59 @@ region, and run one of these commands:
 /minecraftdune dunes clear
 ```
 
-The region is aligned to multiples of 128 blocks. Running the same mode again in the
-same region and with the same world seed reproduces the same height field.
+Show or reset the current tuning values:
 
-`generate` and `clear` are destructive development commands. They modify natural sand
-between Y=65 and Y=84 in the selected region. Non-sand blocks are preserved, but these
-commands should not be used around builds that rely on placed sand.
+```mcfunction
+/minecraftdune dunes settings
+/minecraftdune dunes settings reset
+```
+
+Change individual values:
+
+```mcfunction
+/minecraftdune dunes settings cell_size 4
+/minecraftdune dunes settings max_height 10
+/minecraftdune dunes settings stable_slope 0.75
+/minecraftdune dunes settings cascade_passes 4
+/minecraftdune dunes settings iterations 180
+/minecraftdune dunes settings wind_angle 24
+/minecraftdune dunes settings edge_blend 10
+/minecraftdune dunes settings transport_strength 1.0
+```
+
+The most useful values for the current size/steepness tuning are:
+
+- `cell_size`: horizontal Minecraft blocks represented by one simulation cell. The
+  original value is 2, giving a 128 x 128 region. A value of 4 gives 256 x 256 and a
+  value of 8 gives 512 x 512. Increasing it also stretches slopes horizontally.
+- `max_height`: maximum added dune height. `0` restores the dune-mode default
+  (transverse 18, barchan 20).
+- `stable_slope`: maximum simulation height difference before cascading. Lower values
+  encourage gentler simulated slopes.
+- `cascade_passes`: number of slope-relaxation passes after each transport iteration.
+  More passes generally smooth the sand field further.
+
+A useful first comparison against the original prototype is:
+
+```mcfunction
+/minecraftdune dunes settings cell_size 4
+/minecraftdune dunes settings max_height 10
+/minecraftdune dunes settings stable_slope 0.75
+/minecraftdune dunes settings cascade_passes 4
+/minecraftdune dunes generate transverse
+```
+
+Settings are development-session state and reset when the game/server process restarts.
+The same world seed, aligned region, dune mode, and settings produce the same result.
+
+`generate` and `clear` are destructive development commands. They modify sand above the
+Y=64 Arrakis Dev surface. Non-sand blocks are preserved. Version 0.5.1 clears prototype
+sand up to Y=96 inside the selected footprint so lowering `max_height` removes old peaks.
+If you reduce `cell_size` after generating a larger test field, clear the old footprint
+explicitly first, for example `/minecraftdune dunes clear 8`.
 
 See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md) for the algorithm,
-limitations, and testing checklist.
+parameter ranges, limitations, and testing procedure.
 
 ## Test the Muad'dib entity
 
@@ -113,7 +137,7 @@ The egg also appears in the Spawn Eggs creative tab.
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.0.jar
+build/libs/minecraftdune-0.5.1.jar
 ```
 
 ## Package and namespace
@@ -143,6 +167,4 @@ See `docs/BLOCKBENCH_WORKFLOW.md` before exporting revised Java geometry.
 
 ## Version history
 
-See [`PATCH_NOTES.md`](PATCH_NOTES.md). The current public repository contains four
-historical commits, while the changelog separates the Muad'dib work into the development
-milestones that led to the combined model commit.
+See [`PATCH_NOTES.md`](PATCH_NOTES.md).

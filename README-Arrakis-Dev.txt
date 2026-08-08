@@ -1,10 +1,10 @@
 Minecraft: Dune — Arrakis Dev
-=============================
+==============================
 
 Purpose
 -------
-Arrakis Dev is an integrated development world preset for testing entities, survival
-systems, structures, terrain tools, and future Gameplay Arrakis world generation.
+Arrakis Dev is the flat development world used for deterministic testing of the
+Minecraft: Dune terrain, entities, and survival systems.
 
 Overworld layers
 ----------------
@@ -26,53 +26,36 @@ Structures: disabled
 Caves: none, because this is a flat generator
 Nether and End: normal vanilla generation
 
-Creating the world
-------------------
-1. Run the development client:
+Dune laboratory
+---------------
+Version 0.5.1 includes a command-driven deterministic dune prototype. Basic commands:
 
-   .\gradlew.bat runClient
+/minecraftdune dunes generate transverse
+/minecraftdune dunes generate barchan
+/minecraftdune dunes info
+/minecraftdune dunes clear
+/minecraftdune dunes settings
 
-2. Create a new world.
-3. Cycle the World Type button until "Arrakis Dev" appears.
-4. Enable cheats for the prototype terrain commands.
+The simulation is 64 x 64 cells. The horizontal output scale is adjustable at runtime:
 
-Dune prototype commands
------------------------
-The command operates on the 128 x 128 block region containing the command source.
-Regions are aligned to multiples of 128 blocks.
+/minecraftdune dunes settings cell_size 4
 
-Generate a high-sand-supply transverse field:
+cell_size 2 -> 128 x 128 blocks (original prototype)
+cell_size 4 -> 256 x 256 blocks
+cell_size 8 -> 512 x 512 blocks
 
-   /minecraftdune dunes generate transverse
+Peak height and slope behavior can also be tuned:
 
-Generate lower-supply isolated barchans:
+/minecraftdune dunes settings max_height 10
+/minecraftdune dunes settings stable_slope 0.75
+/minecraftdune dunes settings cascade_passes 4
 
-   /minecraftdune dunes generate barchan
+See docs/ARRAKIS_DUNE_PROTOTYPE.md for every exposed parameter and its valid range.
 
-Display the selected region and prototype parameters:
-
-   /minecraftdune dunes info
-
-Remove prototype sand above the original Y=64 surface:
-
-   /minecraftdune dunes clear
-
-Prototype behavior
-------------------
-- The 128 x 128 block output is calculated from a 64 x 64 simulation grid.
-- One simulation cell corresponds to 2 x 2 Minecraft columns.
-- Wind direction is fixed at 24 degrees toward positive X and positive Z.
-- The same world seed, region, and mode produce the same result.
-- Sand transport is mass-conserving apart from negligible floating-point drift.
-- Dune heights are blended to zero near the region boundary.
-- Maximum added dune height is 20 blocks.
-
-Safety and limitations
-----------------------
-- These are destructive development commands, not gameplay mechanics.
-- Natural sand between Y=65 and Y=84 may be replaced or removed.
-- Non-sand blocks are preserved, so structures can interrupt dune columns.
-- The command runs synchronously and may pause the integrated server briefly.
-- The simulation does not yet use rock obstacles, regional wind maps, chunk caches,
-  storm-driven migration, or structure reservation masks.
-- Existing worlds are not automatically changed. Run a command to create dunes.
+Notes
+-----
+- Settings are temporary development-session state and reset on process restart.
+- Non-sand blocks are preserved by the dune commands.
+- Dune generate/clear commands are destructive to sand above the Y=64 test surface.
+- If cell_size is reduced after generating a larger field, clear the old scale explicitly,
+  for example: /minecraftdune dunes clear 8
