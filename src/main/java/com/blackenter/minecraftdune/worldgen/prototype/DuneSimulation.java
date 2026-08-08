@@ -448,7 +448,7 @@ public final class DuneSimulation {
         public static final int MAXIMUM_CELL_SIZE = 8;
         public static final int MAXIMUM_ALLOWED_HEIGHT = 32;
         public static final double MINIMUM_DUNE_SPACING = 32.0;
-        public static final double MAXIMUM_DUNE_SPACING = 256.0;
+        public static final double MAXIMUM_DUNE_SPACING = 512.0;
         public static final double MINIMUM_SPACING_VARIATION = 0.0;
         public static final double MAXIMUM_SPACING_VARIATION = 0.50;
         public static final double MINIMUM_RIDGE_SHARPNESS = 1.0;
