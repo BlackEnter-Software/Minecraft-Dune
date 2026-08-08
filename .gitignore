@@ -5,6 +5,7 @@ repo/
 out/
 bin/
 
+.minecraftdune-patch-backups
 .idea/
 .run/
 .vscode/
