@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.1**
+Current development version: **0.5.2**
 
 The project currently contains:
 
@@ -45,9 +45,10 @@ The Nether and End retain normal vanilla generation.
 
 ## Dune prototype
 
-The dune prototype uses a deterministic 64 x 64 sand-thickness simulation and expands
-that grid into Minecraft blocks. Version 0.5.1 makes the important prototype parameters
-changeable from commands so dune scale and shape can be tuned without rebuilding the mod.
+Version 0.5.2 focuses on tuning **transverse dunes** in the Arrakis Dev laboratory. The
+simulation stays at 64 x 64 cells and the synchronous output remains capped at 512 x 512
+Minecraft blocks (`cell_size 8`). Barchan generation remains available but is deliberately
+deferred while the transverse morphology is tuned.
 
 Generation commands:
 
@@ -58,59 +59,56 @@ Generation commands:
 /minecraftdune dunes clear
 ```
 
-Show or reset the current tuning values:
+Show or reset the active session settings:
 
 ```mcfunction
 /minecraftdune dunes settings
 /minecraftdune dunes settings reset
 ```
 
-Change individual values:
+The 0.5.2 transverse controls are:
 
 ```mcfunction
-/minecraftdune dunes settings cell_size 4
-/minecraftdune dunes settings max_height 10
-/minecraftdune dunes settings stable_slope 0.75
-/minecraftdune dunes settings cascade_passes 4
+/minecraftdune dunes settings cell_size 8
+/minecraftdune dunes settings max_height 18
+/minecraftdune dunes settings dune_spacing 100
+/minecraftdune dunes settings spacing_variation 0.18
+/minecraftdune dunes settings ridge_sharpness 4.0
+/minecraftdune dunes settings valley_cutoff 0.20
+/minecraftdune dunes settings repose_angle 33
+/minecraftdune dunes settings cascade_passes 16
 /minecraftdune dunes settings iterations 180
 /minecraftdune dunes settings wind_angle 24
-/minecraftdune dunes settings edge_blend 10
+/minecraftdune dunes settings edge_blend 7
 /minecraftdune dunes settings transport_strength 1.0
 ```
 
-The most useful values for the current size/steepness tuning are:
+Important 0.5.2 changes:
 
-- `cell_size`: horizontal Minecraft blocks represented by one simulation cell. The
-  original value is 2, giving a 128 x 128 region. A value of 4 gives 256 x 256 and a
-  value of 8 gives 512 x 512. Increasing it also stretches slopes horizontally.
-- `max_height`: maximum added dune height. `0` restores the dune-mode default
-  (transverse 18, barchan 20).
-- `stable_slope`: maximum simulation height difference before cascading. Lower values
-  encourage gentler simulated slopes.
-- `cascade_passes`: number of slope-relaxation passes after each transport iteration.
-  More passes generally smooth the sand field further.
+- `dune_spacing` controls transverse crest spacing directly in Minecraft blocks instead of
+  inheriting a fixed wavelength from simulation-cell scale.
+- `ridge_sharpness` narrows or broadens the ridge body.
+- `valley_cutoff` creates genuinely flat interdune terrain by removing weak low-level sand.
+- `spacing_variation` makes ridge spacing and alignment less mechanically periodic.
+- `stable_slope` is removed. `repose_angle` now controls the allowed physical slope in
+  degrees.
+- `cascade_passes` now runs after height mapping and accepts 0-64 passes, so the cascade
+  result is no longer normalized back toward the original height profile.
 
-A useful first comparison against the original prototype is:
+The 0.5.2 default is aimed at roughly 100 blocks between transverse crests in a 512 x 512
+test area. Settings remain development-session state and reset when the game/server process
+restarts. The same world seed, aligned region, dune mode, and settings remain deterministic.
+
+`generate` and `clear` are destructive development commands for sand above the Y=64 Arrakis
+Dev surface. Non-sand blocks are preserved. If you reduce `cell_size` after generating a
+larger footprint, clear the old footprint explicitly first, for example:
 
 ```mcfunction
-/minecraftdune dunes settings cell_size 4
-/minecraftdune dunes settings max_height 10
-/minecraftdune dunes settings stable_slope 0.75
-/minecraftdune dunes settings cascade_passes 4
-/minecraftdune dunes generate transverse
+/minecraftdune dunes clear 8
 ```
 
-Settings are development-session state and reset when the game/server process restarts.
-The same world seed, aligned region, dune mode, and settings produce the same result.
-
-`generate` and `clear` are destructive development commands. They modify sand above the
-Y=64 Arrakis Dev surface. Non-sand blocks are preserved. Version 0.5.1 clears prototype
-sand up to Y=96 inside the selected footprint so lowering `max_height` removes old peaks.
-If you reduce `cell_size` after generating a larger test field, clear the old footprint
-explicitly first, for example `/minecraftdune dunes clear 8`.
-
-See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md) for the algorithm,
-parameter ranges, limitations, and testing procedure.
+See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md) for parameter ranges,
+behavior, the revised simulation pipeline, and screenshot test profiles.
 
 ## Test the Muad'dib entity
 
@@ -137,7 +135,7 @@ The egg also appears in the Spawn Eggs creative tab.
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.1.jar
+build/libs/minecraftdune-0.5.2.jar
 ```
 
 ## Package and namespace

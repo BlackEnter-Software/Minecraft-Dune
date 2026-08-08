@@ -28,34 +28,41 @@ Nether and End: normal vanilla generation
 
 Dune laboratory
 ---------------
-Version 0.5.1 includes a command-driven deterministic dune prototype. Basic commands:
+Version 0.5.2 concentrates on transverse-dune morphology. The simulation remains 64 x 64
+cells and the largest synchronous test footprint remains 512 x 512 Minecraft blocks.
 
+Basic commands:
 /minecraftdune dunes generate transverse
 /minecraftdune dunes generate barchan
 /minecraftdune dunes info
 /minecraftdune dunes clear
 /minecraftdune dunes settings
 
-The simulation is 64 x 64 cells. The horizontal output scale is adjustable at runtime:
-
-/minecraftdune dunes settings cell_size 4
-
-cell_size 2 -> 128 x 128 blocks (original prototype)
-cell_size 4 -> 256 x 256 blocks
+The 0.5.2 default horizontal scale is:
 cell_size 8 -> 512 x 512 blocks
 
-Peak height and slope behavior can also be tuned:
+Transverse shape controls:
+/minecraftdune dunes settings dune_spacing 100
+/minecraftdune dunes settings spacing_variation 0.18
+/minecraftdune dunes settings ridge_sharpness 4.0
+/minecraftdune dunes settings valley_cutoff 0.20
 
-/minecraftdune dunes settings max_height 10
-/minecraftdune dunes settings stable_slope 0.75
-/minecraftdune dunes settings cascade_passes 4
+Slope controls:
+/minecraftdune dunes settings repose_angle 33
+/minecraftdune dunes settings cascade_passes 16
 
-See docs/ARRAKIS_DUNE_PROTOTYPE.md for every exposed parameter and its valid range.
+`stable_slope` was removed in 0.5.2. Cascading now works in Minecraft-scale heights using
+`repose_angle` and occurs after height mapping, so later normalization no longer hides most
+of its effect.
+
+See docs/ARRAKIS_DUNE_PROTOTYPE.md for every exposed parameter, valid ranges, and three
+recommended screenshot profiles.
 
 Notes
 -----
 - Settings are temporary development-session state and reset on process restart.
 - Non-sand blocks are preserved by the dune commands.
 - Dune generate/clear commands are destructive to sand above the Y=64 test surface.
+- Barchan generation is intentionally unchanged in 0.5.2 while transverse dunes are tuned.
 - If cell_size is reduced after generating a larger field, clear the old scale explicitly,
   for example: /minecraftdune dunes clear 8

@@ -47,15 +47,9 @@ public final class DunePrototypeCommand {
                         .then(Commands.literal("dunes")
                                 .then(Commands.literal("generate")
                                         .then(Commands.literal(DuneMode.TRANSVERSE.commandName())
-                                                .executes(context -> generate(
-                                                        context,
-                                                        DuneMode.TRANSVERSE
-                                                )))
+                                                .executes(context -> generate(context, DuneMode.TRANSVERSE)))
                                         .then(Commands.literal(DuneMode.BARCHAN.commandName())
-                                                .executes(context -> generate(
-                                                        context,
-                                                        DuneMode.BARCHAN
-                                                ))))
+                                                .executes(context -> generate(context, DuneMode.BARCHAN))))
                                 .then(Commands.literal("clear")
                                         .executes(DunePrototypeCommand::clearCurrentRegion)
                                         .then(Commands.argument(
@@ -90,15 +84,51 @@ public final class DunePrototypeCommand {
                                                                 )
                                                         )
                                                         .executes(DunePrototypeCommand::setMaximumHeight)))
-                                        .then(Commands.literal("stable_slope")
+                                        .then(Commands.literal("dune_spacing")
                                                 .then(Commands.argument(
                                                                 "value",
                                                                 DoubleArgumentType.doubleArg(
-                                                                        DuneSimulation.Settings.MINIMUM_STABLE_SLOPE,
-                                                                        DuneSimulation.Settings.MAXIMUM_STABLE_SLOPE
+                                                                        DuneSimulation.Settings.MINIMUM_DUNE_SPACING,
+                                                                        DuneSimulation.Settings.MAXIMUM_DUNE_SPACING
                                                                 )
                                                         )
-                                                        .executes(DunePrototypeCommand::setStableSlope)))
+                                                        .executes(DunePrototypeCommand::setDuneSpacing)))
+                                        .then(Commands.literal("spacing_variation")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                DoubleArgumentType.doubleArg(
+                                                                        DuneSimulation.Settings.MINIMUM_SPACING_VARIATION,
+                                                                        DuneSimulation.Settings.MAXIMUM_SPACING_VARIATION
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setSpacingVariation)))
+                                        .then(Commands.literal("ridge_sharpness")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                DoubleArgumentType.doubleArg(
+                                                                        DuneSimulation.Settings.MINIMUM_RIDGE_SHARPNESS,
+                                                                        DuneSimulation.Settings.MAXIMUM_RIDGE_SHARPNESS
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setRidgeSharpness)))
+                                        .then(Commands.literal("valley_cutoff")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                DoubleArgumentType.doubleArg(
+                                                                        DuneSimulation.Settings.MINIMUM_VALLEY_CUTOFF,
+                                                                        DuneSimulation.Settings.MAXIMUM_VALLEY_CUTOFF
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setValleyCutoff)))
+                                        .then(Commands.literal("repose_angle")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                DoubleArgumentType.doubleArg(
+                                                                        DuneSimulation.Settings.MINIMUM_REPOSE_ANGLE,
+                                                                        DuneSimulation.Settings.MAXIMUM_REPOSE_ANGLE
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setReposeAngle)))
                                         .then(Commands.literal("cascade_passes")
                                                 .then(Commands.argument(
                                                                 "value",
@@ -230,7 +260,6 @@ public final class DunePrototypeCommand {
     private static int showSettings(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         DuneSimulation.Settings settings = currentSettings;
-
         String maximumHeight = settings.maximumHeightOverride() == 0
                 ? "mode default (transverse=" + DuneMode.TRANSVERSE.maximumHeight()
                         + ", barchan=" + DuneMode.BARCHAN.maximumHeight() + ")"
@@ -246,17 +275,31 @@ public final class DunePrototypeCommand {
                                 + " -> region=" + settings.regionBlockSize() + "x"
                                 + settings.regionBlockSize()
                                 + ", max_height=" + maximumHeight
-                                + ", stable_slope=" + formatDouble(settings.maximumStableSlope())
-                                + ", cascade_passes=" + settings.cascadePasses() + "."
+                                + ", dune_spacing=" + formatDouble(settings.duneSpacingBlocks()) + "."
                 ),
                 false
         );
         source.sendSuccess(
                 () -> Component.literal(
-                        "Dune settings: iterations=" + iterations
-                                + ", wind_angle=" + formatDouble(settings.windAngleDegrees())
-                                + ", edge_blend=" + settings.edgeBlendCells()
+                        "Transverse shape: spacing_variation=" + formatDouble(settings.spacingVariation())
+                                + ", ridge_sharpness=" + formatDouble(settings.ridgeSharpness())
+                                + ", valley_cutoff=" + formatDouble(settings.valleyCutoff()) + "."
+                ),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Slope/transport: repose_angle=" + formatDouble(settings.reposeAngleDegrees())
+                                + " deg, cascade_passes=" + settings.cascadePasses()
+                                + ", iterations=" + iterations
                                 + ", transport_strength=" + formatDouble(settings.transportStrength()) + "."
+                ),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Wind/boundary: wind_angle=" + formatDouble(settings.windAngleDegrees())
+                                + " deg, edge_blend=" + settings.edgeBlendCells() + "."
                 ),
                 false
         );
@@ -281,17 +324,37 @@ public final class DunePrototypeCommand {
     private static int setMaximumHeight(CommandContext<CommandSourceStack> context) {
         int value = IntegerArgumentType.getInteger(context, "value");
         currentSettings = currentSettings.withMaximumHeightOverride(value);
-        return settingChanged(
-                context,
-                "max_height",
-                value == 0 ? "mode default" : Integer.toString(value)
-        );
+        return settingChanged(context, "max_height", value == 0 ? "mode default" : Integer.toString(value));
     }
 
-    private static int setStableSlope(CommandContext<CommandSourceStack> context) {
+    private static int setDuneSpacing(CommandContext<CommandSourceStack> context) {
         double value = DoubleArgumentType.getDouble(context, "value");
-        currentSettings = currentSettings.withMaximumStableSlope(value);
-        return settingChanged(context, "stable_slope", formatDouble(value));
+        currentSettings = currentSettings.withDuneSpacingBlocks(value);
+        return settingChanged(context, "dune_spacing", formatDouble(value));
+    }
+
+    private static int setSpacingVariation(CommandContext<CommandSourceStack> context) {
+        double value = DoubleArgumentType.getDouble(context, "value");
+        currentSettings = currentSettings.withSpacingVariation(value);
+        return settingChanged(context, "spacing_variation", formatDouble(value));
+    }
+
+    private static int setRidgeSharpness(CommandContext<CommandSourceStack> context) {
+        double value = DoubleArgumentType.getDouble(context, "value");
+        currentSettings = currentSettings.withRidgeSharpness(value);
+        return settingChanged(context, "ridge_sharpness", formatDouble(value));
+    }
+
+    private static int setValleyCutoff(CommandContext<CommandSourceStack> context) {
+        double value = DoubleArgumentType.getDouble(context, "value");
+        currentSettings = currentSettings.withValleyCutoff(value);
+        return settingChanged(context, "valley_cutoff", formatDouble(value));
+    }
+
+    private static int setReposeAngle(CommandContext<CommandSourceStack> context) {
+        double value = DoubleArgumentType.getDouble(context, "value");
+        currentSettings = currentSettings.withReposeAngleDegrees(value);
+        return settingChanged(context, "repose_angle", formatDouble(value));
     }
 
     private static int setCascadePasses(CommandContext<CommandSourceStack> context) {
@@ -303,21 +366,13 @@ public final class DunePrototypeCommand {
     private static int setTransportIterations(CommandContext<CommandSourceStack> context) {
         int value = IntegerArgumentType.getInteger(context, "value");
         currentSettings = currentSettings.withTransportIterationsOverride(value);
-        return settingChanged(
-                context,
-                "iterations",
-                value == 0 ? "mode default" : Integer.toString(value)
-        );
+        return settingChanged(context, "iterations", value == 0 ? "mode default" : Integer.toString(value));
     }
 
     private static int setWindAngle(CommandContext<CommandSourceStack> context) {
         double value = DoubleArgumentType.getDouble(context, "value");
         currentSettings = currentSettings.withWindAngleDegrees(value);
-        return settingChanged(
-                context,
-                "wind_angle",
-                formatDouble(currentSettings.windAngleDegrees())
-        );
+        return settingChanged(context, "wind_angle", formatDouble(currentSettings.windAngleDegrees()));
     }
 
     private static int setEdgeBlend(CommandContext<CommandSourceStack> context) {

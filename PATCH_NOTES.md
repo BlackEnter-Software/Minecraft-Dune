@@ -1,5 +1,36 @@
 # Minecraft: Dune patch notes
 
+## 0.5.2 — Transverse dune morphology and physical cascade
+
+- Focused the Arrakis Dev dune laboratory on transverse-dune tuning while leaving the
+  experimental barchan initializer unchanged for a later pass.
+- Kept the simulation at 64 x 64 cells and capped `cell_size` at 8, so the largest
+  synchronous test footprint remains 512 x 512 blocks.
+- Changed the 0.5.2 default `cell_size` from 2 to 8 for a 512 x 512 transverse test field.
+- Added transverse-specific live controls:
+  - `dune_spacing` (32-256 blocks; default 100);
+  - `spacing_variation` (0.0-0.50; default 0.18);
+  - `ridge_sharpness` (1.0-8.0; default 4.0);
+  - `valley_cutoff` (0.0-0.80; default 0.20).
+- Removed the abstract `stable_slope` control and replaced it with `repose_angle`
+  (10-45 degrees; default 33 degrees).
+- Reworked cascade stabilization so it operates on Minecraft-scale coarse heights after
+  the transported sand field is mapped to vertical blocks. No percentile normalization is
+  performed after cascading, fixing the 0.5.1 behavior where cascade changes were largely
+  stretched back toward the original profile.
+- Reworked the slope test to account for `cell_size`: the permitted vertical difference
+  between neighboring simulation samples is derived from the requested repose angle and
+  their physical horizontal separation.
+- Made the final cascade non-toroidal so a slope cannot avalanche across the visible
+  laboratory region boundary.
+- Increased `cascade_passes` from 0-8 to 0-64. Cascading now occurs after transport rather
+  than after every transport iteration, making the control cheaper and easier to compare.
+- Moved the artificial `edge_blend` fade to the final interpolation stage so it does not
+  participate in physical repose stabilization.
+- Reduced transverse per-cell seed noise to avoid amplifying low-level contour islands.
+- Added documented baseline, flat-interdune, and cascade-stress screenshot profiles.
+- Updated project metadata to version `0.5.2`.
+
 ## 0.5.1 — Arrakis Dev dune tuning commands
 
 - Added live operator controls for the dune prototype so terrain can be tuned without

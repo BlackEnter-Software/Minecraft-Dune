@@ -8,31 +8,40 @@ import java.util.SplittableRandom;
  *
  * <p>This is deliberately a development prototype rather than the final Gameplay
  * Arrakis chunk generator. It models a mobile sand-thickness field, directional
- * saltation-like transport, lee-side erosion dampening, and repeated slope
+ * saltation-like transport, a reduced wind-shadow effect, and block-scale slope
  * stabilization. The resulting grid is upscaled to Minecraft block columns.</p>
  */
 public final class DuneSimulation {
     public static final int GRID_SIZE = 64;
     public static final int BASE_SURFACE_Y = 64;
 
+    private static final double TWO_PI = Math.PI * 2.0;
+    private static final double CASCADE_RELAXATION = 0.25;
+
     private DuneSimulation() {
     }
 
     public static Result simulate(DuneMode mode, long seed, Settings settings) {
         Wind wind = Wind.fromAngle(settings.windAngleDegrees());
-        double[] sand = createInitialSandField(mode, seed, wind);
+        double[] sand = createInitialSandField(mode, seed, settings, wind);
         double initialMass = sum(sand);
 
         int transportIterations = settings.effectiveTransportIterations(mode);
         for (int iteration = 0; iteration < transportIterations; iteration++) {
             sand = transportSand(sand, mode, seed, iteration, settings, wind);
-            for (int pass = 0; pass < settings.cascadePasses(); pass++) {
-                sand = stabilizeSlopes(sand, settings.maximumStableSlope());
-            }
         }
 
         double finalMass = sum(sand);
-        int[] heights = convertToBlockHeights(sand, mode, settings);
+
+        // Convert the transported sand field into Minecraft-scale vertical heights first.
+        // Cascading is intentionally performed after this conversion so repose_angle is
+        // expressed in real block-space and its visual result is not normalized away later.
+        double[] physicalHeights = convertToPhysicalHeights(sand, mode, settings);
+        for (int pass = 0; pass < settings.cascadePasses(); pass++) {
+            physicalHeights = stabilizePhysicalSlopes(physicalHeights, settings);
+        }
+
+        int[] heights = upscaleToBlockHeights(physicalHeights, settings);
         int maximumHeight = Arrays.stream(heights).max().orElse(0);
         return new Result(
                 heights,
@@ -45,25 +54,48 @@ public final class DuneSimulation {
         );
     }
 
-    private static double[] createInitialSandField(DuneMode mode, long seed, Wind wind) {
+    private static double[] createInitialSandField(
+            DuneMode mode,
+            long seed,
+            Settings settings,
+            Wind wind
+    ) {
         return switch (mode) {
-            case TRANSVERSE -> createTransverseField(seed, wind);
+            case TRANSVERSE -> createTransverseField(seed, settings, wind);
             case BARCHAN -> createBarchanField(seed, wind);
         };
     }
 
-    private static double[] createTransverseField(long seed, Wind wind) {
+    private static double[] createTransverseField(long seed, Settings settings, Wind wind) {
         double[] sand = new double[GRID_SIZE * GRID_SIZE];
+        double spacing = settings.duneSpacingBlocks();
+        double cellSize = settings.cellSize();
+
+        // Seed-derived phase offsets preserve deterministic regions without imposing a
+        // perfectly repeating ridge pattern from one world/region to another.
+        double phaseA = unitHash(seed ^ 0x243F6A8885A308D3L, 0, 0, -7) * TWO_PI;
+        double phaseB = unitHash(seed ^ 0x13198A2E03707344L, 0, 0, -11) * TWO_PI;
+        double phaseC = unitHash(seed ^ 0xA4093822299F31D0L, 0, 0, -13) * TWO_PI;
+
         for (int z = 0; z < GRID_SIZE; z++) {
             for (int x = 0; x < GRID_SIZE; x++) {
-                double alongWind = x * wind.x() + z * wind.z();
-                double acrossWind = x * wind.crosswindX() + z * wind.crosswindZ();
-                double phaseWarp =
-                        0.60 * Math.sin(acrossWind * 0.13)
-                                + 0.35 * Math.sin(acrossWind * 0.31 + 1.2);
-                double phase = alongWind * (Math.PI * 2.0 / 11.5) + phaseWarp;
-                double ridge = Math.pow((Math.sin(phase) + 1.0) * 0.5, 2.2);
-                double variation = unitHash(seed, x, z, -1) * 0.16;
+                double blockX = (x + 0.5) * cellSize;
+                double blockZ = (z + 0.5) * cellSize;
+                double alongWind = blockX * wind.x() + blockZ * wind.z();
+                double acrossWind = blockX * wind.crosswindX() + blockZ * wind.crosswindZ();
+
+                double phaseWarp = settings.spacingVariation() * TWO_PI * (
+                        0.60 * Math.sin(acrossWind * TWO_PI / (spacing * 2.8) + phaseA)
+                                + 0.28 * Math.sin(acrossWind * TWO_PI / (spacing * 5.3) + phaseB)
+                                + 0.12 * Math.sin(alongWind * TWO_PI / (spacing * 4.7) + phaseC)
+                );
+                double phase = alongWind * TWO_PI / spacing + phaseWarp;
+                double ridgeBase = (Math.sin(phase) + 1.0) * 0.5;
+                double ridge = Math.pow(ridgeBase, settings.ridgeSharpness());
+
+                // Keep only a very small seeded perturbation. Large low-amplitude noise
+                // becomes visible as contour islands once mapped to whole Minecraft blocks.
+                double variation = (unitHash(seed, x, z, -1) - 0.5) * 0.08;
                 sand[index(x, z)] = 2.2 + 4.4 * ridge + variation;
             }
         }
@@ -72,6 +104,9 @@ public final class DuneSimulation {
     }
 
     private static double[] createBarchanField(long seed, Wind wind) {
+        // 0.5.2 deliberately leaves the experimental barchan initializer unchanged while
+        // transverse morphology is tuned first. Its sparse/additive behavior is documented
+        // as a known limitation and will be revisited separately.
         double[] sand = new double[GRID_SIZE * GRID_SIZE];
         SplittableRandom random = new SplittableRandom(seed);
         int duneCount = 5 + random.nextInt(3);
@@ -178,48 +213,7 @@ public final class DuneSimulation {
         return next;
     }
 
-    private static double[] stabilizeSlopes(double[] current, double maximumStableSlope) {
-        double[] delta = new double[current.length];
-        for (int z = 0; z < GRID_SIZE; z++) {
-            for (int x = 0; x < GRID_SIZE; x++) {
-                int sourceIndex = index(x, z);
-                double sourceHeight = current[sourceIndex];
-                int lowestIndex = sourceIndex;
-                double lowestHeight = sourceHeight;
-                for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
-                    for (int offsetX = -1; offsetX <= 1; offsetX++) {
-                        if (offsetX == 0 && offsetZ == 0) {
-                            continue;
-                        }
-
-                        int candidateIndex = indexWrapped(x + offsetX, z + offsetZ);
-                        double candidateHeight = current[candidateIndex];
-                        if (candidateHeight < lowestHeight) {
-                            lowestHeight = candidateHeight;
-                            lowestIndex = candidateIndex;
-                        }
-                    }
-                }
-
-                double excessSlope = sourceHeight - lowestHeight - maximumStableSlope;
-                if (excessSlope <= 0.0) {
-                    continue;
-                }
-
-                double moved = Math.min(sourceHeight * 0.25, excessSlope * 0.18);
-                delta[sourceIndex] -= moved;
-                delta[lowestIndex] += moved;
-            }
-        }
-
-        double[] next = new double[current.length];
-        for (int i = 0; i < current.length; i++) {
-            next[i] = Math.max(0.0, current[i] + delta[i]);
-        }
-        return next;
-    }
-
-    private static int[] convertToBlockHeights(
+    private static double[] convertToPhysicalHeights(
             double[] sand,
             DuneMode mode,
             Settings settings
@@ -232,27 +226,90 @@ public final class DuneSimulation {
         double range = Math.max(0.0001, upper - lower);
         int maximumHeight = settings.effectiveMaximumHeight(mode);
 
-        double[] scaled = new double[sand.length];
+        double[] heights = new double[sand.length];
         for (int z = 0; z < GRID_SIZE; z++) {
             for (int x = 0; x < GRID_SIZE; x++) {
-                int index = index(x, z);
-                double normalized = clamp((sand[index] - lower) / range, 0.0, 1.0);
-                normalized = Math.pow(normalized, mode == DuneMode.TRANSVERSE ? 0.90 : 1.05);
-                int edgeDistance = Math.min(
-                        Math.min(x, z),
-                        Math.min(GRID_SIZE - 1 - x, GRID_SIZE - 1 - z)
-                );
-                double edgeBlend = settings.edgeBlendCells() <= 0
-                        ? 1.0
-                        : smoothStep(0.0, settings.edgeBlendCells(), edgeDistance);
+                int cellIndex = index(x, z);
+                double normalized = clamp((sand[cellIndex] - lower) / range, 0.0, 1.0);
 
-                scaled[index] = normalized * maximumHeight * edgeBlend;
+                if (mode == DuneMode.TRANSVERSE) {
+                    double cutoff = settings.valleyCutoff();
+                    normalized = normalized <= cutoff
+                            ? 0.0
+                            : (normalized - cutoff) / (1.0 - cutoff);
+                } else {
+                    normalized = Math.pow(normalized, 1.05);
+                }
+
+                heights[cellIndex] = normalized * maximumHeight;
             }
         }
 
+        return heights;
+    }
+
+    private static double[] stabilizePhysicalSlopes(double[] current, Settings settings) {
+        double[] delta = new double[current.length];
+        double tangentOfRepose = Math.tan(Math.toRadians(settings.reposeAngleDegrees()));
+        double cellSize = settings.cellSize();
+
+        for (int z = 0; z < GRID_SIZE; z++) {
+            for (int x = 0; x < GRID_SIZE; x++) {
+                int sourceIndex = index(x, z);
+                double sourceHeight = current[sourceIndex];
+                if (sourceHeight <= 0.0) {
+                    continue;
+                }
+
+                int targetIndex = -1;
+                double greatestExcess = 0.0;
+                for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
+                    for (int offsetX = -1; offsetX <= 1; offsetX++) {
+                        if (offsetX == 0 && offsetZ == 0) {
+                            continue;
+                        }
+
+                        int candidateX = x + offsetX;
+                        int candidateZ = z + offsetZ;
+                        if (candidateX < 0 || candidateX >= GRID_SIZE
+                                || candidateZ < 0 || candidateZ >= GRID_SIZE) {
+                            continue;
+                        }
+
+                        int candidateIndex = index(candidateX, candidateZ);
+                        double horizontalDistance = cellSize * Math.hypot(offsetX, offsetZ);
+                        double allowedDifference = tangentOfRepose * horizontalDistance;
+                        double excess = sourceHeight - current[candidateIndex] - allowedDifference;
+                        if (excess > greatestExcess) {
+                            greatestExcess = excess;
+                            targetIndex = candidateIndex;
+                        }
+                    }
+                }
+
+                if (targetIndex < 0) {
+                    continue;
+                }
+
+                double moved = Math.min(sourceHeight * 0.25, greatestExcess * CASCADE_RELAXATION);
+                delta[sourceIndex] -= moved;
+                delta[targetIndex] += moved;
+            }
+        }
+
+        double[] next = new double[current.length];
+        for (int i = 0; i < current.length; i++) {
+            next[i] = Math.max(0.0, current[i] + delta[i]);
+        }
+        return next;
+    }
+
+    private static int[] upscaleToBlockHeights(double[] physicalHeights, Settings settings) {
         int regionBlockSize = settings.regionBlockSize();
         int cellSize = settings.cellSize();
+        int maximumHeight = settings.maximumConfiguredHeightCeiling();
         int[] heights = new int[regionBlockSize * regionBlockSize];
+
         for (int blockZ = 0; blockZ < regionBlockSize; blockZ++) {
             for (int blockX = 0; blockX < regionBlockSize; blockX++) {
                 double gridX = blockX / (double) cellSize;
@@ -264,10 +321,18 @@ public final class DuneSimulation {
                 double fractionX = gridX - x0;
                 double fractionZ = gridZ - z0;
                 double top = lerp(
-                        lerp(scaled[index(x0, z0)], scaled[index(x1, z0)], fractionX),
-                        lerp(scaled[index(x0, z1)], scaled[index(x1, z1)], fractionX),
+                        lerp(physicalHeights[index(x0, z0)], physicalHeights[index(x1, z0)], fractionX),
+                        lerp(physicalHeights[index(x0, z1)], physicalHeights[index(x1, z1)], fractionX),
                         fractionZ
                 );
+
+                if (settings.edgeBlendCells() > 0) {
+                    double edgeDistanceCells = Math.min(
+                            Math.min(gridX, gridZ),
+                            Math.min((GRID_SIZE - 1) - gridX, (GRID_SIZE - 1) - gridZ)
+                    );
+                    top *= smoothStep(0.0, settings.edgeBlendCells(), edgeDistanceCells);
+                }
 
                 heights[blockZ * regionBlockSize + blockX] = (int) Math.round(
                         clamp(top, 0.0, maximumHeight)
@@ -368,7 +433,11 @@ public final class DuneSimulation {
     public record Settings(
             int cellSize,
             int maximumHeightOverride,
-            double maximumStableSlope,
+            double duneSpacingBlocks,
+            double spacingVariation,
+            double ridgeSharpness,
+            double valleyCutoff,
+            double reposeAngleDegrees,
             int cascadePasses,
             int transportIterationsOverride,
             double windAngleDegrees,
@@ -378,20 +447,32 @@ public final class DuneSimulation {
         public static final int MINIMUM_CELL_SIZE = 1;
         public static final int MAXIMUM_CELL_SIZE = 8;
         public static final int MAXIMUM_ALLOWED_HEIGHT = 32;
-        public static final int MAXIMUM_CASCADE_PASSES = 8;
+        public static final double MINIMUM_DUNE_SPACING = 32.0;
+        public static final double MAXIMUM_DUNE_SPACING = 256.0;
+        public static final double MINIMUM_SPACING_VARIATION = 0.0;
+        public static final double MAXIMUM_SPACING_VARIATION = 0.50;
+        public static final double MINIMUM_RIDGE_SHARPNESS = 1.0;
+        public static final double MAXIMUM_RIDGE_SHARPNESS = 8.0;
+        public static final double MINIMUM_VALLEY_CUTOFF = 0.0;
+        public static final double MAXIMUM_VALLEY_CUTOFF = 0.80;
+        public static final double MINIMUM_REPOSE_ANGLE = 10.0;
+        public static final double MAXIMUM_REPOSE_ANGLE = 45.0;
+        public static final int MAXIMUM_CASCADE_PASSES = 64;
         public static final int MAXIMUM_TRANSPORT_ITERATIONS = 1000;
         public static final int MAXIMUM_EDGE_BLEND_CELLS = GRID_SIZE / 2;
-        public static final double MINIMUM_STABLE_SLOPE = 0.10;
-        public static final double MAXIMUM_STABLE_SLOPE = 4.0;
         public static final double MINIMUM_TRANSPORT_STRENGTH = 0.0;
         public static final double MAXIMUM_TRANSPORT_STRENGTH = 4.0;
 
         public static Settings defaults() {
             return new Settings(
-                    2,
+                    8,
                     0,
-                    1.15,
-                    2,
+                    100.0,
+                    0.18,
+                    4.0,
+                    0.20,
+                    33.0,
+                    16,
                     0,
                     24.0,
                     7,
@@ -411,73 +492,68 @@ public final class DuneSimulation {
                     : transportIterationsOverride;
         }
 
+        public int maximumConfiguredHeightCeiling() {
+            return maximumHeightOverride == 0
+                    ? Math.max(DuneMode.TRANSVERSE.maximumHeight(), DuneMode.BARCHAN.maximumHeight())
+                    : maximumHeightOverride;
+        }
+
         public int regionBlockSize() {
             return GRID_SIZE * cellSize;
         }
 
         public Settings withCellSize(int value) {
-            return new Settings(
-                    value,
-                    maximumHeightOverride,
-                    maximumStableSlope,
-                    cascadePasses,
-                    transportIterationsOverride,
-                    windAngleDegrees,
-                    edgeBlendCells,
-                    transportStrength
-            );
+            return copy(value, maximumHeightOverride, duneSpacingBlocks, spacingVariation,
+                    ridgeSharpness, valleyCutoff, reposeAngleDegrees, cascadePasses,
+                    transportIterationsOverride, windAngleDegrees, edgeBlendCells, transportStrength);
         }
 
         public Settings withMaximumHeightOverride(int value) {
-            return new Settings(
-                    cellSize,
-                    value,
-                    maximumStableSlope,
-                    cascadePasses,
-                    transportIterationsOverride,
-                    windAngleDegrees,
-                    edgeBlendCells,
-                    transportStrength
-            );
+            return copy(cellSize, value, duneSpacingBlocks, spacingVariation,
+                    ridgeSharpness, valleyCutoff, reposeAngleDegrees, cascadePasses,
+                    transportIterationsOverride, windAngleDegrees, edgeBlendCells, transportStrength);
         }
 
-        public Settings withMaximumStableSlope(double value) {
-            return new Settings(
-                    cellSize,
-                    maximumHeightOverride,
-                    value,
-                    cascadePasses,
-                    transportIterationsOverride,
-                    windAngleDegrees,
-                    edgeBlendCells,
-                    transportStrength
-            );
+        public Settings withDuneSpacingBlocks(double value) {
+            return copy(cellSize, maximumHeightOverride, value, spacingVariation,
+                    ridgeSharpness, valleyCutoff, reposeAngleDegrees, cascadePasses,
+                    transportIterationsOverride, windAngleDegrees, edgeBlendCells, transportStrength);
+        }
+
+        public Settings withSpacingVariation(double value) {
+            return copy(cellSize, maximumHeightOverride, duneSpacingBlocks, value,
+                    ridgeSharpness, valleyCutoff, reposeAngleDegrees, cascadePasses,
+                    transportIterationsOverride, windAngleDegrees, edgeBlendCells, transportStrength);
+        }
+
+        public Settings withRidgeSharpness(double value) {
+            return copy(cellSize, maximumHeightOverride, duneSpacingBlocks, spacingVariation,
+                    value, valleyCutoff, reposeAngleDegrees, cascadePasses,
+                    transportIterationsOverride, windAngleDegrees, edgeBlendCells, transportStrength);
+        }
+
+        public Settings withValleyCutoff(double value) {
+            return copy(cellSize, maximumHeightOverride, duneSpacingBlocks, spacingVariation,
+                    ridgeSharpness, value, reposeAngleDegrees, cascadePasses,
+                    transportIterationsOverride, windAngleDegrees, edgeBlendCells, transportStrength);
+        }
+
+        public Settings withReposeAngleDegrees(double value) {
+            return copy(cellSize, maximumHeightOverride, duneSpacingBlocks, spacingVariation,
+                    ridgeSharpness, valleyCutoff, value, cascadePasses,
+                    transportIterationsOverride, windAngleDegrees, edgeBlendCells, transportStrength);
         }
 
         public Settings withCascadePasses(int value) {
-            return new Settings(
-                    cellSize,
-                    maximumHeightOverride,
-                    maximumStableSlope,
-                    value,
-                    transportIterationsOverride,
-                    windAngleDegrees,
-                    edgeBlendCells,
-                    transportStrength
-            );
+            return copy(cellSize, maximumHeightOverride, duneSpacingBlocks, spacingVariation,
+                    ridgeSharpness, valleyCutoff, reposeAngleDegrees, value,
+                    transportIterationsOverride, windAngleDegrees, edgeBlendCells, transportStrength);
         }
 
         public Settings withTransportIterationsOverride(int value) {
-            return new Settings(
-                    cellSize,
-                    maximumHeightOverride,
-                    maximumStableSlope,
-                    cascadePasses,
-                    value,
-                    windAngleDegrees,
-                    edgeBlendCells,
-                    transportStrength
-            );
+            return copy(cellSize, maximumHeightOverride, duneSpacingBlocks, spacingVariation,
+                    ridgeSharpness, valleyCutoff, reposeAngleDegrees, cascadePasses,
+                    value, windAngleDegrees, edgeBlendCells, transportStrength);
         }
 
         public Settings withWindAngleDegrees(double value) {
@@ -485,41 +561,50 @@ public final class DuneSimulation {
             if (normalized < 0.0) {
                 normalized += 360.0;
             }
-            return new Settings(
-                    cellSize,
-                    maximumHeightOverride,
-                    maximumStableSlope,
-                    cascadePasses,
-                    transportIterationsOverride,
-                    normalized,
-                    edgeBlendCells,
-                    transportStrength
-            );
+            return copy(cellSize, maximumHeightOverride, duneSpacingBlocks, spacingVariation,
+                    ridgeSharpness, valleyCutoff, reposeAngleDegrees, cascadePasses,
+                    transportIterationsOverride, normalized, edgeBlendCells, transportStrength);
         }
 
         public Settings withEdgeBlendCells(int value) {
-            return new Settings(
-                    cellSize,
-                    maximumHeightOverride,
-                    maximumStableSlope,
-                    cascadePasses,
-                    transportIterationsOverride,
-                    windAngleDegrees,
-                    value,
-                    transportStrength
-            );
+            return copy(cellSize, maximumHeightOverride, duneSpacingBlocks, spacingVariation,
+                    ridgeSharpness, valleyCutoff, reposeAngleDegrees, cascadePasses,
+                    transportIterationsOverride, windAngleDegrees, value, transportStrength);
         }
 
         public Settings withTransportStrength(double value) {
+            return copy(cellSize, maximumHeightOverride, duneSpacingBlocks, spacingVariation,
+                    ridgeSharpness, valleyCutoff, reposeAngleDegrees, cascadePasses,
+                    transportIterationsOverride, windAngleDegrees, edgeBlendCells, value);
+        }
+
+        private static Settings copy(
+                int cellSize,
+                int maximumHeightOverride,
+                double duneSpacingBlocks,
+                double spacingVariation,
+                double ridgeSharpness,
+                double valleyCutoff,
+                double reposeAngleDegrees,
+                int cascadePasses,
+                int transportIterationsOverride,
+                double windAngleDegrees,
+                int edgeBlendCells,
+                double transportStrength
+        ) {
             return new Settings(
                     cellSize,
                     maximumHeightOverride,
-                    maximumStableSlope,
+                    duneSpacingBlocks,
+                    spacingVariation,
+                    ridgeSharpness,
+                    valleyCutoff,
+                    reposeAngleDegrees,
                     cascadePasses,
                     transportIterationsOverride,
                     windAngleDegrees,
                     edgeBlendCells,
-                    value
+                    transportStrength
             );
         }
     }
