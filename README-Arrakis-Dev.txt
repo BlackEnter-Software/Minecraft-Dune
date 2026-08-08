@@ -1,9 +1,10 @@
-Minecraft: Dune — Arrakis Dev World Patch
-===============================================
+Minecraft: Dune — Arrakis Dev
+=============================
 
 Purpose
 -------
-Adds a selectable "Arrakis Dev" world type to the Minecraft 1.21.1 NeoForge project.
+Arrakis Dev is an integrated development world preset for testing entities, survival
+systems, structures, terrain tools, and future Gameplay Arrakis world generation.
 
 Overworld layers
 ----------------
@@ -25,27 +26,53 @@ Structures: disabled
 Caves: none, because this is a flat generator
 Nether and End: normal vanilla generation
 
-Installation
-------------
-1. Copy apply-arrakis-dev-world.ps1 into the root of the Minecraft-Dune project.
-2. Open PowerShell in that directory.
-3. Run:
+Creating the world
+------------------
+1. Run the development client:
 
-   powershell -ExecutionPolicy Bypass -File .\apply-arrakis-dev-world.ps1
+   .\gradlew.bat runClient
 
-   Or, from an already-open PowerShell prompt:
+2. Create a new world.
+3. Cycle the World Type button until "Arrakis Dev" appears.
+4. Enable cheats for the prototype terrain commands.
 
-   .\apply-arrakis-dev-world.ps1
+Dune prototype commands
+-----------------------
+The command operates on the 128 x 128 block region containing the command source.
+Regions are aligned to multiples of 128 blocks.
 
-4. Run the client:
+Generate a high-sand-supply transverse field:
 
-   .\gradlew runClient
+   /minecraftdune dunes generate transverse
 
-5. Create a new world and cycle the World Type button until "Arrakis Dev" appears.
+Generate lower-supply isolated barchans:
 
-Notes
------
-- The script safely merges the custom preset into an existing normal world-preset tag.
-- The script safely adds the English translation to an existing en_us.json.
-- Re-running the script is safe and does not duplicate the preset tag.
-- Existing worlds are not modified. Create a new world after applying the patch.
+   /minecraftdune dunes generate barchan
+
+Display the selected region and prototype parameters:
+
+   /minecraftdune dunes info
+
+Remove prototype sand above the original Y=64 surface:
+
+   /minecraftdune dunes clear
+
+Prototype behavior
+------------------
+- The 128 x 128 block output is calculated from a 64 x 64 simulation grid.
+- One simulation cell corresponds to 2 x 2 Minecraft columns.
+- Wind direction is fixed at 24 degrees toward positive X and positive Z.
+- The same world seed, region, and mode produce the same result.
+- Sand transport is mass-conserving apart from negligible floating-point drift.
+- Dune heights are blended to zero near the region boundary.
+- Maximum added dune height is 20 blocks.
+
+Safety and limitations
+----------------------
+- These are destructive development commands, not gameplay mechanics.
+- Natural sand between Y=65 and Y=84 may be replaced or removed.
+- Non-sand blocks are preserved, so structures can interrupt dune columns.
+- The command runs synchronously and may pause the integrated server briefly.
+- The simulation does not yet use rock obstacles, regional wind maps, chunk caches,
+  storm-driven migration, or structure reservation masks.
+- Existing worlds are not automatically changed. Run a command to create dunes.
