@@ -2,10 +2,13 @@
 
 ## Status
 
-Version 0.5.3 retains the transverse morphology introduced in 0.5.2 and adds fixed-camera
-screenshot tooling around the laboratory. The simulation remains a fixed 64 x 64 grid,
-with `cell_size` capped at 8 so the largest synchronous test footprint is 512 x 512
-Minecraft blocks.
+Version 0.5.4 retains the transverse morphology introduced in 0.5.2 and the fixed-camera
+screenshot tooling added in 0.5.3. It adds custom full and fractional dune-sand rendering.
+The simulation remains a fixed 64 x 64 grid, with `cell_size` capped at 8 so the largest
+synchronous test footprint is 512 x 512 Minecraft blocks.
+
+No morphology parameter or default changed in 0.5.4. Only the final height quantization and
+block placement boundary changed.
 
 The main changes in 0.5.2 are:
 
@@ -51,6 +54,9 @@ Change one value at a time:
 ```mcfunction
 /dune dunes settings cell_size <1..8>
 /dune dunes settings max_height <0..32>
+/dune dunes settings surface_resolution whole
+/dune dunes settings surface_resolution eighth
+/dune dunes settings surface_resolution sixteenth
 /dune dunes settings dune_spacing <32..512>
 /dune dunes settings spacing_variation <0.0..0.50>
 /dune dunes settings ridge_sharpness <1.0..8.0>
@@ -68,13 +74,15 @@ and 20 for barchan. `iterations 0` similarly uses the mode defaults: 180 and 220
 Wind angles are normalized to 0-360 degrees after entry.
 
 The settings are in-memory development state and reset when the Minecraft process restarts.
+`surface_resolution` resets to `sixteenth`.
 
-## 0.5.2 defaults and parameter behavior
+## 0.5.4 settings and preserved morphology defaults
 
 | Setting | Range | Default | Behavior |
 |---|---:|---:|---|
 | `cell_size` | 1-8 blocks | 8 | Minecraft blocks represented by one simulation cell. Region width is `64 * cell_size`. It changes the output footprint and the physical distance over which neighboring simulation heights interpolate. |
 | `max_height` | 0-32 blocks | 0 (= mode default) | Maximum added dune height. For transverse, `0` means 18 blocks. Higher values make the same horizontal form steeper and make repose cascading more likely. |
+| `surface_resolution` | whole, eighth, sixteenth | sixteenth | Final vertical quantization only. `whole` reproduces 0.5.3 rounding; `eighth` uses 2/16 layer steps; `sixteenth` uses all 1/16 steps. It does not feed back into transport, height mapping, or repose cascading. |
 | `dune_spacing` | 32-512 blocks | 100 | Target transverse crest-to-crest wavelength in Minecraft blocks. It is independent of `cell_size`; 100 should remain approximately 100 blocks at any horizontal scale. |
 | `spacing_variation` | 0.0-0.50 | 0.18 | Strength of deterministic phase warping. `0` produces very regular parallel spacing; larger values bend, compress, and stretch ridges locally. It does not add random per-block noise. |
 | `ridge_sharpness` | 1.0-8.0 | 4.0 | Shapes the seeded ridge profile. Low values create broad rolling ridges. High values concentrate sand near crests, producing narrower dune bodies and wider low areas. |
@@ -112,6 +120,28 @@ supplying a final tick count, or cancel an active run:
 ```
 
 ## Recommended screenshot profiles
+
+### Surface resolution comparison
+
+Keep every morphology value fixed, regenerate the same aligned region, and capture the same
+saved cameras after changing only `surface_resolution`:
+
+```mcfunction
+/dune dunes settings surface_resolution whole
+/dune dunes generate transverse
+/dune screenshot batch surface_whole
+
+/dune dunes settings surface_resolution eighth
+/dune dunes generate transverse
+/dune screenshot batch surface_eighth
+
+/dune dunes settings surface_resolution sixteenth
+/dune dunes generate transverse
+/dune screenshot batch surface_sixteenth
+```
+
+`whole` is the control image for the old stepped renderer. The other two modes reuse the
+same simulation result and regional seed; only final vertical quantization differs.
 
 ### A — 100-block Arrakis baseline
 
@@ -192,7 +222,7 @@ Then:
 The region seed is a deterministic hash of the Minecraft world seed, aligned region X/Z,
 and dune mode. Keep position and `cell_size` fixed when comparing only morphology controls.
 
-## 0.5.2 transverse pipeline
+## Transverse pipeline in 0.5.4
 
 1. **Seed ridge field**
    - `dune_spacing` defines the wavelength in Minecraft blocks.
@@ -215,9 +245,12 @@ and dune mode. Keep position and `cell_size` fixed when comparing only morpholog
 6. **Interpolation and boundary fade**
    - The stabilized 64 x 64 height field is bilinearly interpolated into Minecraft columns.
    - `edge_blend` returns the laboratory output to the Y=64 test surface near its boundary.
-7. **Block placement**
-   - Sand is added above Y=64.
-   - Previous prototype sand above the new target is removed up to Y=96.
+7. **Surface quantization and block placement**
+   - The continuous interpolated height is rounded to whole, eighth, or sixteenth units.
+   - Each column uses full `minecraftdune:sand` below and zero or one
+     `minecraftdune:sand_layer` block on top.
+   - `eighth` produces only even `layers` values; `sixteenth` can produce `layers=1..15`.
+   - Previous vanilla or custom prototype sand above the new target is removed up to Y=96.
    - Non-sand blocks are preserved.
 
 ## Research basis
@@ -244,6 +277,8 @@ identity with either published simulation.
 - Sand does not migrate during Coriolis storms yet.
 - Region results are not cached or persisted independently of placed blocks.
 - Live tuning values reset when the process restarts.
+- Fractional layers are a rendering experiment; dune physics still runs on the existing
+  coarse 64 x 64 physical-height field.
 - Reducing `cell_size` does not clear sand outside the new footprint. Use
   `/dune dunes clear <old_cell_size>` before shrinking it.
 

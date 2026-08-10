@@ -1,6 +1,7 @@
 package com.blackenter.minecraftdune.registry;
 
 import com.blackenter.minecraftdune.MinecraftDune;
+import net.minecraft.world.item.BlockItem;
 import net.neoforged.neoforge.common.DeferredSpawnEggItem;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -19,6 +20,12 @@ public final class ModItems {
                             properties
                     )
             );
+
+    public static final DeferredItem<BlockItem> SAND =
+            ITEMS.registerSimpleBlockItem("sand", ModBlocks.SAND);
+
+    public static final DeferredItem<BlockItem> SAND_LAYER =
+            ITEMS.registerSimpleBlockItem("sand_layer", ModBlocks.SAND_LAYER);
 
     private ModItems() {
     }

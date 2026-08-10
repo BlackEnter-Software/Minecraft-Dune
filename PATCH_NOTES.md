@@ -1,5 +1,26 @@
 # Minecraft: Dune patch notes
 
+## 0.5.4 — Fractional dune surfaces
+
+- Upgraded NeoForge from 21.1.244 to 21.1.248.
+- Added the registered `minecraftdune:sand` falling block and its block item, model,
+  localization, loot table, sand tag, and shovel-mining tag.
+- Added `minecraftdune:sand_layer`, a custom 1-15 layer surface block with sixteenth-block
+  visual shapes, snow-like stacking, support checks, collision, block item, models,
+  localization, loot table, and shovel-mining tag. Placing one more layer on a 15/16 block
+  converts it to a full `minecraftdune:sand` block.
+- Added `/dune dunes settings surface_resolution whole|eighth|sixteenth`.
+- Made `sixteenth` the 0.5.4 default. `eighth` uses even-numbered layer states, and `whole`
+  retains the 0.5.3 nearest-whole-block output for direct comparisons.
+- Preserved the 0.5.3 simulation, transverse/barchan morphology settings, regional seeds,
+  camera presets, fixed-camera teleport behavior, and named/batch screenshot tools.
+- Changed only the renderer boundary: the same interpolated physical height is quantized at
+  the selected resolution, with full `minecraftdune:sand` below and at most one partial
+  `minecraftdune:sand_layer` at the top of each column.
+- Generation and clearing recognize old vanilla prototype sand as well as both new custom
+  blocks, so an existing 0.5.3 test region can be regenerated or cleared in place.
+- Updated project version metadata, README files, and the Arrakis dune prototype guide.
+
 ## 0.5.3 — Debug camera and repeatable screenshots
 
 - Made `/dune` the canonical command root for the existing dune laboratory and the new

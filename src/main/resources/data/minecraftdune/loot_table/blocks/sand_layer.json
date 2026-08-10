@@ -1,0 +1,321 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:alternatives",
+          "children": [
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "1"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 1,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "2"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 2,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "3"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 3,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "4"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 4,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "5"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 5,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "6"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 6,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "7"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 7,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "8"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 8,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "9"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 9,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "10"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 10,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "11"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 11,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "12"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 12,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "13"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 13,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "14"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 14,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            },
+            {
+              "type": "minecraft:item",
+              "conditions": [
+                {
+                  "block": "minecraftdune:sand_layer",
+                  "condition": "minecraft:block_state_property",
+                  "properties": {
+                    "layers": "15"
+                  }
+                }
+              ],
+              "functions": [
+                {
+                  "add": false,
+                  "count": 15,
+                  "function": "minecraft:set_count"
+                }
+              ],
+              "name": "minecraftdune:sand_layer"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "random_sequence": "minecraftdune:blocks/sand_layer"
+}

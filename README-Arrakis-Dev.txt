@@ -28,9 +28,10 @@ Nether and End: normal vanilla generation
 
 Dune laboratory
 ---------------
-Version 0.5.3 retains the transverse-dune morphology introduced in 0.5.2 and adds fixed
-cameras for repeatable screenshots. The simulation remains 64 x 64 cells and the largest
-synchronous test footprint remains 512 x 512 Minecraft blocks.
+Version 0.5.4 retains the transverse-dune morphology and 0.5.3 fixed-camera tools. It adds
+custom full and fractional dune sand without changing the morphology settings. The
+simulation remains 64 x 64 cells and the largest synchronous test footprint remains
+512 x 512 Minecraft blocks.
 
 Basic commands:
 /dune dunes generate transverse
@@ -38,6 +39,15 @@ Basic commands:
 /dune dunes info
 /dune dunes clear
 /dune dunes settings
+
+Surface output controls:
+/dune dunes settings surface_resolution whole
+/dune dunes settings surface_resolution eighth
+/dune dunes settings surface_resolution sixteenth
+
+Sixteenth is the 0.5.4 default. Generated columns use full minecraftdune:sand below and at
+most one minecraftdune:sand_layer block on top. Whole reproduces the old nearest-block
+surface, making before/after screenshot comparisons straightforward.
 
 The 0.5.2 default horizontal scale is:
 cell_size 8 -> 512 x 512 blocks

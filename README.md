@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.3**
+Current development version: **0.5.4**
 
 The project currently contains:
 
@@ -10,11 +10,13 @@ The project currently contains:
 - the selectable **Arrakis Dev** flat desert world preset;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
+- custom full and fractional dune-sand blocks with selectable surface resolution;
 - persistent fixed cameras and repeatable named/batch screenshots for terrain testing.
 
 ## Requirements
 
 - Minecraft Java Edition 1.21.1
+- NeoForge 21.1.248
 - Java Development Kit 21
 - Internet access on the first Gradle run
 - IntelliJ IDEA, Eclipse, or another Java IDE is optional
@@ -46,10 +48,11 @@ The Nether and End retain normal vanilla generation.
 
 ## Dune prototype
 
-Version 0.5.3 retains the 0.5.2 **transverse dune** laboratory. The simulation stays at
+Version 0.5.4 retains the 0.5.2 **transverse dune** laboratory. The simulation stays at
 64 x 64 cells and the synchronous output remains capped at 512 x 512 Minecraft blocks
 (`cell_size 8`). Barchan generation remains available but is deliberately deferred while
-the transverse morphology is tuned.
+the transverse morphology is tuned. Version 0.5.4 does not change the morphology math or
+defaults; it adds fractional rendering of the existing continuous output.
 
 Generation commands:
 
@@ -72,6 +75,7 @@ The 0.5.2 transverse controls are:
 ```mcfunction
 /dune dunes settings cell_size 8
 /dune dunes settings max_height 18
+/dune dunes settings surface_resolution sixteenth
 /dune dunes settings dune_spacing 100
 /dune dunes settings spacing_variation 0.18
 /dune dunes settings ridge_sharpness 4.0
@@ -101,6 +105,18 @@ a 512 x 512 test area. Settings remain development-session state and reset when 
 game/server process restarts. The same world seed, aligned region, dune mode, and settings
 remain deterministic.
 
+Surface rendering modes are:
+
+| Setting | Top-surface increments | Output |
+|---|---:|---|
+| `whole` | 1 block | Compatibility mode using 0.5.3 nearest-block rounding. |
+| `eighth` | 1/8 block | Uses even `sand_layer` states (2/16 through 14/16). |
+| `sixteenth` | 1/16 block | Default; uses all 15 partial layer states. |
+
+Every generated column contains full `minecraftdune:sand` blocks and no more than one
+partial `minecraftdune:sand_layer` on top. The layer block has a `layers=1..15` blockstate;
+placing another layer on a 15/16 block converts it to full dune sand.
+
 `generate` and `clear` are destructive development commands for sand above the Y=64 Arrakis
 Dev surface. Non-sand blocks are preserved. If you reduce `cell_size` after generating a
 larger footprint, clear the old footprint explicitly first, for example:
@@ -112,7 +128,7 @@ larger footprint, clear the old footprint explicitly first, for example:
 See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md) for parameter ranges,
 behavior, the revised simulation pipeline, and screenshot test profiles.
 
-`/dune` is the canonical command root in 0.5.3. `/minecraftdune` remains a compatibility
+`/dune` is the canonical command root. `/minecraftdune` remains a compatibility
 alias, so older test commands continue to work.
 
 ## Debug cameras and screenshots
@@ -182,7 +198,7 @@ The egg also appears in the Spawn Eggs creative tab.
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.3.jar
+build/libs/minecraftdune-0.5.4.jar
 ```
 
 ## Package and namespace

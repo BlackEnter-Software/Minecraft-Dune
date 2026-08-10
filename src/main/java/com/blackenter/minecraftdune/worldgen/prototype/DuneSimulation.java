@@ -21,7 +21,12 @@ public final class DuneSimulation {
     private DuneSimulation() {
     }
 
-    public static Result simulate(DuneMode mode, long seed, Settings settings) {
+    public static Result simulate(
+            DuneMode mode,
+            long seed,
+            Settings settings,
+            DuneSurfaceResolution surfaceResolution
+    ) {
         Wind wind = Wind.fromAngle(settings.windAngleDegrees());
         double[] sand = createInitialSandField(mode, seed, settings, wind);
         double initialMass = sum(sand);
@@ -41,16 +46,18 @@ public final class DuneSimulation {
             physicalHeights = stabilizePhysicalSlopes(physicalHeights, settings);
         }
 
-        int[] heights = upscaleToBlockHeights(physicalHeights, settings);
-        int maximumHeight = Arrays.stream(heights).max().orElse(0);
+        int[] surfaceUnits = upscaleToSurfaceUnits(physicalHeights, settings, surfaceResolution);
+        double maximumHeight = Arrays.stream(surfaceUnits).max().orElse(0)
+                / (double) surfaceResolution.subdivisions();
         return new Result(
-                heights,
+                surfaceUnits,
                 initialMass,
                 finalMass,
                 maximumHeight,
                 mode,
                 seed,
-                settings
+                settings,
+                surfaceResolution
         );
     }
 
@@ -304,7 +311,11 @@ public final class DuneSimulation {
         return next;
     }
 
-    private static int[] upscaleToBlockHeights(double[] physicalHeights, Settings settings) {
+    private static int[] upscaleToSurfaceUnits(
+            double[] physicalHeights,
+            Settings settings,
+            DuneSurfaceResolution surfaceResolution
+    ) {
         int regionBlockSize = settings.regionBlockSize();
         int cellSize = settings.cellSize();
         int maximumHeight = settings.maximumConfiguredHeightCeiling();
@@ -334,7 +345,7 @@ public final class DuneSimulation {
                     top *= smoothStep(0.0, settings.edgeBlendCells(), edgeDistanceCells);
                 }
 
-                heights[blockZ * regionBlockSize + blockX] = (int) Math.round(
+                heights[blockZ * regionBlockSize + blockX] = surfaceResolution.quantize(
                         clamp(top, 0.0, maximumHeight)
                 );
             }
@@ -610,16 +621,25 @@ public final class DuneSimulation {
     }
 
     public record Result(
-            int[] heights,
+            int[] surfaceUnits,
             double initialMass,
             double finalMass,
-            int maximumHeight,
+            double maximumHeight,
             DuneMode mode,
             long seed,
-            Settings settings
+            Settings settings,
+            DuneSurfaceResolution surfaceResolution
     ) {
-        public int heightAt(int localX, int localZ) {
-            return heights[localZ * settings.regionBlockSize() + localX];
+        public int surfaceUnitsAt(int localX, int localZ) {
+            return surfaceUnits[localZ * settings.regionBlockSize() + localX];
+        }
+
+        public int fullBlocksAt(int localX, int localZ) {
+            return surfaceResolution.fullBlocks(surfaceUnitsAt(localX, localZ));
+        }
+
+        public int partialLayersAt(int localX, int localZ) {
+            return surfaceResolution.partialLayers(surfaceUnitsAt(localX, localZ));
         }
 
         public double massDifference() {

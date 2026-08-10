@@ -1,6 +1,7 @@
 package com.blackenter.minecraftdune;
 
 import com.blackenter.minecraftdune.entity.MuaddibMouseEntity;
+import com.blackenter.minecraftdune.registry.ModBlocks;
 import com.blackenter.minecraftdune.registry.ModEntityTypes;
 import com.blackenter.minecraftdune.registry.ModItems;
 import com.mojang.logging.LogUtils;
@@ -18,6 +19,7 @@ public final class MinecraftDune {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public MinecraftDune(IEventBus modEventBus) {
+        ModBlocks.BLOCKS.register(modEventBus);
         ModEntityTypes.ENTITY_TYPES.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
 
@@ -33,6 +35,10 @@ public final class MinecraftDune {
     private void addCreativeTabContents(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
             event.accept(ModItems.MUADDIB_MOUSE_SPAWN_EGG);
+        }
+        if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {
+            event.accept(ModItems.SAND);
+            event.accept(ModItems.SAND_LAYER);
         }
     }
 }
