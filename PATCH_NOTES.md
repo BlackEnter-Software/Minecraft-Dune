@@ -1,5 +1,38 @@
 # Minecraft: Dune patch notes
 
+## 0.5.3 — Debug camera and repeatable screenshots
+
+- Made `/dune` the canonical command root for the existing dune laboratory and the new
+  camera tools.
+- Retained `/minecraftdune` as a compatibility alias, so existing commands and test notes
+  continue to work unchanged.
+- Added client-side fixed-camera commands:
+  - `/dune camera info`;
+  - `/dune camera list`;
+  - `/dune camera save <name>`;
+  - `/dune camera goto <name>`;
+  - `/dune camera delete <name>`;
+  - `/dune camera tp <x> <y> <z> <yaw> <pitch>`.
+- Saved camera presets include dimension, exact position, yaw, and pitch, and persist in
+  `config/minecraftdune/debug-cameras.json`.
+- Camera recall uses a server-authoritative teleport and supports returning to presets in
+  another dimension.
+- Added `/dune screenshot <name>` for named captures such as `dune_testG.png`.
+- Added `/dune screenshot batch <label> [settle_ticks]` to visit every saved camera in
+  alphabetical order and capture consistently named comparison images. The default delay
+  is 40 client ticks after arrival at each camera.
+- Added `/dune screenshot batch cancel`.
+- Batch capture waits for the client to arrive, locks exact current and previous-frame
+  position/rotation values, hides the HUD, captures after a fully rendered locked frame,
+  and restores the previous HUD state on completion or cancellation.
+- Screenshot files are never intentionally overwritten; repeated names receive `_2`,
+  `_3`, and later numeric suffixes.
+- Aligned the active dune documentation with the current source limit of 512 blocks for
+  `dune_spacing` (the original 0.5.2 notes retain the earlier 256-block release limit).
+- Updated the project version and human-facing build documentation to `0.5.3`. The
+  generated `neoforge.mods.toml` continues to obtain its version from `mod_version` in
+  `gradle.properties`.
+
 ## 0.5.2 — Transverse dune morphology and physical cascade
 
 - Focused the Arrakis Dev dune laboratory on transverse-dune tuning while leaving the

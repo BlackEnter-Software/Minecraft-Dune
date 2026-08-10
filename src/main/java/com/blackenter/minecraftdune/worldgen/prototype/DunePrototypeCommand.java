@@ -5,6 +5,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.tree.LiteralCommandNode;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
@@ -41,8 +42,8 @@ public final class DunePrototypeCommand {
     }
 
     private static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(
-                Commands.literal("minecraftdune")
+        LiteralCommandNode<CommandSourceStack> duneRoot = dispatcher.register(
+                Commands.literal("dune")
                         .requires(source -> source.hasPermission(REQUIRED_PERMISSION_LEVEL))
                         .then(Commands.literal("dunes")
                                 .then(Commands.literal("generate")
@@ -171,6 +172,12 @@ public final class DunePrototypeCommand {
                                                                 )
                                                         )
                                                         .executes(DunePrototypeCommand::setTransportStrength)))))
+        );
+
+        dispatcher.register(
+                Commands.literal("minecraftdune")
+                        .requires(source -> source.hasPermission(REQUIRED_PERMISSION_LEVEL))
+                        .redirect(duneRoot)
         );
     }
 

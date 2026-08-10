@@ -2,14 +2,15 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.2**
+Current development version: **0.5.3**
 
 The project currently contains:
 
 - the Muad'dib desert mouse test entity, model, texture, and animations;
 - the selectable **Arrakis Dev** flat desert world preset;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
-- live in-game tuning commands for the dune prototype.
+- live in-game tuning commands for the dune prototype;
+- persistent fixed cameras and repeatable named/batch screenshots for terrain testing.
 
 ## Requirements
 
@@ -45,42 +46,42 @@ The Nether and End retain normal vanilla generation.
 
 ## Dune prototype
 
-Version 0.5.2 focuses on tuning **transverse dunes** in the Arrakis Dev laboratory. The
-simulation stays at 64 x 64 cells and the synchronous output remains capped at 512 x 512
-Minecraft blocks (`cell_size 8`). Barchan generation remains available but is deliberately
-deferred while the transverse morphology is tuned.
+Version 0.5.3 retains the 0.5.2 **transverse dune** laboratory. The simulation stays at
+64 x 64 cells and the synchronous output remains capped at 512 x 512 Minecraft blocks
+(`cell_size 8`). Barchan generation remains available but is deliberately deferred while
+the transverse morphology is tuned.
 
 Generation commands:
 
 ```mcfunction
-/minecraftdune dunes generate transverse
-/minecraftdune dunes generate barchan
-/minecraftdune dunes info
-/minecraftdune dunes clear
+/dune dunes generate transverse
+/dune dunes generate barchan
+/dune dunes info
+/dune dunes clear
 ```
 
 Show or reset the active session settings:
 
 ```mcfunction
-/minecraftdune dunes settings
-/minecraftdune dunes settings reset
+/dune dunes settings
+/dune dunes settings reset
 ```
 
 The 0.5.2 transverse controls are:
 
 ```mcfunction
-/minecraftdune dunes settings cell_size 8
-/minecraftdune dunes settings max_height 18
-/minecraftdune dunes settings dune_spacing 100
-/minecraftdune dunes settings spacing_variation 0.18
-/minecraftdune dunes settings ridge_sharpness 4.0
-/minecraftdune dunes settings valley_cutoff 0.20
-/minecraftdune dunes settings repose_angle 33
-/minecraftdune dunes settings cascade_passes 16
-/minecraftdune dunes settings iterations 180
-/minecraftdune dunes settings wind_angle 24
-/minecraftdune dunes settings edge_blend 7
-/minecraftdune dunes settings transport_strength 1.0
+/dune dunes settings cell_size 8
+/dune dunes settings max_height 18
+/dune dunes settings dune_spacing 100
+/dune dunes settings spacing_variation 0.18
+/dune dunes settings ridge_sharpness 4.0
+/dune dunes settings valley_cutoff 0.20
+/dune dunes settings repose_angle 33
+/dune dunes settings cascade_passes 16
+/dune dunes settings iterations 180
+/dune dunes settings wind_angle 24
+/dune dunes settings edge_blend 7
+/dune dunes settings transport_strength 1.0
 ```
 
 Important 0.5.2 changes:
@@ -95,20 +96,66 @@ Important 0.5.2 changes:
 - `cascade_passes` now runs after height mapping and accepts 0-64 passes, so the cascade
   result is no longer normalized back toward the original height profile.
 
-The 0.5.2 default is aimed at roughly 100 blocks between transverse crests in a 512 x 512
-test area. Settings remain development-session state and reset when the game/server process
-restarts. The same world seed, aligned region, dune mode, and settings remain deterministic.
+The transverse default introduced in 0.5.2 is aimed at roughly 100 blocks between crests in
+a 512 x 512 test area. Settings remain development-session state and reset when the
+game/server process restarts. The same world seed, aligned region, dune mode, and settings
+remain deterministic.
 
 `generate` and `clear` are destructive development commands for sand above the Y=64 Arrakis
 Dev surface. Non-sand blocks are preserved. If you reduce `cell_size` after generating a
 larger footprint, clear the old footprint explicitly first, for example:
 
 ```mcfunction
-/minecraftdune dunes clear 8
+/dune dunes clear 8
 ```
 
 See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md) for parameter ranges,
 behavior, the revised simulation pipeline, and screenshot test profiles.
+
+`/dune` is the canonical command root in 0.5.3. `/minecraftdune` remains a compatibility
+alias, so older test commands continue to work.
+
+## Debug cameras and screenshots
+
+Position the player for a useful comparison view, then save and recall the exact dimension,
+position, yaw, and pitch:
+
+```mcfunction
+/dune camera info
+/dune camera save A
+/dune camera goto A
+/dune camera list
+/dune camera delete A
+/dune camera tp 1200.5 190 -850.5 -135 12
+```
+
+Camera presets persist locally in:
+
+```text
+config/minecraftdune/debug-cameras.json
+```
+
+Take one named screenshot:
+
+```mcfunction
+/dune screenshot testG
+```
+
+This creates `screenshots/dune_testG.png`. Existing names are not overwritten; later
+captures use `_2`, `_3`, and subsequent numeric suffixes.
+
+To capture every saved camera in alphabetical order:
+
+```mcfunction
+/dune screenshot batch spacing400
+/dune screenshot batch spacing400 60
+/dune screenshot batch cancel
+```
+
+The optional final number is the stabilization delay in client ticks; the default is 40.
+During a batch the client waits for each server-authoritative teleport, locks the saved
+camera through a rendered frame, hides the HUD, takes the screenshot, and restores the
+previous HUD state when the batch finishes or is cancelled.
 
 ## Test the Muad'dib entity
 
@@ -135,7 +182,7 @@ The egg also appears in the Spawn Eggs creative tab.
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.2.jar
+build/libs/minecraftdune-0.5.3.jar
 ```
 
 ## Package and namespace

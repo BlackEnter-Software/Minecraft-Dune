@@ -2,9 +2,10 @@
 
 ## Status
 
-Version 0.5.2 focuses on transverse dunes. The simulation remains a fixed 64 x 64
-laboratory grid, with `cell_size` capped at 8 so the largest synchronous test footprint is
-512 x 512 Minecraft blocks.
+Version 0.5.3 retains the transverse morphology introduced in 0.5.2 and adds fixed-camera
+screenshot tooling around the laboratory. The simulation remains a fixed 64 x 64 grid,
+with `cell_size` capped at 8 so the largest synchronous test footprint is 512 x 512
+Minecraft blocks.
 
 The main changes in 0.5.2 are:
 
@@ -19,44 +20,47 @@ The main changes in 0.5.2 are:
 ## Core commands
 
 ```mcfunction
-/minecraftdune dunes generate transverse
-/minecraftdune dunes generate barchan
-/minecraftdune dunes info
-/minecraftdune dunes clear
-/minecraftdune dunes clear <cell_size>
+/dune dunes generate transverse
+/dune dunes generate barchan
+/dune dunes info
+/dune dunes clear
+/dune dunes clear <cell_size>
 ```
 
 All commands require permission level 2.
+
+`/dune` is the canonical command root. `/minecraftdune` remains a compatibility alias for
+older scripts and notes.
 
 ## Live settings
 
 Show the active settings:
 
 ```mcfunction
-/minecraftdune dunes settings
+/dune dunes settings
 ```
 
 Reset to the 0.5.2 transverse-oriented defaults:
 
 ```mcfunction
-/minecraftdune dunes settings reset
+/dune dunes settings reset
 ```
 
 Change one value at a time:
 
 ```mcfunction
-/minecraftdune dunes settings cell_size <1..8>
-/minecraftdune dunes settings max_height <0..32>
-/minecraftdune dunes settings dune_spacing <32..256>
-/minecraftdune dunes settings spacing_variation <0.0..0.50>
-/minecraftdune dunes settings ridge_sharpness <1.0..8.0>
-/minecraftdune dunes settings valley_cutoff <0.0..0.80>
-/minecraftdune dunes settings repose_angle <10..45>
-/minecraftdune dunes settings cascade_passes <0..64>
-/minecraftdune dunes settings iterations <0..1000>
-/minecraftdune dunes settings wind_angle <-360..360>
-/minecraftdune dunes settings edge_blend <0..32>
-/minecraftdune dunes settings transport_strength <0.0..4.0>
+/dune dunes settings cell_size <1..8>
+/dune dunes settings max_height <0..32>
+/dune dunes settings dune_spacing <32..512>
+/dune dunes settings spacing_variation <0.0..0.50>
+/dune dunes settings ridge_sharpness <1.0..8.0>
+/dune dunes settings valley_cutoff <0.0..0.80>
+/dune dunes settings repose_angle <10..45>
+/dune dunes settings cascade_passes <0..64>
+/dune dunes settings iterations <0..1000>
+/dune dunes settings wind_angle <-360..360>
+/dune dunes settings edge_blend <0..32>
+/dune dunes settings transport_strength <0.0..4.0>
 ```
 
 `max_height 0` uses the selected dune mode's built-in maximum height: 18 for transverse
@@ -71,7 +75,7 @@ The settings are in-memory development state and reset when the Minecraft proces
 |---|---:|---:|---|
 | `cell_size` | 1-8 blocks | 8 | Minecraft blocks represented by one simulation cell. Region width is `64 * cell_size`. It changes the output footprint and the physical distance over which neighboring simulation heights interpolate. |
 | `max_height` | 0-32 blocks | 0 (= mode default) | Maximum added dune height. For transverse, `0` means 18 blocks. Higher values make the same horizontal form steeper and make repose cascading more likely. |
-| `dune_spacing` | 32-256 blocks | 100 | Target transverse crest-to-crest wavelength in Minecraft blocks. It is independent of `cell_size`; 100 should remain approximately 100 blocks at any horizontal scale. |
+| `dune_spacing` | 32-512 blocks | 100 | Target transverse crest-to-crest wavelength in Minecraft blocks. It is independent of `cell_size`; 100 should remain approximately 100 blocks at any horizontal scale. |
 | `spacing_variation` | 0.0-0.50 | 0.18 | Strength of deterministic phase warping. `0` produces very regular parallel spacing; larger values bend, compress, and stretch ridges locally. It does not add random per-block noise. |
 | `ridge_sharpness` | 1.0-8.0 | 4.0 | Shapes the seeded ridge profile. Low values create broad rolling ridges. High values concentrate sand near crests, producing narrower dune bodies and wider low areas. |
 | `valley_cutoff` | 0.0-0.80 | 0.20 | Removes the low end of the transverse height field before block placement. Higher values create more genuinely flat Y=64 interdune ground. Too high a value can break ridges into disconnected islands. |
@@ -86,6 +90,27 @@ The settings are in-memory development state and reset when the Minecraft proces
 transverse-specific controls. They are intentionally not used to repair the experimental barchan
 initializer in this release.
 
+## Repeatable camera capture
+
+Save the useful viewpoints once, then use the same positions and view angles for each
+terrain profile:
+
+```mcfunction
+/dune camera save A
+/dune camera save B
+/dune camera save C
+/dune screenshot batch baseline
+```
+
+The batch command visits saved cameras alphabetically, waits 40 client ticks after arrival,
+hides the HUD, and produces names such as `dune_baseline_A.png`. Override the delay by
+supplying a final tick count, or cancel an active run:
+
+```mcfunction
+/dune screenshot batch baseline 60
+/dune screenshot batch cancel
+```
+
 ## Recommended screenshot profiles
 
 ### A — 100-block Arrakis baseline
@@ -94,17 +119,17 @@ This is the new 0.5.2 default target: approximately 100 blocks between transvers
 moderate irregularity, and some flat interdune floor.
 
 ```mcfunction
-/minecraftdune dunes settings reset
-/minecraftdune dunes settings cell_size 8
-/minecraftdune dunes settings max_height 18
-/minecraftdune dunes settings dune_spacing 100
-/minecraftdune dunes settings spacing_variation 0.18
-/minecraftdune dunes settings ridge_sharpness 4.0
-/minecraftdune dunes settings valley_cutoff 0.20
-/minecraftdune dunes settings repose_angle 33
-/minecraftdune dunes settings cascade_passes 16
-/minecraftdune dunes settings iterations 180
-/minecraftdune dunes generate transverse
+/dune dunes settings reset
+/dune dunes settings cell_size 8
+/dune dunes settings max_height 18
+/dune dunes settings dune_spacing 100
+/dune dunes settings spacing_variation 0.18
+/dune dunes settings ridge_sharpness 4.0
+/dune dunes settings valley_cutoff 0.20
+/dune dunes settings repose_angle 33
+/dune dunes settings cascade_passes 16
+/dune dunes settings iterations 180
+/dune dunes generate transverse
 ```
 
 ### B — broad flat interdune test
@@ -113,17 +138,17 @@ This profile is intended to answer whether the desert should have visibly larger
 between narrower dune ridges.
 
 ```mcfunction
-/minecraftdune dunes settings reset
-/minecraftdune dunes settings cell_size 8
-/minecraftdune dunes settings max_height 14
-/minecraftdune dunes settings dune_spacing 110
-/minecraftdune dunes settings spacing_variation 0.22
-/minecraftdune dunes settings ridge_sharpness 6.0
-/minecraftdune dunes settings valley_cutoff 0.35
-/minecraftdune dunes settings repose_angle 33
-/minecraftdune dunes settings cascade_passes 16
-/minecraftdune dunes settings iterations 180
-/minecraftdune dunes generate transverse
+/dune dunes settings reset
+/dune dunes settings cell_size 8
+/dune dunes settings max_height 14
+/dune dunes settings dune_spacing 110
+/dune dunes settings spacing_variation 0.22
+/dune dunes settings ridge_sharpness 6.0
+/dune dunes settings valley_cutoff 0.35
+/dune dunes settings repose_angle 33
+/dune dunes settings cascade_passes 16
+/dune dunes settings iterations 180
+/dune dunes generate transverse
 ```
 
 ### C — cascade stress comparison
@@ -133,24 +158,24 @@ Generate this once with `cascade_passes 0`, screenshot it, then change only the 
 angle so the cascade difference should be obvious.
 
 ```mcfunction
-/minecraftdune dunes settings reset
-/minecraftdune dunes settings cell_size 8
-/minecraftdune dunes settings max_height 30
-/minecraftdune dunes settings dune_spacing 80
-/minecraftdune dunes settings spacing_variation 0.12
-/minecraftdune dunes settings ridge_sharpness 5.0
-/minecraftdune dunes settings valley_cutoff 0.25
-/minecraftdune dunes settings repose_angle 20
-/minecraftdune dunes settings cascade_passes 0
-/minecraftdune dunes settings iterations 180
-/minecraftdune dunes generate transverse
+/dune dunes settings reset
+/dune dunes settings cell_size 8
+/dune dunes settings max_height 30
+/dune dunes settings dune_spacing 80
+/dune dunes settings spacing_variation 0.12
+/dune dunes settings ridge_sharpness 5.0
+/dune dunes settings valley_cutoff 0.25
+/dune dunes settings repose_angle 20
+/dune dunes settings cascade_passes 0
+/dune dunes settings iterations 180
+/dune dunes generate transverse
 ```
 
 Then:
 
 ```mcfunction
-/minecraftdune dunes settings cascade_passes 48
-/minecraftdune dunes generate transverse
+/dune dunes settings cascade_passes 48
+/dune dunes generate transverse
 ```
 
 ## Region model
@@ -220,7 +245,7 @@ identity with either published simulation.
 - Region results are not cached or persisted independently of placed blocks.
 - Live tuning values reset when the process restarts.
 - Reducing `cell_size` does not clear sand outside the new footprint. Use
-  `/minecraftdune dunes clear <old_cell_size>` before shrinking it.
+  `/dune dunes clear <old_cell_size>` before shrinking it.
 
 ## Test procedure
 
