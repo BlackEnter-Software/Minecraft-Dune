@@ -2,23 +2,16 @@
 
 ## Status
 
-Version 0.5.4 retains the transverse morphology introduced in 0.5.2 and the fixed-camera
-screenshot tooling added in 0.5.3. It adds custom full and fractional dune-sand rendering.
-The simulation remains a fixed 64 x 64 grid, with `cell_size` capped at 8 so the largest
-synchronous test footprint is 512 x 512 Minecraft blocks.
+Version 0.5.5 is a focused transverse-dune morphology pass built on the successful
+0.5.4 fractional-sand surface. It keeps the deterministic 64 x 64 simulation grid,
+`cell_size` maximum of 8, 512 x 512 synchronous test footprint, repose-angle cascade,
+and fixed-camera screenshot workflow.
 
-No morphology parameter or default changed in 0.5.4. Only the final height quantization and
-block placement boundary changed.
+The production terrain will eventually vary dune scale regionally. For development,
+350-block crest spacing is the baseline because it gives Arrakis-scale forms while still
+showing enough morphology inside one 512 x 512 laboratory region.
 
-The main changes in 0.5.2 are:
-
-- transverse dune wavelength is controlled directly in Minecraft blocks;
-- ridge regularity, ridge width, and flat interdune floor can be tuned independently;
-- `stable_slope` has been replaced by the physically meaningful `repose_angle`;
-- cascade stabilization now runs after the sand field is mapped into Minecraft-scale
-  heights, so its result is not stretched back out by later percentile normalization;
-- cascade range is increased to 0-64 passes;
-- the barchan prototype is intentionally left unchanged while transverse dunes are tuned.
+Barchan generation is intentionally unchanged.
 
 ## Core commands
 
@@ -28,273 +21,148 @@ The main changes in 0.5.2 are:
 /dune dunes info
 /dune dunes clear
 /dune dunes clear <cell_size>
-```
-
-All commands require permission level 2.
-
-`/dune` is the canonical command root. `/minecraftdune` remains a compatibility alias for
-older scripts and notes.
-
-## Live settings
-
-Show the active settings:
-
-```mcfunction
 /dune dunes settings
-```
-
-Reset to the 0.5.2 transverse-oriented defaults:
-
-```mcfunction
 /dune dunes settings reset
 ```
 
-Change one value at a time:
+`/minecraftdune` remains a compatibility alias.
 
-```mcfunction
-/dune dunes settings cell_size <1..8>
-/dune dunes settings max_height <0..32>
-/dune dunes settings surface_resolution whole
-/dune dunes settings surface_resolution eighth
-/dune dunes settings surface_resolution sixteenth
-/dune dunes settings dune_spacing <32..512>
-/dune dunes settings spacing_variation <0.0..0.50>
-/dune dunes settings ridge_sharpness <1.0..8.0>
-/dune dunes settings valley_cutoff <0.0..0.80>
-/dune dunes settings repose_angle <10..45>
-/dune dunes settings cascade_passes <0..64>
-/dune dunes settings iterations <0..1000>
-/dune dunes settings wind_angle <-360..360>
-/dune dunes settings edge_blend <0..32>
-/dune dunes settings transport_strength <0.0..4.0>
-```
+## 0.5.5 default development profile
 
-`max_height 0` uses the selected dune mode's built-in maximum height: 18 for transverse
-and 20 for barchan. `iterations 0` similarly uses the mode defaults: 180 and 220.
-Wind angles are normalized to 0-360 degrees after entry.
-
-The settings are in-memory development state and reset when the Minecraft process restarts.
-`surface_resolution` resets to `sixteenth`.
-
-## 0.5.4 settings and preserved morphology defaults
-
-| Setting | Range | Default | Behavior |
+| Setting | Range | Default | Purpose |
 |---|---:|---:|---|
-| `cell_size` | 1-8 blocks | 8 | Minecraft blocks represented by one simulation cell. Region width is `64 * cell_size`. It changes the output footprint and the physical distance over which neighboring simulation heights interpolate. |
-| `max_height` | 0-32 blocks | 0 (= mode default) | Maximum added dune height. For transverse, `0` means 18 blocks. Higher values make the same horizontal form steeper and make repose cascading more likely. |
-| `surface_resolution` | whole, eighth, sixteenth | sixteenth | Final vertical quantization only. `whole` reproduces 0.5.3 rounding; `eighth` uses 2/16 layer steps; `sixteenth` uses all 1/16 steps. It does not feed back into transport, height mapping, or repose cascading. |
-| `dune_spacing` | 32-512 blocks | 100 | Target transverse crest-to-crest wavelength in Minecraft blocks. It is independent of `cell_size`; 100 should remain approximately 100 blocks at any horizontal scale. |
-| `spacing_variation` | 0.0-0.50 | 0.18 | Strength of deterministic phase warping. `0` produces very regular parallel spacing; larger values bend, compress, and stretch ridges locally. It does not add random per-block noise. |
-| `ridge_sharpness` | 1.0-8.0 | 4.0 | Shapes the seeded ridge profile. Low values create broad rolling ridges. High values concentrate sand near crests, producing narrower dune bodies and wider low areas. |
-| `valley_cutoff` | 0.0-0.80 | 0.20 | Removes the low end of the transverse height field before block placement. Higher values create more genuinely flat Y=64 interdune ground. Too high a value can break ridges into disconnected islands. |
-| `repose_angle` | 10-45 degrees | 33 | Maximum stable coarse-grid slope used by the final cascade solver. Lower angles force gentler slopes and spread sand farther; higher angles permit steeper faces. 33 degrees is the physical reference value used by the research-inspired prototype. |
-| `cascade_passes` | 0-64 | 16 | Number of block-scale slope-relaxation passes after transport and height mapping. `0` disables final cascading. More passes converge farther toward `repose_angle`; changes usually diminish after the field stabilizes. |
-| `iterations` | 0-1000 | 0 (= mode default) | Number of directional transport steps. Transverse default is 180. Higher values allow more migration and distortion but increase simulation time. |
-| `wind_angle` | -360..360 degrees | 24 | Prototype wind direction in the X/Z plane. 0 degrees is +X and 90 degrees is +Z. The value is normalized internally to 0-360. |
-| `edge_blend` | 0-32 cells | 7 | Width of the artificial test-region boundary fade. `0` disables the fade. This is only a laboratory seam treatment, not part of the eventual Gameplay Arrakis regional generator. |
-| `transport_strength` | 0.0-4.0 | 1.0 | Multiplier for saltation-like lifting. `0` disables wind transport while retaining the seeded transverse field and final cascade. |
+| `cell_size` | 1-8 | 8 | Horizontal simulation-cell size; 8 gives a 512 x 512 output region. |
+| `max_height` | 0-32 | 0 (= mode default) | Transverse mode default is now 30 blocks; barchan remains 20. |
+| `surface_resolution` | whole/eighth/sixteenth | sixteenth | Final vertical surface quantization. |
+| `dune_spacing` | 32-512 | 350 | Target transverse crest-to-crest spacing in Minecraft blocks. |
+| `spacing_variation` | 0.0-0.50 | 0.18 | Low-frequency deterministic phase warping. |
+| `ridge_sharpness` | 1.0-8.0 | 3.0 | Broadens/narrows the seeded ridge body. |
+| `valley_cutoff` | 0.0-0.80 | 0.20 | Broad low-end height threshold; kept moderate so real dune toes are not clipped. |
+| `slope_asymmetry` | 0.0-1.0 | 0.60 | Moves the crest downwind in the seed profile, lengthening the windward ramp and shortening the lee face. |
+| `interdune_cleanup` | 0.0-1.0 | 0.30 | Support-aware removal of weak isolated low-sand remnants in open basins. |
+| `repose_angle` | 10-45 deg | 33 | Maximum stable coarse-grid slope. |
+| `cascade_passes` | 0-64 | 25 | Number of post-height-map repose relaxation passes. |
+| `iterations` | 0-1000 | 0 (= mode default) | Transverse default remains 180; barchan 220. |
+| `wind_angle` | -360..360 deg | 24 | Wind direction; 0 = +X, 90 = +Z. |
+| `edge_blend` | 0-32 cells | 7 | Laboratory-only fade to the flat test surface. |
+| `transport_strength` | 0.0-4.0 | 1.0 | Multiplier for saltation-like lifting. |
 
-`dune_spacing`, `spacing_variation`, `ridge_sharpness`, and `valley_cutoff` are currently
-transverse-specific controls. They are intentionally not used to repair the experimental barchan
-initializer in this release.
+## New morphology behavior
 
-## Repeatable camera capture
+### Asymmetric transverse seed
 
-Save the useful viewpoints once, then use the same positions and view angles for each
-terrain profile:
+The old transverse seed was fundamentally based on a symmetric sinusoidal cross-section.
+0.5.5 keeps the same deterministic phase field, spacing variation, and ridge sharpness, but
+`slope_asymmetry` blends that profile toward a wind-oriented cycle:
 
-```mcfunction
-/dune camera save A
-/dune camera save B
-/dune camera save C
-/dune screenshot batch baseline
-```
+- long, gentler windward/stoss rise;
+- crest shifted downwind;
+- shorter lee descent.
 
-The batch command visits saved cameras alphabetically, waits 40 client ticks after arrival,
-hides the HUD, and produces names such as `dune_baseline_A.png`. Override the delay by
-supplying a final tick count, or cancel an active run:
+The profile is changed before transport and repose cascading, so later processes refine the
+directional dune rather than trying to create asymmetry from a symmetric hill.
 
-```mcfunction
-/dune screenshot batch baseline 60
-/dune screenshot batch cancel
-```
+### Low-relief transport attenuation
 
-## Recommended screenshot profiles
+Nearly flat transverse cells now receive a mild reduction in stochastic crosswind jitter and
+lifting. The reduction is intentionally small so the existing transport behavior remains
+recognizable on the actual dune body.
 
-### Surface resolution comparison
+### Support-aware interdune cleanup
 
-Keep every morphology value fixed, regenerate the same aligned region, and capture the same
-saved cameras after changing only `surface_resolution`:
+`valley_cutoff` remains a global broad-shape control. The screenshot tests showed that raising
+it from 0.20 toward 0.28 cleans the plain but also clips useful dune-foot material.
 
-```mcfunction
-/dune dunes settings surface_resolution whole
-/dune dunes generate transverse
-/dune screenshot batch surface_whole
+`interdune_cleanup` therefore uses local support instead:
 
-/dune dunes settings surface_resolution eighth
-/dune dunes generate transverse
-/dune screenshot batch surface_eighth
+- a low-height cell near a substantial dune body is retained;
+- a similarly low isolated patch in an open basin is reduced;
+- very low unsupported positive detail is attenuated before cleanup.
 
-/dune dunes settings surface_resolution sixteenth
-/dune dunes generate transverse
-/dune screenshot batch surface_sixteenth
-```
+This is a morphology filter after physical height mapping, so it is not a sand-mass-conserving
+transport step.
 
-`whole` is the control image for the old stepped renderer. The other two modes reuse the
-same simulation result and regional seed; only final vertical quantization differs.
+## Pipeline
 
-### A — 100-block Arrakis baseline
+1. Seed deterministic transverse ridges using spacing, variation, sharpness, and asymmetry.
+2. Run directional saltation-like transport with wind-shadow approximation.
+3. Mildly attenuate stochastic transport in very low-relief transverse areas.
+4. Map the transported sand field into Minecraft-scale physical heights.
+5. Attenuate unsupported low-height positive noise.
+6. Apply support-aware interdune cleanup.
+7. Run the 33-degree repose cascade for the configured number of passes.
+8. Bilinearly interpolate into Minecraft columns and apply laboratory edge blending.
+9. Quantize to whole/eighth/sixteenth surface units.
+10. Place full `minecraftdune:sand` plus at most one `minecraftdune:sand_layer`.
 
-This is the new 0.5.2 default target: approximately 100 blocks between transverse crests,
-moderate irregularity, and some flat interdune floor.
+## Recommended 0.5.5 screenshot tests
 
-```mcfunction
-/dune dunes settings reset
-/dune dunes settings cell_size 8
-/dune dunes settings max_height 18
-/dune dunes settings dune_spacing 100
-/dune dunes settings spacing_variation 0.18
-/dune dunes settings ridge_sharpness 4.0
-/dune dunes settings valley_cutoff 0.20
-/dune dunes settings repose_angle 33
-/dune dunes settings cascade_passes 16
-/dune dunes settings iterations 180
-/dune dunes generate transverse
-```
-
-### B — broad flat interdune test
-
-This profile is intended to answer whether the desert should have visibly larger flat corridors
-between narrower dune ridges.
+### Baseline
 
 ```mcfunction
 /dune dunes settings reset
-/dune dunes settings cell_size 8
-/dune dunes settings max_height 14
-/dune dunes settings dune_spacing 110
-/dune dunes settings spacing_variation 0.22
-/dune dunes settings ridge_sharpness 6.0
-/dune dunes settings valley_cutoff 0.35
-/dune dunes settings repose_angle 33
-/dune dunes settings cascade_passes 16
-/dune dunes settings iterations 180
 /dune dunes generate transverse
+/dune screenshot batch baseline055 60
 ```
 
-### C — cascade stress comparison
+### Asymmetry comparison
 
-Generate this once with `cascade_passes 0`, screenshot it, then change only the pass count to
-48 and regenerate the same region. This deliberately uses tall, close dunes and a low repose
-angle so the cascade difference should be obvious.
+```mcfunction
+/dune dunes settings slope_asymmetry 0.0
+/dune dunes generate transverse
+/dune screenshot batch asym_000 60
+
+/dune dunes settings slope_asymmetry 0.6
+/dune dunes generate transverse
+/dune screenshot batch asym_060 60
+
+/dune dunes settings slope_asymmetry 1.0
+/dune dunes generate transverse
+/dune screenshot batch asym_100 60
+```
+
+Keep all other values fixed.
+
+### Interdune cleanup comparison
 
 ```mcfunction
 /dune dunes settings reset
-/dune dunes settings cell_size 8
-/dune dunes settings max_height 30
-/dune dunes settings dune_spacing 80
-/dune dunes settings spacing_variation 0.12
-/dune dunes settings ridge_sharpness 5.0
-/dune dunes settings valley_cutoff 0.25
-/dune dunes settings repose_angle 20
-/dune dunes settings cascade_passes 0
-/dune dunes settings iterations 180
+/dune dunes settings interdune_cleanup 0.0
 /dune dunes generate transverse
+/dune screenshot batch cleanup_000 60
+
+/dune dunes settings interdune_cleanup 0.3
+/dune dunes generate transverse
+/dune screenshot batch cleanup_030 60
+
+/dune dunes settings interdune_cleanup 0.7
+/dune dunes generate transverse
+/dune screenshot batch cleanup_070 60
 ```
 
-Then:
-
-```mcfunction
-/dune dunes settings cascade_passes 48
-/dune dunes generate transverse
-```
-
-## Region model
-
-- Simulation grid: fixed 64 x 64 cells.
-- Cell footprint: configurable 1 x 1 through 8 x 8 Minecraft blocks.
-- Output region: 64 x 64 through 512 x 512 Minecraft blocks.
-- Default 0.5.2 footprint: 512 x 512 blocks.
-- Base surface: Y=64.
-- Maximum configurable added sand: 32 blocks.
-- Region alignment: multiples of the current output region size in X and Z.
-- Default wind direction: 24 degrees toward positive X and positive Z.
-
-The region seed is a deterministic hash of the Minecraft world seed, aligned region X/Z,
-and dune mode. Keep position and `cell_size` fixed when comparing only morphology controls.
-
-## Transverse pipeline in 0.5.4
-
-1. **Seed ridge field**
-   - `dune_spacing` defines the wavelength in Minecraft blocks.
-   - `spacing_variation` applies low-frequency deterministic phase warping.
-   - `ridge_sharpness` controls how concentrated the seeded sand is around the ridge crest.
-2. **Directional transport**
-   - Occupied cells lift a small sand fraction and move it several cells along the wind.
-   - A deterministic coordinate hash controls hop length and crosswind jitter.
-   - `transport_strength` scales the lifted amount.
-3. **Wind-shadow approximation**
-   - Higher upwind sand reduces lifting from the current cell.
-4. **Physical height mapping**
-   - The transported field is mapped once into the requested Minecraft height range.
-   - `valley_cutoff` removes weak transverse sand values to create flat interdune terrain.
-5. **Repose cascade**
-   - Neighboring coarse cells are compared in Minecraft dimensions.
-   - The allowed vertical difference is derived from `repose_angle` and `cell_size`.
-   - Material above that limit moves toward the most unstable lower neighbor.
-   - No percentile normalization occurs after cascading.
-6. **Interpolation and boundary fade**
-   - The stabilized 64 x 64 height field is bilinearly interpolated into Minecraft columns.
-   - `edge_blend` returns the laboratory output to the Y=64 test surface near its boundary.
-7. **Surface quantization and block placement**
-   - The continuous interpolated height is rounded to whole, eighth, or sixteenth units.
-   - Each column uses full `minecraftdune:sand` below and zero or one
-     `minecraftdune:sand_layer` block on top.
-   - `eighth` produces only even `layers` values; `sixteenth` can produce `layers=1..15`.
-   - Previous vanilla or custom prototype sand above the new target is removed up to Y=96.
-   - Non-sand blocks are preserved.
-
-## Research basis
-
-The architecture is inspired by the process separation in Axel Paris et al., *Desertscape
-Simulation*, and Brennen Taylor & John Keyser, *Real-Time Sand Dune Simulation*. The latter
-uses an approximately 33 degree sand angle of repose and repeated cascade iterations. The
-Minecraft prototype is a reduced deterministic approximation and does not claim physical
-identity with either published simulation.
+The overhead and low-wind cameras are the most important for these comparisons.
 
 ## Known limitations
 
-- Generation and clearing execute synchronously on the server thread.
-- A 512 x 512 output requires substantial chunk loading and block placement.
-- Directional transport still uses a periodic internal 64 x 64 sand grid.
-- The final repose cascade no longer wraps across the region boundary.
-- There is no underlying bedrock/rock obstacle field yet.
-- There is no multi-scale terrain-projected wind field.
-- There are no structure reservation masks.
-- The transverse family is still seeded before simulation rather than emerging solely from
-  sand availability and wind.
-- Barchan initialization remains sparse/additive and can form clustered large masses plus
-  low residual contour zones; it is intentionally deferred until transverse dunes are tuned.
-- Sand does not migrate during Coriolis storms yet.
-- Region results are not cached or persisted independently of placed blocks.
-- Live tuning values reset when the process restarts.
-- Fractional layers are a rendering experiment; dune physics still runs on the existing
-  coarse 64 x 64 physical-height field.
-- Reducing `cell_size` does not clear sand outside the new footprint. Use
-  `/dune dunes clear <old_cell_size>` before shrinking it.
+- Generation/clearing still execute synchronously on the server thread.
+- The internal transport grid is still periodic while the final repose cascade is not.
+- There is no bedrock obstacle field or terrain-projected regional wind yet.
+- The transverse family is seeded rather than emerging solely from sand availability.
+- Barchan initialization remains a separate sparse/additive prototype.
+- Interdune cleanup is a deliberate morphology filter and does not conserve mapped height.
+- Region output is not cached independently of placed blocks.
+- Live tuning values reset on process restart.
+- `edge_blend` remains a visible laboratory artifact from very high cameras.
+- Reducing `cell_size` does not clear sand outside the new footprint; clear the old footprint first.
 
-## Test procedure
+## Production direction
 
-For useful comparisons, keep world seed, region, `cell_size`, and all unrelated settings fixed.
-Change one morphology parameter at a time and regenerate the same region. For cascade testing,
-use the stress profile above because ordinary 18-block dunes at 100-block spacing can already be
-shallower than the requested repose angle and therefore need little or no avalanche correction.
+The production Arrakis generator should not use one universal wavelength. Current testing
+supports roughly:
 
-After selecting a promising transverse profile, test repeatability, non-sand marker preservation,
-`clean build`, and dedicated-server startup before making it the next baseline.
+- tighter transverse fields: about 200-300 blocks;
+- normal major ergs: about 300-400 blocks;
+- open large ergs: about 400-500+ blocks.
 
-## Planned successor
-
-Once transverse morphology is convincing, the next terrain step should move the simulation
-behind a regional cache and add the underlying rock/bedrock height field plus generation-time
-wind. Barchan behavior can then be revisited as a low-sand-availability outcome rather than as a
-separate collection of additive primitives.
+The next major terrain stage after transverse morphology is stable should move the simulation
+behind a regional cache and introduce the underlying rock/bedrock field and generation-time wind.

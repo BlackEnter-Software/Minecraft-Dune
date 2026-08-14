@@ -4,7 +4,7 @@ package com.blackenter.minecraftdune.worldgen.prototype;
  * Initial dune families supported by the Arrakis Dev prototype.
  */
 public enum DuneMode {
-    TRANSVERSE("transverse", 180, 18, 0x6A09E667F3BCC909L),
+    TRANSVERSE("transverse", 180, 30, 0x6A09E667F3BCC909L),
     BARCHAN("barchan", 220, 20, 0xBB67AE8584CAA73BL);
 
     private final String commandName;

@@ -140,7 +140,24 @@ public final class DunePrototypeCommand {
                                                                 )
                                                         )
                                                         .executes(DunePrototypeCommand::setValleyCutoff)))
-                                        .then(Commands.literal("repose_angle")
+                                        .then(Commands.literal("slope_asymmetry")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                DoubleArgumentType.doubleArg(
+                                                                        DuneSimulation.Settings.MINIMUM_SLOPE_ASYMMETRY,
+                                                                        DuneSimulation.Settings.MAXIMUM_SLOPE_ASYMMETRY
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setSlopeAsymmetry)))
+                                        .then(Commands.literal("interdune_cleanup")
+                                                .then(Commands.argument(
+                                                                "value",
+                                                                DoubleArgumentType.doubleArg(
+                                                                        DuneSimulation.Settings.MINIMUM_INTERDUNE_CLEANUP,
+                                                                        DuneSimulation.Settings.MAXIMUM_INTERDUNE_CLEANUP
+                                                                )
+                                                        )
+                                                        .executes(DunePrototypeCommand::setInterduneCleanup)))                                        .then(Commands.literal("repose_angle")
                                                 .then(Commands.argument(
                                                                 "value",
                                                                 DoubleArgumentType.doubleArg(
@@ -322,6 +339,13 @@ public final class DunePrototypeCommand {
         );
         source.sendSuccess(
                 () -> Component.literal(
+                        "Transverse morphology: slope_asymmetry=" + formatDouble(settings.slopeAsymmetry())
+                                + ", interdune_cleanup=" + formatDouble(settings.interduneCleanup()) + "."
+                ),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal(
                         "Slope/transport: repose_angle=" + formatDouble(settings.reposeAngleDegrees())
                                 + " deg, cascade_passes=" + settings.cascadePasses()
                                 + ", iterations=" + iterations
@@ -393,6 +417,17 @@ public final class DunePrototypeCommand {
         return settingChanged(context, "valley_cutoff", formatDouble(value));
     }
 
+    private static int setSlopeAsymmetry(CommandContext<CommandSourceStack> context) {
+        double value = DoubleArgumentType.getDouble(context, "value");
+        currentSettings = currentSettings.withSlopeAsymmetry(value);
+        return settingChanged(context, "slope_asymmetry", formatDouble(value));
+    }
+
+    private static int setInterduneCleanup(CommandContext<CommandSourceStack> context) {
+        double value = DoubleArgumentType.getDouble(context, "value");
+        currentSettings = currentSettings.withInterduneCleanup(value);
+        return settingChanged(context, "interdune_cleanup", formatDouble(value));
+    }
     private static int setReposeAngle(CommandContext<CommandSourceStack> context) {
         double value = DoubleArgumentType.getDouble(context, "value");
         currentSettings = currentSettings.withReposeAngleDegrees(value);

@@ -1,5 +1,36 @@
 # Minecraft: Dune patch notes
 
+## 0.5.5 â€” Transverse dune morphology pass
+
+- Promoted the tested Arrakis Dev transverse profile to the development defaults:
+  - `cell_size=8`;
+  - `surface_resolution=sixteenth`;
+  - transverse mode maximum height 30 blocks;
+  - `dune_spacing=350`;
+  - `spacing_variation=0.18`;
+  - `ridge_sharpness=3.0`;
+  - `valley_cutoff=0.20`;
+  - `repose_angle=33`;
+  - `cascade_passes=25`;
+  - transverse transport default 180 iterations;
+  - `transport_strength=1.0`;
+  - `wind_angle=24`;
+  - `edge_blend=7`.
+- Added `slope_asymmetry` (0.0-1.0, default 0.60). The transverse seed now blends from
+  the old symmetric profile toward a wind-oriented profile with a longer windward/stoss
+  ramp and shorter lee face before transport and cascading.
+- Added `interdune_cleanup` (0.0-1.0, default 0.30). Cleanup is based on local dune support
+  rather than a second global cutoff: low dune toes near a major body are retained while
+  weak isolated remnants in broad interdune plains are reduced.
+- Added mild low-relief transverse transport attenuation to reduce stochastic micro-islands
+  on nearly flat sand while preserving transport deformation on the dune body.
+- Added a low-height positive-detail attenuation pass before support-aware cleanup.
+- Kept `valley_cutoff=0.20`; screenshot tests showed that 0.18 retains too much basin clutter
+  while 0.28 cleans the basin at the cost of visibly clipping useful dune-foot material.
+- Kept the 0.5.4 sixteenth-layer sand renderer, block/model/texture assets, 0.5.3 camera and
+  screenshot tools, 33-degree repose cascade, and barchan prototype otherwise unchanged.
+- Kept NeoForge at 21.1.248.
+- Updated project version metadata and active dune documentation to 0.5.5.
 ## 0.5.4 — Fractional dune surfaces
 
 - Upgraded NeoForge from 21.1.244 to 21.1.248.

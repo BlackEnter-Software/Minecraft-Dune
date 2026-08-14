@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.4**
+Current development version: **0.5.5**
 
 The project currently contains:
 
@@ -48,11 +48,36 @@ The Nether and End retain normal vanilla generation.
 
 ## Dune prototype
 
-Version 0.5.4 retains the 0.5.2 **transverse dune** laboratory. The simulation stays at
-64 x 64 cells and the synchronous output remains capped at 512 x 512 Minecraft blocks
-(`cell_size 8`). Barchan generation remains available but is deliberately deferred while
-the transverse morphology is tuned. Version 0.5.4 does not change the morphology math or
-defaults; it adds fractional rendering of the existing continuous output.
+Version 0.5.5 is the first morphology pass built around the 0.5.4 fractional dune surface.
+The simulation remains a 64 x 64 deterministic laboratory grid with `cell_size 8`, giving a
+512 x 512 Minecraft-block test field. Barchan generation remains available but is still
+deferred while transverse dunes are tuned.
+
+The tested Arrakis Dev baseline is now:
+
+```mcfunction
+/dune dunes settings reset
+```
+
+which resets to:
+
+```text
+cell_size          = 8
+surface_resolution = sixteenth
+max_height         = mode default (transverse 30, barchan 20)
+dune_spacing       = 350
+spacing_variation  = 0.18
+ridge_sharpness    = 3.0
+valley_cutoff      = 0.20
+slope_asymmetry    = 0.60
+interdune_cleanup  = 0.30
+repose_angle       = 33
+cascade_passes     = 25
+iterations         = mode default (transverse 180, barchan 220)
+transport_strength = 1.0
+wind_angle         = 24
+edge_blend         = 7
+```
 
 Generation commands:
 
@@ -70,67 +95,63 @@ Show or reset the active session settings:
 /dune dunes settings reset
 ```
 
-The 0.5.2 transverse controls are:
+Transverse morphology controls include:
 
 ```mcfunction
-/dune dunes settings cell_size 8
-/dune dunes settings max_height 18
-/dune dunes settings surface_resolution sixteenth
-/dune dunes settings dune_spacing 100
-/dune dunes settings spacing_variation 0.18
-/dune dunes settings ridge_sharpness 4.0
-/dune dunes settings valley_cutoff 0.20
-/dune dunes settings repose_angle 33
-/dune dunes settings cascade_passes 16
-/dune dunes settings iterations 180
-/dune dunes settings wind_angle 24
-/dune dunes settings edge_blend 7
-/dune dunes settings transport_strength 1.0
+/dune dunes settings dune_spacing <32..512>
+/dune dunes settings spacing_variation <0.0..0.50>
+/dune dunes settings ridge_sharpness <1.0..8.0>
+/dune dunes settings valley_cutoff <0.0..0.80>
+/dune dunes settings slope_asymmetry <0.0..1.0>
+/dune dunes settings interdune_cleanup <0.0..1.0>
 ```
 
-Important 0.5.2 changes:
+`slope_asymmetry` changes the seeded transverse cross-section before transport. Higher values
+move the crest downwind, producing a longer windward/stoss ramp and a shorter lee face.
 
-- `dune_spacing` controls transverse crest spacing directly in Minecraft blocks instead of
-  inheriting a fixed wavelength from simulation-cell scale.
-- `ridge_sharpness` narrows or broadens the ridge body.
-- `valley_cutoff` creates genuinely flat interdune terrain by removing weak low-level sand.
-- `spacing_variation` makes ridge spacing and alignment less mechanically periodic.
-- `stable_slope` is removed. `repose_angle` now controls the allowed physical slope in
-  degrees.
-- `cascade_passes` now runs after height mapping and accepts 0-64 passes, so the cascade
-  result is no longer normalized back toward the original height profile.
+`interdune_cleanup` is support-aware rather than another global cutoff. Weak low-height sand
+near a substantial dune body is retained as a dune toe, while similarly weak isolated
+remnants in broad interdune basins are reduced. A mild low-relief attenuation also reduces
+stochastic transport texture on nearly flat transverse sand.
 
-The transverse default introduced in 0.5.2 is aimed at roughly 100 blocks between crests in
-a 512 x 512 test area. Settings remain development-session state and reset when the
-game/server process restarts. The same world seed, aligned region, dune mode, and settings
-remain deterministic.
+Slope and transport controls remain:
 
-Surface rendering modes are:
+```mcfunction
+/dune dunes settings repose_angle <10..45>
+/dune dunes settings cascade_passes <0..64>
+/dune dunes settings iterations <0..1000>
+/dune dunes settings wind_angle <-360..360>
+/dune dunes settings edge_blend <0..32>
+/dune dunes settings transport_strength <0.0..4.0>
+```
+
+Surface rendering modes remain:
 
 | Setting | Top-surface increments | Output |
 |---|---:|---|
-| `whole` | 1 block | Compatibility mode using 0.5.3 nearest-block rounding. |
-| `eighth` | 1/8 block | Uses even `sand_layer` states (2/16 through 14/16). |
+| `whole` | 1 block | Compatibility mode. |
+| `eighth` | 1/8 block | Uses even `sand_layer` states. |
 | `sixteenth` | 1/16 block | Default; uses all 15 partial layer states. |
 
 Every generated column contains full `minecraftdune:sand` blocks and no more than one
-partial `minecraftdune:sand_layer` on top. The layer block has a `layers=1..15` blockstate;
-placing another layer on a 15/16 block converts it to full dune sand.
+partial `minecraftdune:sand_layer` on top. The 0.5.5 patch does not replace or modify the
+0.5.4 sand textures/models, so locally pushed texture fixes remain intact.
+
+Settings are development-session state and reset when the game/server process restarts.
+The same world seed, aligned region, dune mode, and settings remain deterministic.
 
 `generate` and `clear` are destructive development commands for sand above the Y=64 Arrakis
 Dev surface. Non-sand blocks are preserved. If you reduce `cell_size` after generating a
-larger footprint, clear the old footprint explicitly first, for example:
+larger footprint, clear the old footprint explicitly first:
 
 ```mcfunction
 /dune dunes clear 8
 ```
 
-See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md) for parameter ranges,
-behavior, the revised simulation pipeline, and screenshot test profiles.
+See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md) for ranges, pipeline
+details, and repeatable morphology test profiles.
 
-`/dune` is the canonical command root. `/minecraftdune` remains a compatibility
-alias, so older test commands continue to work.
-
+`/dune` is the canonical command root. `/minecraftdune` remains a compatibility alias.
 ## Debug cameras and screenshots
 
 Position the player for a useful comparison view, then save and recall the exact dimension,
@@ -198,7 +219,7 @@ The egg also appears in the Spawn Eggs creative tab.
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.4.jar
+build/libs/minecraftdune-0.5.5.jar
 ```
 
 ## Package and namespace

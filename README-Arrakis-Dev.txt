@@ -1,4 +1,4 @@
-Minecraft: Dune — Arrakis Dev
+Minecraft: Dune â€” Arrakis Dev
 ==============================
 
 Purpose
@@ -26,12 +26,27 @@ Structures: disabled
 Caves: none, because this is a flat generator
 Nether and End: normal vanilla generation
 
-Dune laboratory
----------------
-Version 0.5.4 retains the transverse-dune morphology and 0.5.3 fixed-camera tools. It adds
-custom full and fractional dune sand without changing the morphology settings. The
-simulation remains 64 x 64 cells and the largest synchronous test footprint remains
-512 x 512 Minecraft blocks.
+Dune laboratory â€” 0.5.5
+-----------------------
+The 0.5.5 laboratory keeps the 64 x 64 simulation grid, 512 x 512 maximum synchronous
+footprint, 0.5.4 fractional dune sand, and 0.5.3 fixed-camera screenshot tools.
+
+Default transverse development profile:
+cell_size          = 8
+surface_resolution = sixteenth
+max_height         = 30 (transverse mode default)
+dune_spacing       = 350
+spacing_variation  = 0.18
+ridge_sharpness    = 3.0
+valley_cutoff      = 0.20
+slope_asymmetry    = 0.60
+interdune_cleanup  = 0.30
+repose_angle       = 33
+cascade_passes     = 25
+iterations         = 180 (transverse mode default)
+transport_strength = 1.0
+wind_angle         = 24
+edge_blend         = 7
 
 Basic commands:
 /dune dunes generate transverse
@@ -39,56 +54,44 @@ Basic commands:
 /dune dunes info
 /dune dunes clear
 /dune dunes settings
+/dune dunes settings reset
+
+New 0.5.5 morphology controls:
+/dune dunes settings slope_asymmetry <0.0..1.0>
+/dune dunes settings interdune_cleanup <0.0..1.0>
+
+slope_asymmetry changes the seeded transverse dune profile before transport. The default
+0.60 gives the dune a longer windward ramp and a shorter lee face.
+
+interdune_cleanup selectively removes weak isolated low-sand remnants while retaining
+low-height dune feet that are locally supported by a substantial dune body. The transport
+stage also mildly attenuates stochastic movement on nearly flat transverse sand.
 
 Surface output controls:
 /dune dunes settings surface_resolution whole
 /dune dunes settings surface_resolution eighth
 /dune dunes settings surface_resolution sixteenth
 
-Sixteenth is the 0.5.4 default. Generated columns use full minecraftdune:sand below and at
-most one minecraftdune:sand_layer block on top. Whole reproduces the old nearest-block
-surface, making before/after screenshot comparisons straightforward.
-
-The 0.5.2 default horizontal scale is:
-cell_size 8 -> 512 x 512 blocks
-
-Transverse shape controls:
-/dune dunes settings dune_spacing 100
-/dune dunes settings spacing_variation 0.18
-/dune dunes settings ridge_sharpness 4.0
-/dune dunes settings valley_cutoff 0.20
-
-Slope controls:
-/dune dunes settings repose_angle 33
-/dune dunes settings cascade_passes 16
-
-`stable_slope` was removed in 0.5.2. Cascading now works in Minecraft-scale heights using
-`repose_angle` and occurs after height mapping, so later normalization no longer hides most
-of its effect.
-
-See docs/ARRAKIS_DUNE_PROTOTYPE.md for every exposed parameter, valid ranges, and three
-recommended screenshot profiles.
+Sixteenth remains the default. Generated columns use full minecraftdune:sand below and at
+most one minecraftdune:sand_layer block on top.
 
 Repeatable screenshots
 ----------------------
-Save exact viewpoints and run the same set after each terrain change:
 /dune camera save A
-/dune camera save B
 /dune camera goto A
-/dune screenshot testG
-/dune screenshot batch spacing400
-/dune screenshot batch spacing400 60
+/dune screenshot test
+/dune screenshot batch morphology
+/dune screenshot batch morphology 60
 /dune screenshot batch cancel
 
-The default batch stabilization delay is 40 client ticks. Camera presets persist in
-config/minecraftdune/debug-cameras.json. `/minecraftdune` remains a compatibility alias for
-all `/dune` commands.
+Camera presets persist in config/minecraftdune/debug-cameras.json.
+/minecraftdune remains a compatibility alias for /dune.
 
 Notes
 -----
 - Settings are temporary development-session state and reset on process restart.
 - Non-sand blocks are preserved by the dune commands.
 - Dune generate/clear commands are destructive to sand above the Y=64 test surface.
-- Barchan generation is intentionally unchanged in 0.5.2 while transverse dunes are tuned.
-- If cell_size is reduced after generating a larger field, clear the old scale explicitly,
-  for example: /dune dunes clear 8
+- Barchan generation is intentionally unchanged while transverse dunes are tuned.
+- The 0.5.5 patch does not modify the 0.5.4 sand texture/model assets.
+- NeoForge remains 21.1.248.
