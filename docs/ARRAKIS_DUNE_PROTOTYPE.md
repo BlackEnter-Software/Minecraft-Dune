@@ -2,16 +2,17 @@
 
 ## Status
 
-Version 0.5.5 is a focused transverse-dune morphology pass built on the successful
-0.5.4 fractional-sand surface. It keeps the deterministic 64 x 64 simulation grid,
-`cell_size` maximum of 8, 512 x 512 synchronous test footprint, repose-angle cascade,
-and fixed-camera screenshot workflow.
+Version 0.5.6 freezes the calibrated transverse dune generator as the **v1 baseline**.
+It keeps the deterministic 64 x 64 simulation grid, `cell_size` maximum of 8, 512 x 512
+synchronous test footprint, 0.5.4 fractional-sand surface, repose-angle cascade, and
+0.5.3 fixed-camera screenshot workflow.
 
 The production terrain will eventually vary dune scale regionally. For development,
 350-block crest spacing is the baseline because it gives Arrakis-scale forms while still
 showing enough morphology inside one 512 x 512 laboratory region.
 
-Barchan generation is intentionally unchanged.
+Barchan generation is intentionally unchanged. Geological macro-height, shield-wall,
+rock-field, and terrain-projected wind work is deferred to a later release.
 
 ## Core commands
 
@@ -27,7 +28,7 @@ Barchan generation is intentionally unchanged.
 
 `/minecraftdune` remains a compatibility alias.
 
-## 0.5.5 default development profile
+## 0.5.6 transverse v1 baseline
 
 | Setting | Range | Default | Purpose |
 |---|---:|---:|---|
@@ -38,22 +39,26 @@ Barchan generation is intentionally unchanged.
 | `spacing_variation` | 0.0-0.50 | 0.18 | Low-frequency deterministic phase warping. |
 | `ridge_sharpness` | 1.0-8.0 | 3.0 | Broadens/narrows the seeded ridge body. |
 | `valley_cutoff` | 0.0-0.80 | 0.20 | Broad low-end height threshold; kept moderate so real dune toes are not clipped. |
-| `slope_asymmetry` | 0.0-1.0 | 0.60 | Moves the crest downwind in the seed profile, lengthening the windward ramp and shortening the lee face. |
-| `interdune_cleanup` | 0.0-1.0 | 0.30 | Support-aware removal of weak isolated low-sand remnants in open basins. |
+| `slope_asymmetry` | 0.0-1.0 | 0.82 | Moves the crest downwind in the seed profile, lengthening the windward ramp and shortening the lee face. |
+| `interdune_cleanup` | 0.0-1.0 | 0.40 | Support-aware removal of weak isolated low-sand remnants in open basins. |
 | `repose_angle` | 10-45 deg | 33 | Maximum stable coarse-grid slope. |
 | `cascade_passes` | 0-64 | 25 | Number of post-height-map repose relaxation passes. |
 | `iterations` | 0-1000 | 0 (= mode default) | Transverse default remains 180; barchan 220. |
-| `wind_angle` | -360..360 deg | 24 | Wind direction; 0 = +X, 90 = +Z. |
+| `wind_angle` | -360..360 deg | 24 | Generator wind direction; 0 = +X (east), 90 = +Z (south). |
 | `edge_blend` | 0-32 cells | 7 | Laboratory-only fade to the flat test surface. |
 | `transport_strength` | 0.0-4.0 | 1.0 | Multiplier for saltation-like lifting. |
 
-## New morphology behavior
+These values define the frozen v1 local dune synthesizer. The live controls remain available
+for experiments, but `/dune dunes settings reset` always restores this baseline.
+
+## Transverse v1 morphology semantics
 
 ### Asymmetric transverse seed
 
 The old transverse seed was fundamentally based on a symmetric sinusoidal cross-section.
-0.5.5 keeps the same deterministic phase field, spacing variation, and ridge sharpness, but
-`slope_asymmetry` blends that profile toward a wind-oriented cycle:
+The morphology pass introduced in 0.5.5 keeps the same deterministic phase field, spacing
+variation, and ridge sharpness, but `slope_asymmetry` blends that profile toward a
+wind-oriented cycle:
 
 - long, gentler windward/stoss rise;
 - crest shifted downwind;
@@ -82,6 +87,18 @@ it from 0.20 toward 0.28 cleans the plain but also clips useful dune-foot materi
 This is a morphology filter after physical height mapping, so it is not a sand-mass-conserving
 transport step.
 
+### Wind-angle orientation invariant
+
+Wind uses world axes rather than Minecraft player/camera yaw. The validated convention is:
+
+- `0` points toward `+X` (east);
+- `90` points toward `+Z` (south);
+- `180` points toward `-X` (west);
+- `270` points toward `-Z` (north).
+
+Positive angles therefore rotate from `+X` toward `+Z`. The v1 baseline preserves this
+orientation behavior unchanged.
+
 ## Pipeline
 
 1. Seed deterministic transverse ridges using spacing, variation, sharpness, and asymmetry.
@@ -95,14 +112,14 @@ transport step.
 9. Quantize to whole/eighth/sixteenth surface units.
 10. Place full `minecraftdune:sand` plus at most one `minecraftdune:sand_layer`.
 
-## Recommended 0.5.5 screenshot tests
+## Recommended 0.5.6 baseline checks
 
 ### Baseline
 
 ```mcfunction
 /dune dunes settings reset
 /dune dunes generate transverse
-/dune screenshot batch baseline055 60
+/dune screenshot batch baseline056 60
 ```
 
 ### Asymmetry comparison
@@ -112,9 +129,9 @@ transport step.
 /dune dunes generate transverse
 /dune screenshot batch asym_000 60
 
-/dune dunes settings slope_asymmetry 0.6
+/dune dunes settings slope_asymmetry 0.82
 /dune dunes generate transverse
-/dune screenshot batch asym_060 60
+/dune screenshot batch asym_082 60
 
 /dune dunes settings slope_asymmetry 1.0
 /dune dunes generate transverse
@@ -131,9 +148,9 @@ Keep all other values fixed.
 /dune dunes generate transverse
 /dune screenshot batch cleanup_000 60
 
-/dune dunes settings interdune_cleanup 0.3
+/dune dunes settings interdune_cleanup 0.4
 /dune dunes generate transverse
-/dune screenshot batch cleanup_030 60
+/dune screenshot batch cleanup_040 60
 
 /dune dunes settings interdune_cleanup 0.7
 /dune dunes generate transverse

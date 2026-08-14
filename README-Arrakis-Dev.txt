@@ -1,4 +1,4 @@
-Minecraft: Dune â€” Arrakis Dev
+Minecraft: Dune — Arrakis Dev
 ==============================
 
 Purpose
@@ -26,10 +26,11 @@ Structures: disabled
 Caves: none, because this is a flat generator
 Nether and End: normal vanilla generation
 
-Dune laboratory â€” 0.5.5
+Dune laboratory — 0.5.6
 -----------------------
-The 0.5.5 laboratory keeps the 64 x 64 simulation grid, 512 x 512 maximum synchronous
-footprint, 0.5.4 fractional dune sand, and 0.5.3 fixed-camera screenshot tools.
+The 0.5.6 laboratory freezes the transverse dune generator as the v1 baseline. It keeps
+the 64 x 64 simulation grid, 512 x 512 maximum synchronous footprint, 0.5.4 fractional
+dune sand, and 0.5.3 fixed-camera screenshot tools.
 
 Default transverse development profile:
 cell_size          = 8
@@ -39,8 +40,8 @@ dune_spacing       = 350
 spacing_variation  = 0.18
 ridge_sharpness    = 3.0
 valley_cutoff      = 0.20
-slope_asymmetry    = 0.60
-interdune_cleanup  = 0.30
+slope_asymmetry    = 0.82
+interdune_cleanup  = 0.40
 repose_angle       = 33
 cascade_passes     = 25
 iterations         = 180 (transverse mode default)
@@ -56,16 +57,20 @@ Basic commands:
 /dune dunes settings
 /dune dunes settings reset
 
-New 0.5.5 morphology controls:
+Transverse v1 morphology controls:
 /dune dunes settings slope_asymmetry <0.0..1.0>
 /dune dunes settings interdune_cleanup <0.0..1.0>
 
 slope_asymmetry changes the seeded transverse dune profile before transport. The default
-0.60 gives the dune a longer windward ramp and a shorter lee face.
+0.82 gives the dune a longer windward ramp and a shorter lee face.
 
 interdune_cleanup selectively removes weak isolated low-sand remnants while retaining
 low-height dune feet that are locally supported by a substantial dune body. The transport
 stage also mildly attenuates stochastic movement on nearly flat transverse sand.
+The frozen v1 interdune_cleanup default is 0.40.
+
+Wind angles use world axes, not player yaw: 0 points toward +X (east), 90 toward +Z
+(south), 180 toward -X (west), and 270 toward -Z (north).
 
 Surface output controls:
 /dune dunes settings surface_resolution whole
@@ -92,6 +97,7 @@ Notes
 - Settings are temporary development-session state and reset on process restart.
 - Non-sand blocks are preserved by the dune commands.
 - Dune generate/clear commands are destructive to sand above the Y=64 test surface.
-- Barchan generation is intentionally unchanged while transverse dunes are tuned.
-- The 0.5.5 patch does not modify the 0.5.4 sand texture/model assets.
+- Barchan generation is intentionally unchanged.
+- The 0.5.6 baseline does not modify the 0.5.4 sand texture/model assets.
+- Geological macro-height, shield-wall, rock-field, and projected-wind work is deferred.
 - NeoForge remains 21.1.248.

@@ -1,0 +1,45 @@
+Minecraft: Dune 0.5.6 — Transverse dune v1 baseline
+====================================================
+
+Target baseline
+---------------
+Minecraft 1.21.1
+NeoForge 21.1.248
+Minecraft: Dune 0.5.5 main branch
+
+This update intentionally preserves the current layered-sand resource assets and the
+existing debug camera/screenshot system.
+
+Main changes
+------------
+- Version 0.5.6
+- Transverse generator frozen as the v1 baseline
+- Transverse default height: 30
+- Default dune spacing: 350
+- Default ridge sharpness: 3.0
+- Default valley cutoff: 0.20
+- Default cascade passes: 25
+- Default slope_asymmetry: 0.82
+- Default interdune_cleanup: 0.40
+- Wind convention preserved: 0 = +X, 90 = +Z
+- No geological macro-height framework changes
+
+After applying
+--------------
+Build:
+  .\gradlew.bat clean build
+
+Run:
+  .\gradlew.bat runClient
+
+Reset the in-game profile:
+  /dune dunes settings reset
+
+Generate:
+  /dune dunes generate transverse
+
+Inspect:
+  /dune dunes settings
+
+Recommended first screenshot batch:
+  /dune screenshot batch baseline056 60

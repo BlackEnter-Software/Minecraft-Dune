@@ -624,6 +624,9 @@ public final class DuneSimulation {
         public static final double MAXIMUM_TRANSPORT_STRENGTH = 4.0;
 
         public static Settings defaults() {
+            // Frozen transverse v1 development baseline (0.5.6). Keep changes to these
+            // calibrated values explicit so later regional terrain work can treat this
+            // local dune synthesizer as a stable input.
             return new Settings(
                     8,
                     0,
@@ -631,8 +634,8 @@ public final class DuneSimulation {
                     0.18,
                     3.0,
                     0.20,
-                    0.60,
-                    0.30,
+                    0.82,
+                    0.40,
                     33.0,
                     25,
                     0,
@@ -829,6 +832,8 @@ public final class DuneSimulation {
 
     private record Wind(double x, double z, double crosswindX, double crosswindZ) {
         static Wind fromAngle(double angleDegrees) {
+            // Generator convention: 0 degrees points toward +X and 90 degrees toward +Z.
+            // This is intentionally independent of Minecraft player/camera yaw.
             double radians = Math.toRadians(angleDegrees);
             double x = Math.cos(radians);
             double z = Math.sin(radians);

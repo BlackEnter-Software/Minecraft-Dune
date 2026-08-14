@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.5**
+Current development version: **0.5.6**
 
 The project currently contains:
 
@@ -48,10 +48,10 @@ The Nether and End retain normal vanilla generation.
 
 ## Dune prototype
 
-Version 0.5.5 is the first morphology pass built around the 0.5.4 fractional dune surface.
-The simulation remains a 64 x 64 deterministic laboratory grid with `cell_size 8`, giving a
-512 x 512 Minecraft-block test field. Barchan generation remains available but is still
-deferred while transverse dunes are tuned.
+Version 0.5.6 freezes the calibrated transverse dune generator as the **v1 baseline** built
+around the 0.5.4 fractional dune surface. The simulation remains a 64 x 64 deterministic
+laboratory grid with `cell_size 8`, giving a 512 x 512 Minecraft-block test field. Barchan
+generation remains available but is still deferred while upstream terrain systems are built.
 
 The tested Arrakis Dev baseline is now:
 
@@ -69,8 +69,8 @@ dune_spacing       = 350
 spacing_variation  = 0.18
 ridge_sharpness    = 3.0
 valley_cutoff      = 0.20
-slope_asymmetry    = 0.60
-interdune_cleanup  = 0.30
+slope_asymmetry    = 0.82
+interdune_cleanup  = 0.40
 repose_angle       = 33
 cascade_passes     = 25
 iterations         = mode default (transverse 180, barchan 220)
@@ -107,12 +107,13 @@ Transverse morphology controls include:
 ```
 
 `slope_asymmetry` changes the seeded transverse cross-section before transport. Higher values
-move the crest downwind, producing a longer windward/stoss ramp and a shorter lee face.
+move the crest downwind, producing a longer windward/stoss ramp and a shorter lee face. The
+v1 baseline uses `0.82`; useful tuning remains available without changing the frozen default.
 
 `interdune_cleanup` is support-aware rather than another global cutoff. Weak low-height sand
 near a substantial dune body is retained as a dune toe, while similarly weak isolated
 remnants in broad interdune basins are reduced. A mild low-relief attenuation also reduces
-stochastic transport texture on nearly flat transverse sand.
+stochastic transport texture on nearly flat transverse sand. The v1 baseline uses `0.40`.
 
 Slope and transport controls remain:
 
@@ -125,6 +126,10 @@ Slope and transport controls remain:
 /dune dunes settings transport_strength <0.0..4.0>
 ```
 
+Wind angles use the generator's world-axis convention: `0` points toward `+X` (east), `90`
+points toward `+Z` (south), `180` points toward `-X` (west), and `270` points toward `-Z`
+(north). This is independent of Minecraft player/camera yaw.
+
 Surface rendering modes remain:
 
 | Setting | Top-surface increments | Output |
@@ -134,8 +139,8 @@ Surface rendering modes remain:
 | `sixteenth` | 1/16 block | Default; uses all 15 partial layer states. |
 
 Every generated column contains full `minecraftdune:sand` blocks and no more than one
-partial `minecraftdune:sand_layer` on top. The 0.5.5 patch does not replace or modify the
-0.5.4 sand textures/models, so locally pushed texture fixes remain intact.
+partial `minecraftdune:sand_layer` on top. The 0.5.6 baseline does not replace or modify the
+0.5.4 sand textures/models, so the current layered-sand assets remain intact.
 
 Settings are development-session state and reset when the game/server process restarts.
 The same world seed, aligned region, dune mode, and settings remain deterministic.
@@ -219,7 +224,7 @@ The egg also appears in the Spawn Eggs creative tab.
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.5.jar
+build/libs/minecraftdune-0.5.6.jar
 ```
 
 ## Package and namespace

@@ -1,6 +1,21 @@
 # Minecraft: Dune patch notes
 
-## 0.5.5 â€” Transverse dune morphology pass
+## 0.5.6 — Transverse dune v1 baseline
+
+- Froze the calibrated transverse generator as the v1 local dune-synthesis baseline.
+- Kept the 350-block development crest spacing introduced in 0.5.5.
+- Promoted the tested `slope_asymmetry` default from 0.60 to 0.82.
+- Promoted the tested `interdune_cleanup` default from 0.30 to 0.40.
+- Preserved all other transverse profile defaults, deterministic morphology/transport math,
+  the validated wind convention (`0 = +X`, `90 = +Z`), and orientation behavior.
+- Preserved the 0.5.4 layered-sand block, model, and texture assets unchanged.
+- Preserved the existing fixed-camera and screenshot system unchanged.
+- Left barchan generation unchanged.
+- Deferred geological macro-height, shield-wall, rock-field, and terrain-projected wind work;
+  none of the planned 0.5.7 framework is included in this release.
+- Updated project version metadata and active dune documentation to 0.5.6.
+
+## 0.5.5 — Transverse dune morphology pass
 
 - Promoted the tested Arrakis Dev transverse profile to the development defaults:
   - `cell_size=8`;
