@@ -1,0 +1,56 @@
+Minecraft: Dune 0.5.7 — direct overlay
+=======================================
+
+Baseline
+--------
+This overlay is built against the current GitHub main baseline that reports mod_version
+0.5.6 and NeoForge 21.1.248.
+
+It intentionally restores build.gradle to that baseline:
+- repositories {} is empty;
+- dependencies {} is empty;
+- no Modrinth/localRuntime development modpack is configured.
+
+The geology source is then layered on top as version 0.5.7.
+
+Apply
+-----
+This is NOT a patch script. Extract/copy the contents directly over your Minecraft-Dune
+project directory.
+
+For the cleanest result, start from the GitHub main checkout before copying this overlay.
+
+The macro-geology command registers at low event priority and only adds the "geology" child
+if it is not already present. This means it also tolerates a checkout where an earlier 0.5.7
+experiment directly edited DunePrototypeCommand.java.
+
+Build:
+  .\gradlew.bat clean build
+
+Run:
+  .\gradlew.bat runClient
+
+Initial geology:
+  /dune geology generate_initial
+  # 100 Minecraft-chunk / 1600-block radius around absolute (0,0)
+
+Other geology commands:
+  /dune geology info
+  /dune geology sample <x> <z>
+  /dune geology generate
+  /dune geology generate_nearest <1..12>
+  /dune geology clear
+
+Optional third-party test mods
+------------------------------
+Distant Horizons, Sodium, Sable, Create Aeronautics, etc. are NOT Gradle dependencies in
+this overlay. Install them separately in whatever development/test instance you choose.
+
+Large-area generation
+---------------------
+/dune geology generate_nearest 1
+/dune geology generation status
+/dune geology generation cancel
+
+generate_nearest 1 means the current 256x256 geology tile plus one neighboring tile in
+every X/Z direction: 3x3 geology tiles total.

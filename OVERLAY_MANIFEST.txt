@@ -1,0 +1,27 @@
+Minecraft-Dune 0.5.7 direct replacement overlay
+
+GitHub baseline:
+  BlackEnter-Software/Minecraft-Dune
+  main tree SHA: 11277480d6e1b447c578dd844917460470132bbe
+  baseline mod version: 0.5.6
+
+Files intentionally replaced/added:
+  build.gradle
+  gradle.properties
+  README.md
+  README-Arrakis-Dev.txt
+  PATCH_NOTES.md
+  INSTALL-0.5.7.txt
+  docs/MACRO_GEOLOGY.md
+  src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyField.java
+  src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyCommand.java
+  src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyGenerationManager.java
+  src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyCommandRegistration.java
+
+Important:
+  This archive is a direct file overlay, not an executable installer.
+  It deliberately does not include any automatic Modrinth dependencies.
+
+Large generation semantics in this revision:
+  generate_initial = 100 vanilla-Minecraft-chunk radius / 1600 blocks from (0,0)
+  generate_nearest 1 = player tile + one neighboring 256x256 tile each direction (3x3)

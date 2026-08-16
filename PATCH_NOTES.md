@@ -1,5 +1,33 @@
 # Minecraft: Dune patch notes
 
+## 0.5.7 — Macro geology foundation
+
+- Added a deterministic `MacroGeologyField` evaluated from the world seed and absolute X/Z
+  coordinates.
+- Hard-reserved the first 1000 blocks from `(0,0)` as a flat Arrakeen / central basin.
+- Added continuous weights for central basin, rock transition, Shield Wall / massif,
+  eroded margin, and open desert.
+- Added very-low-frequency radial boundary warping outside the protected basin.
+- Added broad seed-dependent continuity lobes plus low-frequency formation fields so the
+  Shield Wall permission field is not a circular annulus around spawn.
+- Added a provisional macro base-elevation field with up to 176 blocks of rock relief above
+  the Arrakis Dev Y=64 surface.
+- Added `/dune geology info` and `/dune geology sample <x> <z>`.
+- Added `/dune geology generate` and `/dune geology clear` for one aligned 256 x 256 tile.
+- Changed `/dune geology generate_initial` to generate a 100 vanilla-Minecraft-chunk
+  radius (1600 blocks) around absolute `(0,0)` for Distant Horizons-scale inspection.
+- Changed `/dune geology generate_nearest <1..12>` to be centered on the player's current
+  256 x 256 geology tile. Radius 1 is a 3 x 3 tile square, radius 2 is 5 x 5, etc.
+- Added tick-spread large-area generation with `/dune geology generation status` and
+  `/dune geology generation cancel` to avoid one enormous synchronous command tick.
+- Kept the first materialized geology deliberately plain `minecraft:stone`; detailed strata,
+  plateaus, escarpments, ridges, mesas, talus and erosion remain deferred.
+- Preserved the frozen 0.5.6 transverse dune v1 implementation and defaults unchanged.
+- Restored the Gradle dependency/repository configuration to the GitHub 0.5.6 baseline:
+  no automatic third-party development mods are resolved by this project.
+- Kept NeoForge at 21.1.248.
+- Updated version metadata and active terrain documentation to 0.5.7.
+
 ## 0.5.6 — Transverse dune v1 baseline
 
 - Froze the calibrated transverse generator as the v1 local dune-synthesis baseline.

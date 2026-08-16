@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.6**
+Current development version: **0.5.7**
 
 The project currently contains:
 
@@ -11,7 +11,8 @@ The project currently contains:
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
 - custom full and fractional dune-sand blocks with selectable surface resolution;
-- persistent fixed cameras and repeatable named/batch screenshots for terrain testing.
+- persistent fixed cameras and repeatable named/batch screenshots for terrain testing;
+- a deterministic world-scale macro-geology prototype centered on `(0,0)`.
 
 ## Requirements
 
@@ -28,6 +29,10 @@ Open PowerShell in this directory:
 ```powershell
 .\gradlew.bat runClient
 ```
+
+The Gradle project itself intentionally has no third-party runtime mods declared. Optional
+terrain/rendering/test mods such as Distant Horizons can be installed in the development
+environment separately.
 
 ## Arrakis Dev world
 
@@ -46,14 +51,85 @@ The preset generates a uniform desert surface at Y=64 with this column layout:
 Biome features, lakes, structures, and caves are disabled in the Arrakis Dev overworld.
 The Nether and End retain normal vanilla generation.
 
+## Macro geology prototype
+
+Version 0.5.7 starts the upstream terrain framework while leaving the calibrated 0.5.6
+transverse dune generator frozen.
+
+The field is deterministic from the world seed plus absolute X/Z coordinates. Geological
+province values remain continuous inputs rather than being encoded directly as Minecraft
+biomes.
+
+First-region targets:
+
+- `0-1000`: hard-reserved flat Arrakeen / central basin;
+- roughly `1000-1500`: rock transition;
+- roughly `1400-3000`: Shield Wall / massif province;
+- roughly `2800-4000`: broken eroded outer margin;
+- roughly `3600-4200`: increasing open-desert dominance;
+- roughly `4200+`: open desert.
+
+Outside the protected 1000-block basin, low-frequency seeded boundary warp and formation
+continuity fields prevent the rock province from becoming a perfect circular ring.
+
+Inspect the field without changing blocks:
+
+```mcfunction
+/dune geology info
+/dune geology sample <x> <z>
+```
+
+Materialize the aligned 256 x 256 geology tile containing the player:
+
+```mcfunction
+/dune geology generate
+/dune geology clear
+```
+
+For a fresh world, generate a **100 vanilla-Minecraft-chunk radius** around absolute
+`(0,0)`:
+
+```mcfunction
+/dune geology generate_initial
+```
+
+That is a 1600-block radius. The command forces/generates the underlying Arrakis Dev chunks
+as well as materializing macro rock, making it suitable for a Distant Horizons overview.
+Because this covers tens of thousands of Minecraft chunks, it runs as a tick-spread job
+rather than trying to finish inside one command tick.
+
+`generate_nearest` is now player/source-centered and its argument is a radius measured in
+**256 x 256 geology tiles**:
+
+```mcfunction
+/dune geology generate_nearest <1..12>
+```
+
+`generate_nearest 1` generates the tile containing the player plus one neighboring tile in
+every X/Z direction: a 3 x 3 tile square, or 768 x 768 blocks total. Radius 2 is 5 x 5
+tiles, and so on.
+
+Large-job controls:
+
+```mcfunction
+/dune geology generation status
+/dune geology generation cancel
+```
+
+The first rock output is deliberately crude `minecraft:stone`, with provisional maximum
+surface Y=240. Large jobs use an additive fast path and do not perform the expensive
+Y=240-downward cleanup scan in every chunk; use the normal single-tile `generate`/`clear`
+commands when locally retesting changed geology.
+
+See [`docs/MACRO_GEOLOGY.md`](docs/MACRO_GEOLOGY.md).
+
 ## Dune prototype
 
-Version 0.5.6 freezes the calibrated transverse dune generator as the **v1 baseline** built
-around the 0.5.4 fractional dune surface. The simulation remains a 64 x 64 deterministic
-laboratory grid with `cell_size 8`, giving a 512 x 512 Minecraft-block test field. Barchan
-generation remains available but is still deferred while upstream terrain systems are built.
+Version 0.5.6 froze the calibrated transverse dune generator as the **v1 baseline** built
+around the 0.5.4 fractional dune surface. Version 0.5.7 preserves that implementation and
+its defaults unchanged while macro geology is developed upstream.
 
-The tested Arrakis Dev baseline is now:
+The tested Arrakis Dev baseline is:
 
 ```mcfunction
 /dune dunes settings reset
@@ -108,12 +184,11 @@ Transverse morphology controls include:
 
 `slope_asymmetry` changes the seeded transverse cross-section before transport. Higher values
 move the crest downwind, producing a longer windward/stoss ramp and a shorter lee face. The
-v1 baseline uses `0.82`; useful tuning remains available without changing the frozen default.
+v1 baseline uses `0.82`.
 
 `interdune_cleanup` is support-aware rather than another global cutoff. Weak low-height sand
 near a substantial dune body is retained as a dune toe, while similarly weak isolated
-remnants in broad interdune basins are reduced. A mild low-relief attenuation also reduces
-stochastic transport texture on nearly flat transverse sand. The v1 baseline uses `0.40`.
+remnants in broad interdune basins are reduced. The v1 baseline uses `0.40`.
 
 Slope and transport controls remain:
 
@@ -128,7 +203,7 @@ Slope and transport controls remain:
 
 Wind angles use the generator's world-axis convention: `0` points toward `+X` (east), `90`
 points toward `+Z` (south), `180` points toward `-X` (west), and `270` points toward `-Z`
-(north). This is independent of Minecraft player/camera yaw.
+(north).
 
 Surface rendering modes remain:
 
@@ -139,28 +214,17 @@ Surface rendering modes remain:
 | `sixteenth` | 1/16 block | Default; uses all 15 partial layer states. |
 
 Every generated column contains full `minecraftdune:sand` blocks and no more than one
-partial `minecraftdune:sand_layer` on top. The 0.5.6 baseline does not replace or modify the
-0.5.4 sand textures/models, so the current layered-sand assets remain intact.
+partial `minecraftdune:sand_layer` on top. Version 0.5.7 does not replace or modify the
+layered-sand textures/models.
 
 Settings are development-session state and reset when the game/server process restarts.
 The same world seed, aligned region, dune mode, and settings remain deterministic.
 
-`generate` and `clear` are destructive development commands for sand above the Y=64 Arrakis
-Dev surface. Non-sand blocks are preserved. If you reduce `cell_size` after generating a
-larger footprint, clear the old footprint explicitly first:
-
-```mcfunction
-/dune dunes clear 8
-```
-
-See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md) for ranges, pipeline
-details, and repeatable morphology test profiles.
+See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md).
 
 `/dune` is the canonical command root. `/minecraftdune` remains a compatibility alias.
-## Debug cameras and screenshots
 
-Position the player for a useful comparison view, then save and recall the exact dimension,
-position, yaw, and pitch:
+## Debug cameras and screenshots
 
 ```mcfunction
 /dune camera info
@@ -183,10 +247,7 @@ Take one named screenshot:
 /dune screenshot testG
 ```
 
-This creates `screenshots/dune_testG.png`. Existing names are not overwritten; later
-captures use `_2`, `_3`, and subsequent numeric suffixes.
-
-To capture every saved camera in alphabetical order:
+Batch capture:
 
 ```mcfunction
 /dune screenshot batch spacing400
@@ -194,26 +255,12 @@ To capture every saved camera in alphabetical order:
 /dune screenshot batch cancel
 ```
 
-The optional final number is the stabilization delay in client ticks; the default is 40.
-During a batch the client waits for each server-authoritative teleport, locks the saved
-camera through a rendered frame, hides the HUD, takes the screenshot, and restores the
-previous HUD state when the batch finishes or is cancelled.
-
 ## Test the Muad'dib entity
-
-Create a world with cheats enabled and run:
 
 ```mcfunction
 /summon minecraftdune:muaddib_mouse
-```
-
-Or obtain its spawn egg:
-
-```mcfunction
 /give @s minecraftdune:muaddib_mouse_spawn_egg
 ```
-
-The egg also appears in the Spawn Eggs creative tab.
 
 ## Build the distributable mod
 
@@ -224,7 +271,7 @@ The egg also appears in the Spawn Eggs creative tab.
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.6.jar
+build/libs/minecraftdune-0.5.7.jar
 ```
 
 ## Package and namespace
@@ -232,25 +279,6 @@ build/libs/minecraftdune-0.5.6.jar
 - Java package: `com.blackenter.minecraftdune`
 - Maven group: `com.blackenter.minecraftdune`
 - Minecraft mod ID / resource namespace: `minecraftdune`
-
-## Current entity behavior
-
-`MuaddibMouseEntity` subclasses vanilla `Rabbit`. It inherits rabbit hopping and the
-existing animal AI while desert-specific behavior is developed. It also assigns a high
-pathfinding preference to sand.
-
-Natural biome spawning is not enabled yet. Summoning and the spawn egg are deliberately
-the only spawn mechanisms in this development version.
-
-## Blockbench
-
-Open:
-
-```text
-blockbench/muaddib_mouse.bbmodel
-```
-
-See `docs/BLOCKBENCH_WORKFLOW.md` before exporting revised Java geometry.
 
 ## Version history
 
