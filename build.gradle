@@ -38,6 +38,17 @@ neoForge {
     runs {
         client {
             client()
+
+				jvmArguments = [
+					'-XX:+UnlockExperimentalVMOptions',
+					'-XX:+UseZGC',
+					'-XX:+ZGenerational',
+					'-XX:MaxGCPauseMillis=50',
+					'-XX:+AlwaysPreTouch',
+					'-XX:ZUncommitDelay=600',
+					'-XX:ZCollectionInterval=10'
+				]
+
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
