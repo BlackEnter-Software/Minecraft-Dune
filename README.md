@@ -2,17 +2,17 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.7**
+Current development version: **0.5.8**
 
 The project currently contains:
 
 - the Muad'dib desert mouse test entity, model, texture, and animations;
-- the selectable **Arrakis Dev** flat desert world preset;
+- the selectable **Arrakis Dev** desert world preset;
+- native deterministic macro geology generated as part of the Arrakis chunk pipeline;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
 - custom full and fractional dune-sand blocks with selectable surface resolution;
-- persistent fixed cameras and repeatable named/batch screenshots for terrain testing;
-- a deterministic world-scale macro-geology prototype centered on `(0,0)`.
+- persistent fixed cameras and repeatable named/batch screenshots for terrain testing.
 
 ## Requirements
 
@@ -30,112 +30,119 @@ Open PowerShell in this directory:
 .\gradlew.bat runClient
 ```
 
-The Gradle project itself intentionally has no third-party runtime mods declared. Optional
-terrain/rendering/test mods such as Distant Horizons can be installed in the development
-environment separately.
+The development client JVM arguments configured in `build.gradle` are preserved. The
+Gradle project intentionally declares no third-party runtime mods; Distant Horizons and
+other development/test mods can be installed manually.
 
 ## Arrakis Dev world
 
-Create a new world and cycle the **World Type** button until **Arrakis Dev** appears.
-The preset generates a uniform desert surface at Y=64 with this column layout:
+**Create a new Arrakis Dev world for 0.5.8 testing.**
 
-| Y range | Material |
+Version 0.5.8 changes the overworld chunk-generator type from vanilla `minecraft:flat` to
+`minecraftdune:arrakis_dev`. An existing 0.5.7 world stores its old flat generator in
+`level.dat` and will not automatically switch to native geology after updating the mod.
+
+The native generator retains the same base stratigraphy:
+
+| Y range | Base material |
 |---:|---|
-| 65 and above | Air |
+| 65 and above | Air before macro geology |
 | 55 to 64 | Sand |
 | 45 to 54 | Sandstone |
 | 0 to 44 | Stone |
 | -63 to -1 | Deepslate |
 | -64 | Bedrock |
 
-Biome features, lakes, structures, and caves are disabled in the Arrakis Dev overworld.
+Biome features, lakes, structures, and caves remain disabled in the Arrakis Dev overworld.
 The Nether and End retain normal vanilla generation.
 
-## Macro geology prototype
+## Native macro geology — 0.5.8
 
-Version 0.5.7 starts the upstream terrain framework while leaving the calibrated 0.5.6
-transverse dune generator frozen.
+The 0.5.7 `MacroGeologyField` mathematics are preserved for this milestone. The difference
+is **where the resulting terrain is created**.
 
-The field is deterministic from the world seed plus absolute X/Z coordinates. Geological
-province values remain continuous inputs rather than being encoded directly as Minecraft
-biomes.
+Previously the debug commands generated a flat chunk and then built cliffs with large
+numbers of `ServerLevel#setBlock` calls. In 0.5.8 the registered
+`ArrakisChunkGenerator` extends the vanilla flat generator, builds the normal Arrakis base
+layers, and writes the macro-rock mass directly into `ChunkAccess` during
+`fillFromNoise()`.
 
-First-region targets:
+The generator captures the actual level seed when Minecraft creates the chunk-generator
+structure state. Macro terrain therefore remains deterministic from:
+
+```text
+world seed + absolute X/Z
+```
+
+The current first-region field is intentionally unchanged:
 
 - `0-1000`: hard-reserved flat Arrakeen / central basin;
 - roughly `1000-1500`: rock transition;
 - roughly `1400-3000`: Shield Wall / massif province;
-- roughly `2800-4000`: broken eroded outer margin;
+- roughly `2800-4000`: eroded outer margin;
 - roughly `3600-4200`: increasing open-desert dominance;
 - roughly `4200+`: open desert.
 
-Outside the protected 1000-block basin, low-frequency seeded boundary warp and formation
-continuity fields prevent the rock province from becoming a perfect circular ring.
+The provisional rock output remains plain `minecraft:stone`, up to Y=240. The planned
+0-800/800-1000 inner-region restructuring, faults/ravines, sandy passes, abrupt massif
+breakup, outer broken-rock province, strata and erosion are deliberately deferred until
+the native generator is validated.
 
-Inspect the field without changing blocks:
+Inspect the field without generating extra chunks:
 
 ```mcfunction
 /dune geology info
 /dune geology sample <x> <z>
 ```
 
-Materialize the aligned 256 x 256 geology tile containing the player:
+Pregenerate the aligned 256 x 256 geology tile containing the player:
 
 ```mcfunction
 /dune geology generate
-/dune geology clear
 ```
 
-For a fresh world, generate a **100 vanilla-Minecraft-chunk radius** around absolute
-`(0,0)`:
+Pregenerate a **100 vanilla-Minecraft-chunk radius** around absolute `(0,0)`:
 
 ```mcfunction
 /dune geology generate_initial
 ```
 
-That is a 1600-block radius. The command forces/generates the underlying Arrakis Dev chunks
-as well as materializing macro rock, making it suitable for a Distant Horizons overview.
-Because this covers tens of thousands of Minecraft chunks, it runs as a tick-spread job
-rather than trying to finish inside one command tick.
+This is a 1600-block radius. The command only asks Minecraft for normal FULL chunks;
+`ArrakisChunkGenerator` creates the geology as part of those chunks.
 
-`generate_nearest` is now player/source-centered and its argument is a radius measured in
-**256 x 256 geology tiles**:
+Player-centered pregeneration uses a radius measured in 256 x 256 geology tiles:
 
 ```mcfunction
 /dune geology generate_nearest <1..12>
 ```
 
-`generate_nearest 1` generates the tile containing the player plus one neighboring tile in
-every X/Z direction: a 3 x 3 tile square, or 768 x 768 blocks total. Radius 2 is 5 x 5
-tiles, and so on.
+`generate_nearest 1` means the current tile plus one neighboring tile in every X/Z
+direction: a 3 x 3 tile square, 768 x 768 blocks, or 2304 ordinary Minecraft chunks.
 
-Large-job controls:
+Large pregeneration jobs remain tick-spread:
 
 ```mcfunction
 /dune geology generation status
 /dune geology generation cancel
 ```
 
-The first rock output is deliberately crude `minecraft:stone`, with provisional maximum
-surface Y=240. Large jobs use an additive fast path and do not perform the expensive
-Y=240-downward cleanup scan in every chunk; use the normal single-tile `generate`/`clear`
-commands when locally retesting changed geology.
+`/dune geology clear` is retained only as an explanatory compatibility command. Native
+terrain cannot safely be removed as a separate post-generation layer. For a clean retest,
+create a fresh Arrakis Dev world or regenerate the relevant closed-world region files.
 
-See [`docs/MACRO_GEOLOGY.md`](docs/MACRO_GEOLOGY.md).
+See [`docs/MACRO_GEOLOGY.md`](docs/MACRO_GEOLOGY.md) and
+[`docs/NATIVE_ARRAKIS_TERRAIN.md`](docs/NATIVE_ARRAKIS_TERRAIN.md).
 
 ## Dune prototype
 
-Version 0.5.6 froze the calibrated transverse dune generator as the **v1 baseline** built
-around the 0.5.4 fractional dune surface. Version 0.5.7 preserves that implementation and
-its defaults unchanged while macro geology is developed upstream.
-
-The tested Arrakis Dev baseline is:
+The calibrated 0.5.6 transverse generator remains the **v1 baseline**. Version 0.5.8 does
+not change its morphology math or defaults.
 
 ```mcfunction
 /dune dunes settings reset
 ```
 
-which resets to:
+resets to:
 
 ```text
 cell_size          = 8
@@ -182,13 +189,12 @@ Transverse morphology controls include:
 /dune dunes settings interdune_cleanup <0.0..1.0>
 ```
 
-`slope_asymmetry` changes the seeded transverse cross-section before transport. Higher values
-move the crest downwind, producing a longer windward/stoss ramp and a shorter lee face. The
-v1 baseline uses `0.82`.
+`slope_asymmetry` moves the crest downwind as it increases, producing a longer
+windward/stoss ramp and a shorter lee face. The v1 baseline uses `0.82`.
 
-`interdune_cleanup` is support-aware rather than another global cutoff. Weak low-height sand
-near a substantial dune body is retained as a dune toe, while similarly weak isolated
-remnants in broad interdune basins are reduced. The v1 baseline uses `0.40`.
+`interdune_cleanup` is support-aware: weak low-height sand near a substantial dune body is
+retained as a dune toe while similarly weak isolated remnants in broad interdune basins are
+reduced. The v1 baseline uses `0.40`.
 
 Slope and transport controls remain:
 
@@ -202,8 +208,7 @@ Slope and transport controls remain:
 ```
 
 Wind angles use the generator's world-axis convention: `0` points toward `+X` (east), `90`
-points toward `+Z` (south), `180` points toward `-X` (west), and `270` points toward `-Z`
-(north).
+toward `+Z` (south), `180` toward `-X` (west), and `270` toward `-Z` (north).
 
 Surface rendering modes remain:
 
@@ -213,12 +218,9 @@ Surface rendering modes remain:
 | `eighth` | 1/8 block | Uses even `sand_layer` states. |
 | `sixteenth` | 1/16 block | Default; uses all 15 partial layer states. |
 
-Every generated column contains full `minecraftdune:sand` blocks and no more than one
-partial `minecraftdune:sand_layer` on top. Version 0.5.7 does not replace or modify the
-layered-sand textures/models.
-
-Settings are development-session state and reset when the game/server process restarts.
-The same world seed, aligned region, dune mode, and settings remain deterministic.
+Every generated dune column contains full `minecraftdune:sand` blocks and no more than one
+partial `minecraftdune:sand_layer` on top. Version 0.5.8 does not replace the existing
+layered-sand assets.
 
 See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md).
 
@@ -271,7 +273,7 @@ Batch capture:
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.7.jar
+build/libs/minecraftdune-0.5.8.jar
 ```
 
 ## Package and namespace
@@ -282,4 +284,4 @@ build/libs/minecraftdune-0.5.7.jar
 
 ## Version history
 
-See [`PATCH_NOTES.md`](PATCH_NOTES.md).
+See [`PATCH_NOTES-0.5.8.md`](PATCH_NOTES-0.5.8.md) for this release and [`PATCH_NOTES.md`](PATCH_NOTES.md) for the preserved earlier history.

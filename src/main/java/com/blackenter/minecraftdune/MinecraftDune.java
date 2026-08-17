@@ -2,6 +2,7 @@ package com.blackenter.minecraftdune;
 
 import com.blackenter.minecraftdune.entity.MuaddibMouseEntity;
 import com.blackenter.minecraftdune.registry.ModBlocks;
+import com.blackenter.minecraftdune.registry.ModChunkGenerators;
 import com.blackenter.minecraftdune.registry.ModEntityTypes;
 import com.blackenter.minecraftdune.registry.ModItems;
 import com.mojang.logging.LogUtils;
@@ -20,6 +21,7 @@ public final class MinecraftDune {
 
     public MinecraftDune(IEventBus modEventBus) {
         ModBlocks.BLOCKS.register(modEventBus);
+        ModChunkGenerators.CHUNK_GENERATORS.register(modEventBus);
         ModEntityTypes.ENTITY_TYPES.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
 

@@ -1,68 +1,85 @@
-# Macro geology prototype
+# Macro geology
 
-## 0.5.7 scope
+## 0.5.8 scope
 
-Version 0.5.7 introduces the first world-scale geological coordinate field for Gameplay
-Arrakis. It deliberately does **not** turn each landform into a Minecraft biome yet.
+Version 0.5.8 migrates the existing macro-geology field from a post-generation development
+tool into **native Arrakis Dev chunk generation**.
 
-The field is continuous and deterministic from the Minecraft world seed plus absolute X/Z
-coordinates. Future biomes, wind exposure, sand availability, rock morphology and dune
-regimes can be derived from this shared substrate.
+The 0.5.7 `MacroGeologyField` itself remains the mathematical source of terrain elevation.
+It is deterministic from the actual Minecraft world seed and absolute X/Z coordinates.
 
-The 0.5.6 transverse dune generator remains frozen as the v1 local dune synthesizer.
+This release is deliberately an architecture/performance milestone. It does not yet perform
+the next geological morphology pass.
 
-## First-region layout
+## Native generator
 
-The world origin `(0,0)` is the reference center of the first Gameplay Arrakis region.
+Arrakis Dev now references:
 
-- **0–1000 blocks:** hard-reserved Arrakeen / central basin. Macro rock elevation is exactly
-  Y=64 here; procedural boundary warping cannot intrude into this protected radius.
-- **~1000–1500:** rock transition begins.
-- **~1400–3000:** main Shield Wall / massif province.
-- **~2800–4000:** eroded outer margin, increasingly broken into isolated rock masses and
-  sand corridors.
-- **~3600–4200:** open-desert weight rises and suppresses rock generation.
+```text
+minecraftdune:arrakis_dev
+```
+
+instead of `minecraft:flat`.
+
+`ArrakisChunkGenerator` subclasses vanilla `FlatLevelSource`, so the existing flat base
+stratigraphy, fixed desert biome, disabled features/lakes and disabled structures are
+retained.
+
+During `fillFromNoise()`:
+
+1. vanilla flat generation fills the configured Arrakis base layers;
+2. the custom generator samples `MacroGeologyField` for each X/Z column;
+3. provisional rock above Y=64 is written directly into `ChunkAccess`;
+4. later normal chunk stages continue from that native terrain.
+
+The old 0.5.7 workflow instead generated a flat chunk first and then used
+`ServerLevel#setBlock` repeatedly. That path has been removed from geology generation.
+
+## Seed handling
+
+Chunk-generator JSON codecs do not contain the selected world's random seed.
+Minecraft supplies the actual level seed to `ChunkGenerator#createState(...)`.
+
+`ArrakisChunkGenerator` captures that seed there and then evaluates:
+
+```text
+MacroGeologyField.sample(worldSeed, absoluteX, absoluteZ)
+```
+
+for chunk terrain.
+
+Chunk load order therefore does not affect the geology.
+
+## Current first-region layout
+
+This is intentionally still the 0.5.7 field:
+
+- **0–1000 blocks:** hard-reserved Arrakeen / central basin, Y=64;
+- **~1000–1500:** rock transition;
+- **~1400–3000:** main Shield Wall / massif province;
+- **~2800–4000:** eroded outer margin;
+- **~3600–4200:** increasing open-desert weight;
 - **Beyond ~4200:** open desert dominates.
 
-The values overlap intentionally. These are environmental weights, not mutually exclusive
-biome borders.
+Outside the protected 1000-block basin, the existing low-frequency boundary warp and
+seed-dependent continuity lobes remain unchanged.
 
-## Boundary distortion
+The provisional rock can add up to 176 blocks above Y=64, reaching Y=240.
 
-After the protected 1000-block Arrakeen radius, a very-low-frequency seeded field offsets
-the effective radial coordinate by up to roughly ±250 blocks.
+## World compatibility
 
-A second set of low-frequency spatial fields controls rock continuity. Seeded angular lobes
-break the main rock province into a broad, irregular shield / horseshoe with passes rather
-than exposing a perfect circular ring centered on `(0,0)`.
+**Use a newly created Arrakis Dev world for 0.5.8 tests.**
 
-## Current output fields
+Minecraft serializes the selected dimension generator into the save. A world created under
+0.5.7 still contains the old flat generator even after the mod is updated.
 
-`MacroGeologyField.Sample` exposes:
+Likewise, chunks that have already been generated keep their existing block data. Native
+generation applies when a chunk is generated with the new Arrakis generator.
 
-- true radius from `(0,0)`;
-- distorted/effective radius;
-- boundary warp;
-- central basin weight;
-- rock-transition weight;
-- Shield Wall / massif weight;
-- eroded-margin weight;
-- open-desert weight;
-- rock-formation mask;
-- provisional base elevation;
-- dominant province label.
-
-## Debug commands
-
-Inspect the player's current position:
+## Debug inspection
 
 ```mcfunction
 /dune geology info
-```
-
-Inspect any X/Z coordinate:
-
-```mcfunction
 /dune geology sample 0 0
 /dune geology sample 1200 0
 /dune geology sample 2000 0
@@ -71,105 +88,96 @@ Inspect any X/Z coordinate:
 /dune geology sample 4500 0
 ```
 
-## Terrain materialization
+These commands only evaluate the coordinate field.
 
-The normal command materializes the aligned **256 x 256** tile containing the player:
+## Native pregeneration commands
+
+Pregenerate the aligned 256 x 256 geology tile containing the player:
 
 ```mcfunction
 /dune geology generate
 ```
 
-Clear that tile with:
-
-```mcfunction
-/dune geology clear
-```
-
-### Initial 100-chunk overview
-
-For the initial Distant Horizons / macro-scale inspection:
+Pregenerate a 100 vanilla-Minecraft-chunk radius around absolute `(0,0)`:
 
 ```mcfunction
 /dune geology generate_initial
 ```
 
-This generates a **100 vanilla Minecraft chunk radius** around absolute `(0,0)`. One
-Minecraft chunk is 16 x 16 blocks, so the radius is 1600 blocks.
+One normal Minecraft chunk is 16 x 16 blocks, so the radius is 1600 blocks.
 
-The job includes flat Arrakeen chunks because forcing the underlying chunks to exist is
-useful for distant-terrain overview tools as well as for the rock-bearing belt. A radius
-this large covers tens of thousands of Minecraft chunks, so the work is intentionally
-spread over server ticks.
+Pregenerate around the player's current 256 x 256 geology tile:
 
-Check or cancel it with:
+```mcfunction
+/dune geology generate_nearest <1..12>
+```
+
+Examples:
+
+- radius `1` -> 3 x 3 geology tiles -> 768 x 768 blocks -> 2304 Minecraft chunks;
+- radius `2` -> 5 x 5 geology tiles -> 1280 x 1280 blocks;
+- radius `3` -> 7 x 7 geology tiles -> 1792 x 1792 blocks.
+
+The pregenerator requests Minecraft chunks at `ChunkStatus.FULL`. It does not run a separate
+rock-materialization algorithm.
+
+Large jobs remain spread over server ticks:
 
 ```mcfunction
 /dune geology generation status
 /dune geology generation cancel
 ```
 
-Only one large-area geology job can run at a time.
+The development limiter is currently 8 requested chunks per server tick with an approximate
+30 ms per-tick job budget. A single expensive chunk can still exceed that time budget.
 
-### Player-centered nearest tiles
+## Clearing
+
+Native geology is no longer a removable debug layer. Therefore:
 
 ```mcfunction
-/dune geology generate_nearest <1..12>
+/dune geology clear
 ```
 
-The argument is a radius in **256 x 256 geology tiles centered on the player's current
-tile**.
+does not delete blocks in 0.5.8. It explains that a clean terrain retest requires a new
+Arrakis Dev world or closed-world region/chunk regeneration.
 
-Examples:
+This avoids accidentally carving native terrain out of a legitimate save.
 
-- `generate_nearest 1` -> 3 x 3 tiles = 768 x 768 blocks;
-- `generate_nearest 2` -> 5 x 5 tiles = 1280 x 1280 blocks;
-- `generate_nearest 3` -> 7 x 7 tiles = 1792 x 1792 blocks.
+## Explicitly deferred morphology work
 
-Radius 1 therefore generates the tile under the player plus one neighboring tile north,
-south, east, west, and all four diagonals.
+The following evaluation changes are intentionally **not** mixed into the native-generator
+migration:
 
-### Large-job performance behavior
+- changing the central pure-sand basin from 0–1000 to roughly 0–800;
+- sparse little-maker rock / small formations around roughly 800–1000;
+- narrower and more frequent rock passes;
+- long fault/ravine corridors;
+- one or two major sand passes through the Shield Wall;
+- more abrupt massif termination;
+- an additional broken-rock / mixed outer province before the open erg;
+- stratigraphy, caprock, mesas, buttes, talus and erosion.
 
-Large jobs use a faster additive materialization path:
+Those should be tuned after native generation and Distant Horizons behavior are verified.
 
-1. force/generate the underlying vanilla Arrakis Dev Minecraft chunk;
-2. sample the absolute-coordinate macro field for its 16 x 16 columns;
-3. add prototype stone from Y=65 to the sampled surface where rock relief exists;
-4. never overwrite a non-air/non-stone block.
+## Downstream terrain architecture
 
-They deliberately **do not** scan every column from Y=240 downward to erase older prototype
-stone. That cleanup behavior remains in the normal single-tile `/dune geology generate`
-command. The large commands are intended primarily for fresh inspection areas.
+The intended stack remains:
 
-The tick job has both a chunks-per-tick cap and an approximate time budget. Rock-heavy
-chunks can therefore reduce the effective rate automatically instead of forcing the entire
-100-chunk radius through one server tick.
+```text
+regional geography
+        ↓
+native bedrock macro-topography
+        ↓
+rock morphology / faults / strata / erosion
+        ↓
+wind exposure + shelter
+        ↓
+sand availability / sand depth
+        ↓
+dune regime selection
+        ↓
+frozen/local dune synthesizers
+```
 
-## Provisional rock scale
-
-The crude slab field can add up to 176 blocks above the Y=64 Arrakis Dev surface, reaching a
-maximum debug surface of Y=240.
-
-This is not a finalized Shield Wall height. It is deliberately large enough to test regional
-scale before detailed geology is added.
-
-## Planned next geology pass
-
-Once macro placement and scale are convincing, the next layer should subdivide the rock
-field into grounded landform morphology:
-
-- massif;
-- plateau;
-- escarpment;
-- ridge / Shield Wall;
-- mesa / butte;
-- depression;
-- exposed rock plain.
-
-After that, a regional wind-exposure field can be projected over the finished topography and
-the frozen transverse dune synthesizer can consume local wind/sand-supply inputs.
-
-Salt flats and other environmental surfaces should be derived later from depression,
-moisture/salinity and surface fields rather than made synonymous with geological provinces.
-
-Sable/Aeronautics integration is intentionally absent from world generation in this phase.
+The 0.5.6 transverse generator remains the current v1 local dune-synthesis baseline.
