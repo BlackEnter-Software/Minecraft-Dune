@@ -1,76 +1,79 @@
-# Native Arrakis terrain generation — 0.5.8
+# Native Arrakis terrain generation — 0.5.9
 
-## Objective
+## Architecture
 
-0.5.8 removes the temporary architecture where macro cliffs were added to already-generated
-flat chunks with `ServerLevel#setBlock`.
+0.5.8 established `minecraftdune:arrakis_dev` as a registered native chunk generator based
+on vanilla `FlatLevelSource`. 0.5.9 keeps that architecture and expands the terrain column
+from a single rock height into two coordinated native layers:
 
-Arrakis Dev now has a registered custom chunk-generator codec and creates the current macro
-geology during Minecraft's normal chunk-generation pipeline.
+```text
+flat Arrakis base column
+        ↓
+MacroGeologyField
+        ↓
+provisional native rock
+        ↓
+NativeTransverseDuneField (where dune suitability > 0)
+        ↓
+full + sixteenth-layer dune sand
+```
 
-## Files
+Everything is still evaluated from the actual world seed and absolute coordinates during
+normal chunk generation.
 
-- `registry/ModChunkGenerators.java`
-  - registers `minecraftdune:arrakis_dev` in the vanilla chunk-generator codec registry.
-- `worldgen/arrakis/ArrakisChunkGenerator.java`
-  - extends `FlatLevelSource`;
-  - retains the existing flat settings codec;
-  - captures the real level seed from `createState`;
-  - overlays the existing `MacroGeologyField` directly during `fillFromNoise`;
-  - makes generator base-height/base-column queries aware of the native rock.
-- `worldgen/world_preset/arrakis_dev.json`
-  - selects `minecraftdune:arrakis_dev`.
-- `MacroGeologyGenerationManager`
-  - now pregenerates FULL chunks only.
-- `MacroGeologyCommand`
-  - no longer performs block-by-block terrain materialization.
+## Terrain-column order
 
-## Why extend FlatLevelSource
+For each X/Z column:
 
-Arrakis Dev already has a useful deterministic base column. Extending the vanilla flat
-generator lets 0.5.8 preserve it instead of duplicating the biome, structure override,
-feature/lake and layer codecs.
+1. `FlatLevelSource` creates the base bedrock/deepslate/stone/sandstone/sand layers;
+2. `MacroGeologyField` determines the provisional native rock top;
+3. rock is written from Y=65 to that top;
+4. `NativeTransverseDuneField` determines an absolute sand surface above the Y=64 base;
+5. when the sand surface is above the rock surface, full dune-sand blocks are placed above
+   the rock and a partial sixteenth-layer top is added when required.
 
-The custom codec wraps `FlatLevelGeneratorSettings.CODEC` under the same `settings` object
-used by the previous world preset.
+This allows a low rock remnant to be buried by a dune while keeping a tall outcrop exposed.
 
-## Important test procedure
+`getBaseHeight()` and `getBaseColumn()` use the same combined terrain profile, so systems
+that query the generator's base terrain see both native geology and native dunes.
 
-1. Build 0.5.8.
-2. Start the development client.
-3. Create a **new** Arrakis Dev world.
-4. Confirm `/dune geology info` at `(0,0)` reports the central basin and Y=64.
-5. Run:
+## Performance
+
+The 0.5.9 fields are analytic per-column calculations. No `ServerLevel#setBlock` terrain
+materialization is performed and no iterative dune simulation is run per chunk.
+
+The macro field also has two fast exits:
+
+- the exact 0–800 Arrakeen basin returns immediately with no rock/dune work;
+- beyond the mixed sand–rock transition, expensive geological formation/fault noise is
+  skipped and only the low-frequency boundary sample plus the analytic dune field remain.
+
+This is intended to preserve the strong 0.5.8 generation performance observed with Distant
+Horizons.
+
+## Save compatibility
+
+0.5.8 and 0.5.9 use the same `minecraftdune:arrakis_dev` generator codec, so a 0.5.8 save is
+technically loadable.
+
+However, already-generated 0.5.8 chunks keep their old terrain. Newly generated 0.5.9 chunks
+use the new province/dune model and can form obvious seams beside old chunks.
+
+For morphology evaluation, create a **new Arrakis Dev world** or remove the relevant region
+files while the world is closed.
+
+## Pregeneration
+
+The 0.5.8 chunk-pregeneration manager is retained unchanged:
 
 ```mcfunction
+/dune geology generate
 /dune geology generate_initial
-```
-
-6. Watch progress with:
-
-```mcfunction
+/dune geology generate_nearest <1..12>
 /dune geology generation status
+/dune geology generation cancel
 ```
 
-7. With Distant Horizons installed manually, inspect the first macro formations.
-8. Fly to an interesting boundary and run:
-
-```mcfunction
-/dune geology generate_nearest 1
-```
-
-Radius 1 should generate the current 256 x 256 geology tile and all eight neighboring tiles.
-
-## Validation targets
-
-For this release, only validate:
-
-- seamless chunk boundaries;
-- identical or near-identical 0.5.7 macro shape for the same world seed;
-- central basin stays exactly flat;
-- native cliffs appear when chunks are first generated;
-- Distant Horizons sees saved/generated macro terrain;
-- pregeneration is materially faster than 0.5.7 post-placement;
-- no changes to the frozen transverse dune defaults.
-
-Do not judge the detailed rock morphology yet.
+`generate_initial` still means a 100 vanilla-Minecraft-chunk / 1600-block radius around
+absolute `(0,0)`. Distant Horizons can also generate terrain independently; the commands are
+primarily useful for controlled test regions.

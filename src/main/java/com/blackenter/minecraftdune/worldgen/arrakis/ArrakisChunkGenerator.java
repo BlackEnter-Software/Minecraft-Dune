@@ -1,10 +1,14 @@
 package com.blackenter.minecraftdune.worldgen.arrakis;
 
+import com.blackenter.minecraftdune.registry.ModBlocks;
+import com.blackenter.minecraftdune.world.level.block.DuneSandLayerBlock;
+import com.blackenter.minecraftdune.worldgen.dune.NativeTransverseDuneField;
 import com.blackenter.minecraftdune.worldgen.geology.MacroGeologyField;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.NoiseColumn;
 import net.minecraft.world.level.StructureManager;
@@ -13,7 +17,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.levelgen.FlatLevelSource;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.RandomState;
@@ -26,15 +29,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Native Arrakis Dev terrain generator.
  *
- * <p>The existing Arrakis Dev flat stratigraphy remains the base terrain. During the normal
- * chunk NOISE/fill stage, the deterministic {@link MacroGeologyField} is sampled using the
- * actual world seed and absolute X/Z coordinates and the current 0.5.7 macro-rock mass is
- * written directly into {@link ChunkAccess}. No ServerLevel#setBlock post-generation pass
- * is involved.</p>
- *
- * <p>This 0.5.8 generator intentionally preserves the 0.5.7 macro-geology mathematics.
- * Geological restructuring, faults, sand passes, outlier provinces, strata and erosion are
- * later morphology work.</p>
+ * <p>Version 0.5.9 keeps the fast 0.5.8 flat-generator foundation but evaluates a richer
+ * {@link MacroGeologyField} and, where that field reports enough exposed sand, a continuous
+ * {@link NativeTransverseDuneField}. Rock and dune blocks are written directly into
+ * {@link ChunkAccess} during normal chunk generation.</p>
  */
 public final class ArrakisChunkGenerator extends FlatLevelSource {
     public static final MapCodec<ArrakisChunkGenerator> CODEC =
@@ -46,15 +44,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                     );
 
     private static final BlockState ROCK_STATE = Blocks.STONE.defaultBlockState();
-    private static final int FIRST_ROCK_Y = MacroGeologyField.BASE_SURFACE_Y + 1;
+    private static final int FIRST_NATIVE_Y = MacroGeologyField.BASE_SURFACE_Y + 1;
     private static final int LAST_ROCK_Y =
             MacroGeologyField.BASE_SURFACE_Y + MacroGeologyField.MAX_ADDED_ROCK_HEIGHT;
 
-    /**
-     * Chunk-generator codecs do not carry the selected world's seed. Vanilla supplies the
-     * actual level seed when the generator structure state is created, before terrain
-     * generation begins. Store that value once for the coordinate field.
-     */
     private volatile long worldSeed;
     private volatile boolean worldSeedInitialized;
 
@@ -90,7 +83,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 randomState,
                 structureManager,
                 chunk
-        ).thenApply(this::applyNativeMacroGeology);
+        ).thenApply(this::applyNativeTerrain);
     }
 
     @Override
@@ -106,13 +99,13 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             return flatHeight;
         }
 
-        int geologyHeight = targetTopY(x, z) + 1;
-        geologyHeight = Mth.clamp(
-                geologyHeight,
+        TerrainColumn terrain = terrainColumn(x, z);
+        int nativeHeight = Mth.clamp(
+                terrain.highestOccupiedY() + 1,
                 level.getMinBuildHeight(),
                 level.getMaxBuildHeight()
         );
-        return Math.max(flatHeight, geologyHeight);
+        return Math.max(flatHeight, nativeHeight);
     }
 
     @Override
@@ -127,17 +120,26 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             return column;
         }
 
-        int firstY = Math.max(FIRST_ROCK_Y, height.getMinBuildHeight());
-        int lastY = Math.min(targetTopY(x, z), height.getMaxBuildHeight() - 1);
+        TerrainColumn terrain = terrainColumn(x, z);
+        int minimumY = height.getMinBuildHeight();
+        int maximumY = height.getMaxBuildHeight() - 1;
 
-        for (int y = firstY; y <= lastY; y++) {
+        int firstRockY = Math.max(FIRST_NATIVE_Y, minimumY);
+        int lastRockY = Math.min(terrain.rockTopY(), maximumY);
+        for (int y = firstRockY; y <= lastRockY; y++) {
             column.setBlock(y, ROCK_STATE);
         }
 
+        writeDuneColumn(
+                terrain,
+                minimumY,
+                maximumY,
+                column::setBlock
+        );
         return column;
     }
 
-    private ChunkAccess applyNativeMacroGeology(ChunkAccess chunk) {
+    private ChunkAccess applyNativeTerrain(ChunkAccess chunk) {
         if (!worldSeedInitialized) {
             return chunk;
         }
@@ -145,9 +147,8 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         ChunkPos chunkPos = chunk.getPos();
         int minimumX = chunkPos.x << 4;
         int minimumZ = chunkPos.z << 4;
-        int firstY = Math.max(FIRST_ROCK_Y, chunk.getMinBuildHeight());
-        int maximumY = Math.min(LAST_ROCK_Y, chunk.getMaxBuildHeight() - 1);
-
+        int minimumY = chunk.getMinBuildHeight();
+        int maximumY = chunk.getMaxBuildHeight() - 1;
         BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
 
         for (int localZ = 0; localZ < 16; localZ++) {
@@ -155,29 +156,115 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
 
             for (int localX = 0; localX < 16; localX++) {
                 int worldX = minimumX + localX;
-                int targetTopY = Math.min(targetTopY(worldX, worldZ), maximumY);
+                TerrainColumn terrain = terrainColumn(worldX, worldZ);
 
-                for (int y = firstY; y <= targetTopY; y++) {
+                int firstRockY = Math.max(FIRST_NATIVE_Y, minimumY);
+                int lastRockY = Math.min(terrain.rockTopY(), maximumY);
+                for (int y = firstRockY; y <= lastRockY; y++) {
                     position.set(worldX, y, worldZ);
                     chunk.setBlockState(position, ROCK_STATE, false);
                 }
+
+                writeDuneColumn(
+                        terrain,
+                        minimumY,
+                        maximumY,
+                        (y, state) -> {
+                            position.set(worldX, y, worldZ);
+                            chunk.setBlockState(position, state, false);
+                        }
+                );
             }
         }
 
         return chunk;
     }
 
-    private int targetTopY(int worldX, int worldZ) {
-        MacroGeologyField.Sample sample = MacroGeologyField.sample(
+    private TerrainColumn terrainColumn(int worldX, int worldZ) {
+        MacroGeologyField.Sample geology = MacroGeologyField.sample(
                 worldSeed,
                 worldX + 0.5,
                 worldZ + 0.5
         );
+        NativeTransverseDuneField.Sample dune = NativeTransverseDuneField.sample(
+                worldSeed,
+                worldX + 0.5,
+                worldZ + 0.5,
+                geology.duneSuitability()
+        );
 
-        return Mth.clamp(
-                Mth.floor(sample.baseElevation() + 0.5),
+        int rockTopY = Mth.clamp(
+                Mth.floor(geology.baseElevation() + 0.5),
                 MacroGeologyField.BASE_SURFACE_Y,
                 LAST_ROCK_Y
         );
+        return new TerrainColumn(rockTopY, dune.surfaceUnits());
+    }
+
+    private static void writeDuneColumn(
+            TerrainColumn terrain,
+            int minimumY,
+            int maximumY,
+            BlockWriter writer
+    ) {
+        if (terrain.duneSurfaceUnits() <= 0) {
+            return;
+        }
+
+        int fullSandTopY = Math.min(terrain.duneFullTopY(), maximumY);
+        int firstSandY = Math.max(
+                Math.max(FIRST_NATIVE_Y, terrain.rockTopY() + 1),
+                minimumY
+        );
+        BlockState fullSand = ModBlocks.SAND.get().defaultBlockState();
+        for (int y = firstSandY; y <= fullSandTopY; y++) {
+            writer.set(y, fullSand);
+        }
+
+        int partialLayers = terrain.partialDuneLayers();
+        int partialY = terrain.dunePartialY();
+        if (partialLayers > 0
+                && partialY > terrain.rockTopY()
+                && partialY >= minimumY
+                && partialY <= maximumY) {
+            BlockState partialSand = ModBlocks.SAND_LAYER.get()
+                    .defaultBlockState()
+                    .setValue(DuneSandLayerBlock.LAYERS, partialLayers);
+            writer.set(partialY, partialSand);
+        }
+    }
+
+    @FunctionalInterface
+    private interface BlockWriter {
+        void set(int y, BlockState state);
+    }
+
+    private record TerrainColumn(int rockTopY, int duneSurfaceUnits) {
+        int fullDuneBlocks() {
+            return duneSurfaceUnits / NativeTransverseDuneField.SUBDIVISIONS;
+        }
+
+        int partialDuneLayers() {
+            return duneSurfaceUnits % NativeTransverseDuneField.SUBDIVISIONS;
+        }
+
+        int duneFullTopY() {
+            return MacroGeologyField.BASE_SURFACE_Y + fullDuneBlocks();
+        }
+
+        int dunePartialY() {
+            return MacroGeologyField.BASE_SURFACE_Y + fullDuneBlocks() + 1;
+        }
+
+        int highestOccupiedY() {
+            int duneTopY = MacroGeologyField.BASE_SURFACE_Y;
+            if (duneSurfaceUnits > 0) {
+                duneTopY = duneFullTopY();
+                if (partialDuneLayers() > 0) {
+                    duneTopY++;
+                }
+            }
+            return Math.max(rockTopY, duneTopY);
+        }
     }
 }

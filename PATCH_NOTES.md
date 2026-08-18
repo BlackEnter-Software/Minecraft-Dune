@@ -1,5 +1,77 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.9 — Geological provinces + native far-erg dunes
+
+- Reduced the strict pure-sand Arrakeen reservation from 1000 to **800 blocks**.
+- Added an independent **Inner Rock Foreland** from roughly 800–1100 blocks with sparse
+  small formations rather than a miniature Shield Wall.
+- Preserved the main Shield Wall's large 0.5.8 vertical scale while making the macro body
+  more continuous.
+- Added four long seeded, non-radial **fault-ravine traces**. Fault centers normally retain
+  low rocky floors rather than becoming broad sand gaps.
+- Added **two major seed-dependent sandy corridors** through the Shield Wall and broken-rock
+  zone. Corridor centers fully suppress the provisional rock field.
+- Changed the outer massif from a broad fade to a comparatively abrupt termination around
+  the 3-km scale.
+- Added an independent **Broken Rock Desert** outlier field after the main massif.
+- Added a **Sand–Rock Transition** with lower/smaller remnant formations before the open erg.
+- Added an **Open Erg** province, reaching full weight near 5250 blocks effective radius.
+- Added `duneSuitability` to the macro-geology sample; broken rock contributes weak dune
+  activity, the transition contributes more, and the open erg reaches full activity while
+  tall rock suppresses dunes locally.
+- Added `NativeTransverseDuneField`, a fast continuous world-coordinate implementation based
+  on the calibrated transverse morphology rather than the finite iterative laboratory.
+- Native transverse parameters start at: 350-block spacing, 0.18 spacing variation,
+  3.0 ridge sharpness, 0.20 valley cutoff, 0.82 slope asymmetry, 30-block maximum height,
+  24-degree wind, and sixteenth-block surface resolution.
+- Native dune crests use `minecraftdune:sand` plus the existing fractional
+  `minecraftdune:sand_layer` top surface.
+- Updated `ArrakisChunkGenerator` so native rock is generated first and dune sand can bury
+  low rock only where the analytic sand surface is higher.
+- Added matching combined terrain logic to generator base-height/base-column queries.
+- Added a far-erg fast path that skips expensive geological formation/fault calculations once
+  all mixed-rock province weights are zero.
+- Made `/dune geology` itself execute the terrain info command.
+- Reworked geology command registration to merge the geology child through Brigadier's
+  normal `/dune` registration path instead of mutating a previously looked-up command node.
+- Expanded `/dune geology info` / `sample` output with province, fault, sand-pass and native
+  dune diagnostics.
+- Preserved the 0.5.8 native generator codec, tick-spread pregeneration manager, NeoForge
+  21.1.248, ZGC runClient arguments, layered-sand assets, camera/screenshot tools, barchan
+  prototype and frozen 0.5.6 transverse laboratory defaults.
+- Did not yet add true strata, caprock, mesas/buttes, talus, yardangs, thermal weathering or
+  terrain-projected regional wind.
+
+## Minecraft: Dune 0.5.8 — Native Arrakis terrain generation
+
+- Registered the `minecraftdune:arrakis_dev` chunk-generator codec.
+- Added `ArrakisChunkGenerator`, extending vanilla `FlatLevelSource`.
+- Preserved the 0.5.7 `MacroGeologyField` mathematics and provisional plain-stone output.
+- Captured the real world seed in `ChunkGenerator#createState` and continued using absolute
+  X/Z coordinates for deterministic macro terrain.
+- Moved macro-rock creation into `fillFromNoise`, writing directly to `ChunkAccess`.
+- Updated generator base-height and base-column queries to include native macro relief.
+- Changed the Arrakis Dev world preset from `minecraft:flat` to
+  `minecraftdune:arrakis_dev` while retaining the existing flat settings object.
+- Converted `/dune geology generate` into native pregeneration of the player's current
+  aligned 256 x 256 geology tile.
+- Kept `/dune geology generate_initial` as a 100 vanilla-Minecraft-chunk / 1600-block
+  pregeneration radius around absolute `(0,0)`.
+- Kept `/dune geology generate_nearest <radius>` player-centered; radius 1 is 3 x 3 geology
+  tiles.
+- Large jobs now request ordinary `ChunkStatus.FULL` chunks and no longer run a second
+  terrain-materialization pass.
+- Retained `/dune geology generation status` and `cancel`.
+- Changed `/dune geology clear` into a compatibility explanation because native terrain is
+  no longer a removable post-generation layer.
+- Existing 0.5.7 worlds do not migrate automatically; create a new Arrakis Dev world for
+  native-generator testing.
+- Preserved NeoForge 21.1.248, the existing runClient JVM arguments, empty third-party
+  Gradle runtime dependency list, layered sand assets, debug cameras/screenshots, barchan
+  prototype, and the frozen transverse 0.5.6 v1 defaults.
+- Deferred the evaluated morphology changes (0–800 basin, 800–1000 sparse rock, faults,
+  sandy passes, abrupt breakups and the additional outer mixed province) to the next pass.
+
 ## 0.5.7 — Macro geology foundation
 
 - Added a deterministic `MacroGeologyField` evaluated from the world seed and absolute X/Z

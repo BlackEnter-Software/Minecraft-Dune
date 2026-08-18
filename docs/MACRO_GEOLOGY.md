@@ -1,183 +1,178 @@
-# Macro geology
+# Macro geology — 0.5.9 geological provinces
 
-## 0.5.8 scope
+## Scope
 
-Version 0.5.8 migrates the existing macro-geology field from a post-generation development
-tool into **native Arrakis Dev chunk generation**.
+Version 0.5.9 is the first morphology pass on top of the native Arrakis chunk generator.
+The goal is not detailed sandstone erosion yet. It is to make the *sequence of landscapes*
+read correctly at planetary travel scale while keeping generation continuous, deterministic,
+and inexpensive.
 
-The 0.5.7 `MacroGeologyField` itself remains the mathematical source of terrain elevation.
-It is deterministic from the actual Minecraft world seed and absolute X/Z coordinates.
+All fields are derived from the world seed plus absolute X/Z coordinates. Chunk generation
+order therefore has no effect on the result.
 
-This release is deliberately an architecture/performance milestone. It does not yet perform
-the next geological morphology pass.
+## Province sequence
 
-## Native generator
+The first Gameplay Arrakis region now uses overlapping continuous weights rather than one
+massif mask fading directly into open desert:
 
-Arrakis Dev now references:
+| Approximate range | Province | Intended read |
+|---:|---|---|
+| `0–800` | Central Basin | Pure flat sand reserved for Arrakeen. |
+| `800–~1120` | Inner Rock Foreland | Mostly sand with sparse knobs/shelves and small rock formations. |
+| `~1000–3020` | Shield Wall / Main Massif | The majestic high rock body retained from 0.5.8. |
+| `~2450–3660` | Faulted Margin | Overlaps the outer massif; long narrow structural ravines become important. |
+| `~2920–4450` | Broken Rock Desert | Independent outliers/remnants after the main massif ends. |
+| `~3900–5400` | Sand–Rock Transition | Lower, smaller remnant rock mixed with increasingly active sand. |
+| `~4700+` | Open Erg | Transverse dune field takes over; full dune suitability is reached near 5250. |
+
+These are not Minecraft biome borders. They are environmental/geological weights available
+to later systems such as rock morphology, sand supply, ecology, settlements, and wind.
+
+Boundary positions are distorted by a very-low-frequency seed-dependent field. The strict
+exception is the first 800 blocks: that radius is protected before any warp is evaluated.
+
+## Central basin and inner foreland
+
+The pure-sand reservation is reduced from 1000 to **800 blocks**.
+
+From roughly 800 to 1100 blocks a separate small-formation operator creates disconnected
+rock rather than a miniature copy of the Shield Wall. The development targets are:
+
+- roughly 10–20% rock occurrence depending on seed/direction;
+- typical formation height about 5–28 blocks;
+- scales of tens to low hundreds of blocks;
+- continuous sand between formations.
+
+This is intended to become a useful ecological/early-worm zone later, but 0.5.9 does not add
+little-maker spawning or ecology rules.
+
+## Shield Wall / main massif
+
+The main massif keeps approximately the same vertical authority as 0.5.8. Its provisional
+rock can still reach up to the existing 176-block development ceiling above Y=64.
+
+The key topology change is that the massif is made *more continuous*. Broad missing sectors
+are no longer responsible for most crossings. Crossings are created by explicit operators:
+
+1. narrow structural fault ravines;
+2. two broad seed-dependent sandy corridors.
+
+This should make the massif read as one major geological body cut by real passages rather
+than a loose collection of rounded mountains.
+
+## Fault ravines
+
+0.5.9 evaluates four long seeded fault traces. Each has:
+
+- its own non-radial orientation;
+- a seed-dependent offset so it normally does not pass through `(0,0)`;
+- broad low-frequency lateral warping;
+- a narrow carved center and wider transition walls.
+
+Faults normally carve high rock down toward a low **rocky floor** instead of deleting the
+rock completely. They are therefore intended to read as ravines / structural cuts / rocky
+passes rather than sand gates.
+
+This is still an abstract fault operator. Actual bedding offsets, talus, fracture zones,
+slot-canyon erosion, and seismic scar morphology remain future work.
+
+## Sandy Shield Wall corridors
+
+Two major seed-dependent corridors are generated roughly opposite one another around the
+central basin. Their centerlines curve slowly with radius and their width is measured in
+world blocks, so they do not become enormous wedges as they move outward.
+
+At the corridor center, provisional rock is suppressed completely. The corridors continue
+through the broken-rock zone, providing actual sand-connected routes between the inner and
+outer deserts.
+
+Later wind/sand-supply systems can use the same corridor mask as a preferred aeolian
+transport gateway.
+
+## Abrupt outer breakup
+
+The 0.5.8 massif faded gradually into the open desert. 0.5.9 separates two processes:
 
 ```text
-minecraftdune:arrakis_dev
+main massif body
+        ↓
+comparatively abrupt outer termination
+        ↓
+independent detached rock outliers
+        ↓
+broken rock desert
+        ↓
+smaller transition remnants
+        ↓
+open erg
 ```
 
-instead of `minecraft:flat`.
+The main massif radial envelope drops over roughly a hundred effective-radius blocks around
+its outer boundary. The next region is produced by a separate outlier noise field with
+provisional relief around 12–67 blocks, rather than by simply reducing the height of the
+main massif.
 
-`ArrakisChunkGenerator` subclasses vanilla `FlatLevelSource`, so the existing flat base
-stratigraphy, fixed desert biome, disabled features/lakes and disabled structures are
-retained.
+A second smaller-remnant field operates in the sand–rock transition with provisional relief
+around 4–26 blocks.
 
-During `fillFromNoise()`:
+## Native dune suitability
 
-1. vanilla flat generation fills the configured Arrakis base layers;
-2. the custom generator samples `MacroGeologyField` for each X/Z column;
-3. provisional rock above Y=64 is written directly into `ChunkAccess`;
-4. later normal chunk stages continue from that native terrain.
+`MacroGeologyField.Sample` exposes `duneSuitability` in addition to the geological fields.
+The initial rule is intentionally simple:
 
-The old 0.5.7 workflow instead generated a flat chunk first and then used
-`ServerLevel#setBlock` repeatedly. That path has been removed from geology generation.
+- broken-rock desert contributes weak dune activity;
+- sand–rock transition contributes moderate/strong activity;
+- open erg contributes full activity;
+- existing rock height suppresses dune activity strongly.
 
-## Seed handling
+This field is consumed by `NativeTransverseDuneField`; the iterative laboratory
+`DuneSimulation` remains separate.
 
-Chunk-generator JSON codecs do not contain the selected world's random seed.
-Minecraft supplies the actual level seed to `ChunkGenerator#createState(...)`.
+## Debug commands
 
-`ArrakisChunkGenerator` captures that seed there and then evaluates:
-
-```text
-MacroGeologyField.sample(worldSeed, absoluteX, absoluteZ)
-```
-
-for chunk terrain.
-
-Chunk load order therefore does not affect the geology.
-
-## Current first-region layout
-
-This is intentionally still the 0.5.7 field:
-
-- **0–1000 blocks:** hard-reserved Arrakeen / central basin, Y=64;
-- **~1000–1500:** rock transition;
-- **~1400–3000:** main Shield Wall / massif province;
-- **~2800–4000:** eroded outer margin;
-- **~3600–4200:** increasing open-desert weight;
-- **Beyond ~4200:** open desert dominates.
-
-Outside the protected 1000-block basin, the existing low-frequency boundary warp and
-seed-dependent continuity lobes remain unchanged.
-
-The provisional rock can add up to 176 blocks above Y=64, reaching Y=240.
-
-## World compatibility
-
-**Use a newly created Arrakis Dev world for 0.5.8 tests.**
-
-Minecraft serializes the selected dimension generator into the save. A world created under
-0.5.7 still contains the old flat generator even after the mod is updated.
-
-Likewise, chunks that have already been generated keep their existing block data. Native
-generation applies when a chunk is generated with the new Arrakis generator.
-
-## Debug inspection
+The geology branch is registered by merging it into the canonical `/dune` root. In 0.5.9,
+`/dune geology` itself is also executable and is equivalent to `info`.
 
 ```mcfunction
+/dune geology
 /dune geology info
-/dune geology sample 0 0
-/dune geology sample 1200 0
-/dune geology sample 2000 0
-/dune geology sample 3200 0
-/dune geology sample 3900 0
-/dune geology sample 4500 0
+/dune geology sample <x> <z>
 ```
 
-These commands only evaluate the coordinate field.
+The output now includes:
 
-## Native pregeneration commands
+- dominant province;
+- province weights;
+- rock height and formation masks;
+- fault mask;
+- sand-pass mask;
+- boundary warp;
+- dune suitability and native transverse dune height.
 
-Pregenerate the aligned 256 x 256 geology tile containing the player:
+Pregeneration remains available:
 
 ```mcfunction
 /dune geology generate
-```
-
-Pregenerate a 100 vanilla-Minecraft-chunk radius around absolute `(0,0)`:
-
-```mcfunction
 /dune geology generate_initial
-```
-
-One normal Minecraft chunk is 16 x 16 blocks, so the radius is 1600 blocks.
-
-Pregenerate around the player's current 256 x 256 geology tile:
-
-```mcfunction
 /dune geology generate_nearest <1..12>
-```
-
-Examples:
-
-- radius `1` -> 3 x 3 geology tiles -> 768 x 768 blocks -> 2304 Minecraft chunks;
-- radius `2` -> 5 x 5 geology tiles -> 1280 x 1280 blocks;
-- radius `3` -> 7 x 7 geology tiles -> 1792 x 1792 blocks.
-
-The pregenerator requests Minecraft chunks at `ChunkStatus.FULL`. It does not run a separate
-rock-materialization algorithm.
-
-Large jobs remain spread over server ticks:
-
-```mcfunction
 /dune geology generation status
 /dune geology generation cancel
 ```
 
-The development limiter is currently 8 requested chunks per server tick with an approximate
-30 ms per-tick job budget. A single expensive chunk can still exceed that time budget.
+The commands request normal FULL chunks only; terrain is created by the native generator.
 
-## Clearing
+## Deferred detailed rock morphology
 
-Native geology is no longer a removable debug layer. Therefore:
+0.5.9 deliberately does **not** yet implement:
 
-```mcfunction
-/dune geology clear
-```
+- sandstone strata/bedding;
+- resistant caprock;
+- true plateau/mesa/butte morphology;
+- talus and scree;
+- thermal/salt weathering;
+- yardangs;
+- water/fluvial incision;
+- terrain-projected regional wind.
 
-does not delete blocks in 0.5.8. It explains that a clean terrain retest requires a new
-Arrakis Dev world or closed-world region/chunk regeneration.
-
-This avoids accidentally carving native terrain out of a legitimate save.
-
-## Explicitly deferred morphology work
-
-The following evaluation changes are intentionally **not** mixed into the native-generator
-migration:
-
-- changing the central pure-sand basin from 0–1000 to roughly 0–800;
-- sparse little-maker rock / small formations around roughly 800–1000;
-- narrower and more frequent rock passes;
-- long fault/ravine corridors;
-- one or two major sand passes through the Shield Wall;
-- more abrupt massif termination;
-- an additional broken-rock / mixed outer province before the open erg;
-- stratigraphy, caprock, mesas, buttes, talus and erosion.
-
-Those should be tuned after native generation and Distant Horizons behavior are verified.
-
-## Downstream terrain architecture
-
-The intended stack remains:
-
-```text
-regional geography
-        ↓
-native bedrock macro-topography
-        ↓
-rock morphology / faults / strata / erosion
-        ↓
-wind exposure + shelter
-        ↓
-sand availability / sand depth
-        ↓
-dune regime selection
-        ↓
-frozen/local dune synthesizers
-```
-
-The 0.5.6 transverse generator remains the current v1 local dune-synthesis baseline.
+The next rock pass should operate on top of these macro provinces rather than replacing
+them.

@@ -1,5 +1,6 @@
 package com.blackenter.minecraftdune.worldgen.geology;
 
+import com.blackenter.minecraftdune.worldgen.dune.NativeTransverseDuneField;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -10,10 +11,7 @@ import net.minecraft.network.chat.Component;
 import java.util.Locale;
 
 /**
- * Operator-only macro-geology inspection and native Arrakis chunk-pregeneration commands.
- *
- * <p>Since 0.5.8 geology is part of Arrakis chunk generation itself. These commands no
- * longer place or remove cliff blocks after a chunk has been generated.</p>
+ * Operator-only native Arrakis terrain inspection and chunk-pregeneration commands.
  */
 public final class MacroGeologyCommand {
     public static final int TEST_REGION_SIZE = 256;
@@ -23,6 +21,7 @@ public final class MacroGeologyCommand {
 
     public static LiteralArgumentBuilder<CommandSourceStack> build() {
         return Commands.literal("geology")
+                .executes(MacroGeologyCommand::info)
                 .then(Commands.literal("info")
                         .executes(MacroGeologyCommand::info))
                 .then(Commands.literal("sample")
@@ -77,37 +76,39 @@ public final class MacroGeologyCommand {
         CommandSourceStack source = context.getSource();
         double x = source.getPosition().x;
         double z = source.getPosition().z;
-        MacroGeologyField.Sample sample = MacroGeologyField.sample(
-                source.getLevel().getSeed(),
-                x,
-                z
-        );
-        return sendSample(source, x, z, sample);
+        return sendSample(source, x, z);
     }
 
     private static int sampleCoordinates(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         int x = IntegerArgumentType.getInteger(context, "x");
         int z = IntegerArgumentType.getInteger(context, "z");
-        MacroGeologyField.Sample sample = MacroGeologyField.sample(
-                source.getLevel().getSeed(),
-                x,
-                z
-        );
-        return sendSample(source, x, z, sample);
+        return sendSample(source, x, z);
     }
 
     private static int sendSample(
             CommandSourceStack source,
             double x,
-            double z,
-            MacroGeologyField.Sample sample
+            double z
     ) {
+        long worldSeed = source.getLevel().getSeed();
+        MacroGeologyField.Sample sample = MacroGeologyField.sample(
+                worldSeed,
+                x,
+                z
+        );
+        NativeTransverseDuneField.Sample dune = NativeTransverseDuneField.sample(
+                worldSeed,
+                x,
+                z,
+                sample.duneSuitability()
+        );
+
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
-                        "Macro geology @ X=%.1f Z=%.1f: radius=%.1f, effective_radius=%.1f, "
-                                + "province=%s, target_surface_Y=%.1f.",
+                        "Arrakis terrain @ X=%.1f Z=%.1f: radius=%.1f, effective_radius=%.1f, "
+                                + "province=%s, rock_surface_Y=%.1f.",
                         x,
                         z,
                         sample.radiusBlocks(),
@@ -120,23 +121,42 @@ public final class MacroGeologyCommand {
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
-                        "Province weights: basin=%.3f, transition=%.3f, massif=%.3f, "
-                                + "eroded_margin=%.3f, open_desert=%.3f.",
+                        "Province weights: basin=%.2f, foreland=%.2f, massif=%.2f, "
+                                + "faulted_margin=%.2f, broken_rock=%.2f, transition=%.2f, erg=%.2f.",
                         sample.centralBasinWeight(),
-                        sample.rockTransitionWeight(),
+                        sample.innerForelandWeight(),
                         sample.massifWeight(),
-                        sample.erodedMarginWeight(),
-                        sample.openDesertWeight()
+                        sample.faultedMarginWeight(),
+                        sample.brokenRockWeight(),
+                        sample.sandRockTransitionWeight(),
+                        sample.openErgWeight()
                 )),
                 false
         );
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
-                        "Rock field: formation_mask=%.3f, added_height=%.1f, boundary_warp=%+.1f blocks.",
-                        sample.rockFormationMask(),
+                        "Rock: +%.1f blocks, small=%.2f, mask=%.2f, fault=%.2f, sand_pass=%.2f, "
+                                + "boundary_warp=%+.0f.",
                         sample.addedRockHeight(),
+                        sample.smallFormationMask(),
+                        sample.rockFormationMask(),
+                        sample.faultCarveMask(),
+                        sample.sandCorridorMask(),
                         sample.boundaryWarpBlocks()
+                )),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
+                        "Native transverse dunes: suitability=%.2f, local_height=%.2f, "
+                                + "spacing=%.0f, wind=%.0f deg, asymmetry=%.2f.",
+                        sample.duneSuitability(),
+                        dune.heightBlocks(),
+                        NativeTransverseDuneField.DUNE_SPACING_BLOCKS,
+                        NativeTransverseDuneField.WIND_ANGLE_DEGREES,
+                        NativeTransverseDuneField.SLOPE_ASYMMETRY
                 )),
                 false
         );
@@ -145,9 +165,10 @@ public final class MacroGeologyCommand {
 
     private static int nativeClearMessage(CommandContext<CommandSourceStack> context) {
         context.getSource().sendFailure(Component.literal(
-                "In 0.5.8 macro geology is native chunk terrain and cannot be cleared "
-                        + "independently. Use a fresh Arrakis Dev world, or delete/regenerate "
-                        + "the affected world region files while the world is closed."
+                "Macro geology and far-erg dunes are native chunk terrain in 0.5.9 and "
+                        + "cannot be cleared independently. Use a fresh Arrakis Dev world, "
+                        + "or delete/regenerate the affected world region files while the "
+                        + "world is closed."
         ));
         return 0;
     }

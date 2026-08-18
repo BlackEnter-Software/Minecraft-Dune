@@ -2,13 +2,14 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.8**
+Current development version: **0.5.9**
 
 The project currently contains:
 
 - the Muad'dib desert mouse test entity, model, texture, and animations;
 - the selectable **Arrakis Dev** desert world preset;
 - native deterministic macro geology generated as part of the Arrakis chunk pipeline;
+- native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
 - custom full and fractional dune-sand blocks with selectable surface resolution;
@@ -36,17 +37,18 @@ other development/test mods can be installed manually.
 
 ## Arrakis Dev world
 
-**Create a new Arrakis Dev world for 0.5.8 testing.**
+**Create a new Arrakis Dev world for clean 0.5.9 morphology testing.**
 
-Version 0.5.8 changes the overworld chunk-generator type from vanilla `minecraft:flat` to
-`minecraftdune:arrakis_dev`. An existing 0.5.7 world stores its old flat generator in
-`level.dat` and will not automatically switch to native geology after updating the mod.
+Version 0.5.8 introduced the `minecraftdune:arrakis_dev` native generator and 0.5.9 keeps
+that generator codec. A 0.5.8 save is technically loadable, but already-generated chunks
+retain their old terrain. Create a new world (or regenerate closed-world region files) when
+comparing 0.5.9 morphology so old/new chunks do not form test seams.
 
 The native generator retains the same base stratigraphy:
 
 | Y range | Base material |
 |---:|---|
-| 65 and above | Air before macro geology |
+| 65 and above | Native rock/dune terrain where fields require it; otherwise air |
 | 55 to 64 | Sand |
 | 45 to 54 | Sandstone |
 | 0 to 44 | Stone |
@@ -56,87 +58,108 @@ The native generator retains the same base stratigraphy:
 Biome features, lakes, structures, and caves remain disabled in the Arrakis Dev overworld.
 The Nether and End retain normal vanilla generation.
 
-## Native macro geology — 0.5.8
+## Geological provinces + native far-erg dunes — 0.5.9
 
-The 0.5.7 `MacroGeologyField` mathematics are preserved for this milestone. The difference
-is **where the resulting terrain is created**.
+Version 0.5.9 keeps the fast native chunk-generation architecture from 0.5.8 and changes
+what the coordinate fields produce. The landscape is no longer modeled as one massif that
+simply fades into open sand.
 
-Previously the debug commands generated a flat chunk and then built cliffs with large
-numbers of `ServerLevel#setBlock` calls. In 0.5.8 the registered
-`ArrakisChunkGenerator` extends the vanilla flat generator, builds the normal Arrakis base
-layers, and writes the macro-rock mass directly into `ChunkAccess` during
-`fillFromNoise()`.
+The working first-region sequence is now:
 
-The generator captures the actual level seed when Minecraft creates the chunk-generator
-structure state. Macro terrain therefore remains deterministic from:
+| Approximate range | Province | Development intent |
+|---:|---|---|
+| `0–800` | Central Basin | Strict flat pure sand reserved for Arrakeen. |
+| `800–~1120` | Inner Rock Foreland | Mostly sand with sparse 5–28 block rock formations. |
+| `~1000–3020` | Shield Wall / Main Massif | Preserve the majestic large 0.5.8 rock scale. |
+| `~2450–3660` | Faulted Margin | Narrow long structural ravines overlap the outer massif. |
+| `~2920–4450` | Broken Rock Desert | Detached outliers/remnants after the main massif ends. |
+| `~3900–5400` | Sand–Rock Transition | Lower remnant rock mixed with increasing dune activity. |
+| `~4700+` | Open Erg | Native transverse dunes dominate; full suitability near 5250. |
+
+The ranges overlap and their boundaries are warped. They are **continuous terrain fields**,
+not Minecraft biome borders.
+
+### Shield Wall passages and breakup
+
+The main massif is made more continuous than the 0.5.7/0.5.8 field. Crossings now come from
+explicit operators instead of very broad missing sectors:
+
+- four long seed-dependent non-radial **fault ravines**, normally with low rocky floors;
+- two broad seed-dependent **sandy corridors** that fully suppress rock at their center and
+  connect the inner desert to the outer sand regions.
+
+The massif's outer envelope also ends much more abruptly near the 3-km scale. Beyond it,
+an independent outlier field creates the Broken Rock Desert instead of merely lowering the
+same mountain body.
+
+### Native transverse dunes
+
+0.5.9 adds `NativeTransverseDuneField`, a continuous analytic world-coordinate dune field.
+It does **not** run the finite 64 × 64 iterative `DuneSimulation` during chunk generation.
+Instead, it carries the calibrated transverse morphology into a chunk-safe form:
 
 ```text
-world seed + absolute X/Z
+maximum height       = 30 blocks
+dune spacing         = 350 blocks
+spacing variation    = 0.18
+ridge sharpness      = 3.0
+valley cutoff        = 0.20
+slope asymmetry      = 0.82
+wind angle           = 24 degrees
+surface resolution   = 1/16 block
 ```
 
-The current first-region field is intentionally unchanged:
+Dunes are activated by `MacroGeologyField.duneSuitability()`: weak in sandy gaps of the
+Broken Rock Desert, stronger through the Sand–Rock Transition, and full-strength in the
+Open Erg. Tall rock suppresses them locally.
 
-- `0-1000`: hard-reserved flat Arrakeen / central basin;
-- roughly `1000-1500`: rock transition;
-- roughly `1400-3000`: Shield Wall / massif province;
-- roughly `2800-4000`: eroded outer margin;
-- roughly `3600-4200`: increasing open-desert dominance;
-- roughly `4200+`: open desert.
+Native dunes use the existing `minecraftdune:sand` block and at most one
+`minecraftdune:sand_layer` top block, so the far-erg surface retains the established
+sixteenth-layer representation.
 
-The provisional rock output remains plain `minecraft:stone`, up to Y=240. The planned
-0-800/800-1000 inner-region restructuring, faults/ravines, sandy passes, abrupt massif
-breakup, outer broken-rock province, strata and erosion are deliberately deferred until
-the native generator is validated.
+The 24-degree wind is intentionally still a global development direction. Regional wind,
+terrain shelter and sand-supply fields remain later work.
 
-Inspect the field without generating extra chunks:
+### Geology diagnostics and pregeneration
+
+The `/dune geology` branch is re-registered through Brigadier's normal `/dune` merge path.
+The bare command now works too:
 
 ```mcfunction
+/dune geology
 /dune geology info
 /dune geology sample <x> <z>
 ```
 
-Pregenerate the aligned 256 x 256 geology tile containing the player:
+Diagnostics include province weights, rock height, small-formation mask, fault mask,
+sand-pass mask, boundary warp, dune suitability and native local dune height.
+
+Pregeneration remains native FULL-chunk generation:
 
 ```mcfunction
 /dune geology generate
-```
-
-Pregenerate a **100 vanilla-Minecraft-chunk radius** around absolute `(0,0)`:
-
-```mcfunction
 /dune geology generate_initial
-```
-
-This is a 1600-block radius. The command only asks Minecraft for normal FULL chunks;
-`ArrakisChunkGenerator` creates the geology as part of those chunks.
-
-Player-centered pregeneration uses a radius measured in 256 x 256 geology tiles:
-
-```mcfunction
 /dune geology generate_nearest <1..12>
-```
-
-`generate_nearest 1` means the current tile plus one neighboring tile in every X/Z
-direction: a 3 x 3 tile square, 768 x 768 blocks, or 2304 ordinary Minecraft chunks.
-
-Large pregeneration jobs remain tick-spread:
-
-```mcfunction
 /dune geology generation status
 /dune geology generation cancel
 ```
 
-`/dune geology clear` is retained only as an explanatory compatibility command. Native
-terrain cannot safely be removed as a separate post-generation layer. For a clean retest,
-create a fresh Arrakis Dev world or regenerate the relevant closed-world region files.
+`generate_initial` remains a 100 vanilla-Minecraft-chunk / 1600-block radius around
+absolute `(0,0)`. `generate_nearest 1` remains a player-centered 3 × 3 set of 256 × 256
+geology tiles.
 
-See [`docs/MACRO_GEOLOGY.md`](docs/MACRO_GEOLOGY.md) and
-[`docs/NATIVE_ARRAKIS_TERRAIN.md`](docs/NATIVE_ARRAKIS_TERRAIN.md).
+`/dune geology clear` is still explanatory only: geology and far-erg dunes are native terrain
+and cannot safely be removed as an independent post-generation layer.
+
+See [`docs/MACRO_GEOLOGY.md`](docs/MACRO_GEOLOGY.md),
+[`docs/NATIVE_ARRAKIS_TERRAIN.md`](docs/NATIVE_ARRAKIS_TERRAIN.md), and
+[`docs/NATIVE_TRANSVERSE_DUNES.md`](docs/NATIVE_TRANSVERSE_DUNES.md).
 
 ## Dune prototype
 
-The calibrated 0.5.6 transverse generator remains the **v1 baseline**. Version 0.5.8 does
-not change its morphology math or defaults.
+The calibrated 0.5.6 transverse laboratory remains the **v1 baseline**. Version 0.5.9 does
+not change its simulation math or defaults; the native far-erg field is a separate analytic
+implementation derived from that calibrated morphology.
 
 ```mcfunction
 /dune dunes settings reset
@@ -219,8 +242,8 @@ Surface rendering modes remain:
 | `sixteenth` | 1/16 block | Default; uses all 15 partial layer states. |
 
 Every generated dune column contains full `minecraftdune:sand` blocks and no more than one
-partial `minecraftdune:sand_layer` on top. Version 0.5.8 does not replace the existing
-layered-sand assets.
+partial `minecraftdune:sand_layer` on top. Version 0.5.9 reuses the same layered-sand
+assets for native far-erg dunes and does not replace their models or textures.
 
 See [`docs/ARRAKIS_DUNE_PROTOTYPE.md`](docs/ARRAKIS_DUNE_PROTOTYPE.md).
 
@@ -273,7 +296,7 @@ Batch capture:
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.8.jar
+build/libs/minecraftdune-0.5.9.jar
 ```
 
 ## Package and namespace
@@ -284,4 +307,4 @@ build/libs/minecraftdune-0.5.8.jar
 
 ## Version history
 
-See [`PATCH_NOTES-0.5.8.md`](PATCH_NOTES-0.5.8.md) for this release and [`PATCH_NOTES.md`](PATCH_NOTES.md) for the preserved earlier history.
+See [`PATCH_NOTES-0.5.9.md`](PATCH_NOTES-0.5.9.md) for this release, [`PATCH_NOTES-0.5.8.md`](PATCH_NOTES-0.5.8.md) for the native-generator milestone, and [`PATCH_NOTES.md`](PATCH_NOTES.md) for the preserved earlier history.

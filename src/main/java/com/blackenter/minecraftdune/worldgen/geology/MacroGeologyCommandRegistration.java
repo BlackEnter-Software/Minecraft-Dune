@@ -1,10 +1,6 @@
 package com.blackenter.minecraftdune.worldgen.geology;
 
 import com.blackenter.minecraftdune.MinecraftDune;
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.tree.CommandNode;
-import com.mojang.brigadier.tree.LiteralCommandNode;
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -12,11 +8,13 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /**
- * Attaches macro-geology development commands to the existing /dune command tree.
+ * Merges the geology branch into the canonical /dune command root.
  *
- * <p>Registration runs at LOWEST priority so the 0.5.6 dune command can remain untouched.
- * The child-exists check also makes this compatible with a checkout where an earlier
- * experimental 0.5.7 patch already attached the geology branch directly.</p>
+ * <p>0.5.8 attempted to look up the already-created root and mutate it. In actual native
+ * world testing that branch was not visible. Registering another literal builder with the
+ * same root name lets Brigadier merge the child tree into the existing /dune node. LOWEST
+ * priority keeps the main dune prototype registration first, and the /minecraftdune redirect
+ * therefore continues to point at the merged node.</p>
  */
 @EventBusSubscriber(modid = MinecraftDune.MOD_ID)
 public final class MacroGeologyCommandRegistration {
@@ -27,28 +25,10 @@ public final class MacroGeologyCommandRegistration {
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void registerCommands(RegisterCommandsEvent event) {
-        CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
-        CommandNode<CommandSourceStack> duneRoot = dispatcher.getRoot().getChild("dune");
-
-        if (duneRoot == null) {
-            LiteralCommandNode<CommandSourceStack> fallbackDuneRoot = dispatcher.register(
-                    Commands.literal("dune")
-                            .requires(source -> source.hasPermission(REQUIRED_PERMISSION_LEVEL))
-                            .then(MacroGeologyCommand.build())
-            );
-
-            if (dispatcher.getRoot().getChild("minecraftdune") == null) {
-                dispatcher.register(
-                        Commands.literal("minecraftdune")
-                                .requires(source -> source.hasPermission(REQUIRED_PERMISSION_LEVEL))
-                                .redirect(fallbackDuneRoot)
-                );
-            }
-            return;
-        }
-
-        if (duneRoot.getChild("geology") == null) {
-            duneRoot.addChild(MacroGeologyCommand.build().build());
-        }
+        event.getDispatcher().register(
+                Commands.literal("dune")
+                        .requires(source -> source.hasPermission(REQUIRED_PERMISSION_LEVEL))
+                        .then(MacroGeologyCommand.build())
+        );
     }
 }
