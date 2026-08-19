@@ -35,11 +35,11 @@
         "terrain": {
           "profile_version": 510,
           "basin": {
-            "pure_sand_radius": 800.0,
-            "transition_end_radius": 970.0
+            "pure_sand_radius": 1500.0,
+            "transition_end_radius": 2000.0
           },
           "foreland": {
-            "end_radius": 1150.0,
+            "end_radius": 3050.0,
             "large_scale": 145.0,
             "detail_scale": 62.0,
             "micro_scale": 30.0,
@@ -52,11 +52,11 @@
             "micro_max_height": 9.0
           },
           "massif": {
-            "start_radius": 1000.0,
-            "full_radius": 1250.0,
-            "outer_start_radius": 2920.0,
-            "outer_end_radius": 3020.0,
-            "max_added_height": 176,
+            "start_radius": 3000.0,
+            "full_radius": 3250.0,
+            "outer_start_radius": 4000.0,
+            "outer_end_radius": 4500.0,
+            "max_added_height": 200,
             "continuity_low": -0.38,
             "continuity_high": -0.02,
             "shape_low": 0.07,
@@ -64,10 +64,10 @@
           },
           "faults": {
             "count": 4,
-            "start_radius": 1050.0,
-            "full_radius": 1350.0,
-            "fade_start_radius": 3400.0,
-            "end_radius": 3850.0,
+            "start_radius": 1500.0,
+            "full_radius": 2000.0,
+            "fade_start_radius": 4500.0,
+            "end_radius": 5850.0,
             "core_width": 30.0,
             "outer_width": 105.0,
             "broad_warp_scale": 1150.0,
@@ -79,8 +79,8 @@
             "sandy_floor_threshold": 0.56
           },
           "sand_passes": {
-            "start_radius": 1000.0,
-            "full_radius": 1320.0,
+            "start_radius": 1500.0,
+            "full_radius": 2000.0,
             "fade_start_radius": 4450.0,
             "end_radius": 4950.0,
             "primary_core_width": 105.0,
