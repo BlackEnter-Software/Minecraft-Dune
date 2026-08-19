@@ -1,0 +1,38 @@
+Minecraft: Dune 0.5.10 — local deterministic field validation
+
+Validation performed without the Minecraft/NeoForge runtime
+------------------------------------------------------------
+MacroGeologyField.java and NativeTransverseDuneField.java were compiled with a small
+ArrakisTerrainSettings API stub to validate their Java syntax and pure field logic.
+
+Four deterministic test seeds were sampled around full 360-degree rings.
+
+Approximate combined results:
+  radius 900   : 34.3% columns with >0.5 block rock, max 22.9 blocks
+  radius 3500  : 41.8% columns with >0.5 block rock, max 57.5 blocks
+  radius 4500  : 22.8% columns with >0.5 block rock, max 40.1 blocks
+  radius 5000  : 25.9% columns with >0.5 block rock, max 21.1 blocks
+  radius 5500  : 11.3% columns with >0.5 block rock, max 14.6 blocks
+  radius 6000  :  3.8% columns with >0.5 block rock, max 10.1 blocks
+  radius 6500  : effectively no rock
+
+This is consistent with the intended longer Broken Rock Desert followed by progressively
+smaller/sparser remnants.
+
+Native transverse field:
+  configured spacing = 525 blocks
+  sampled maximum    = 30.0 blocks
+
+Fault-floor check:
+Strong sand-floor fault segments reach an effective sand-floor mask near 1.0 and reduce
+the native rock surface to the base Y=64 sand. Transitional edges can retain low resistant
+rock.
+
+Limitations
+-----------
+The complete NeoForge build cannot be run in this environment because the Minecraft/NeoForge
+development classpath is unavailable here. Run:
+
+  .\gradlew.bat clean build
+
+after applying the overlay.

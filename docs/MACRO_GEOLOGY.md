@@ -1,155 +1,181 @@
-# Macro geology — 0.5.9 geological provinces
+# Macro geology — 0.5.10 tuning pass
 
 ## Scope
 
-Version 0.5.9 is the first morphology pass on top of the native Arrakis chunk generator.
-The goal is not detailed sandstone erosion yet. It is to make the *sequence of landscapes*
-read correctly at planetary travel scale while keeping generation continuous, deterministic,
-and inexpensive.
+0.5.10 is a parameterization and morphology-tuning pass on the native 0.5.9 province model.
+The native chunk-generation architecture is unchanged.
 
-All fields are derived from the world seed plus absolute X/Z coordinates. Chunk generation
-order therefore has no effect on the result.
+The main changes are:
+
+- terrain parameters move into a serialized `ArrakisTerrainSettings` profile;
+- more small rock in the Inner Rock Foreland;
+- longer Broken Rock Desert with progressive size/density decay;
+- stronger fault-line meander without widening the faults;
+- intermittent fully sandy fault floors;
+- native transverse dune spacing increases from 350 to 525 blocks.
+
+Detailed sandstone erosion and true escarpment geometry remain separate future work.
+
+## Serialized settings
+
+The new-world source profile lives in:
+
+```text
+src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
+```
+
+under:
+
+```json
+"generator": {
+  "type": "minecraftdune:arrakis_dev",
+  "settings": { "...": "flat Arrakis base" },
+  "terrain": { "...": "0.5.10 profile" }
+}
+```
+
+`ArrakisChunkGenerator.CODEC` serializes the `terrain` object as part of the dimension
+generator. This is preferable to a process-global config because the world retains the
+terrain parameters it was created with.
+
+The `terrain` field is optional when decoding older worlds; missing data falls back to the
+current default profile. Existing generated chunks are never rewritten, so create a new
+Arrakis Dev world for clean cross-version comparisons.
 
 ## Province sequence
 
-The first Gameplay Arrakis region now uses overlapping continuous weights rather than one
-massif mask fading directly into open desert:
+The current profile is approximately:
 
-| Approximate range | Province | Intended read |
+| Range | Province | 0.5.10 intent |
 |---:|---|---|
-| `0–800` | Central Basin | Pure flat sand reserved for Arrakeen. |
-| `800–~1120` | Inner Rock Foreland | Mostly sand with sparse knobs/shelves and small rock formations. |
-| `~1000–3020` | Shield Wall / Main Massif | The majestic high rock body retained from 0.5.8. |
-| `~2450–3660` | Faulted Margin | Overlaps the outer massif; long narrow structural ravines become important. |
-| `~2920–4450` | Broken Rock Desert | Independent outliers/remnants after the main massif ends. |
-| `~3900–5400` | Sand–Rock Transition | Lower, smaller remnant rock mixed with increasingly active sand. |
-| `~4700+` | Open Erg | Transverse dune field takes over; full dune suitability is reached near 5250. |
+| 0–800 | Central Basin | Exact flat sand reservation. |
+| 800–~1150 | Inner Rock Foreland | Medium knobs plus denser 2–9 block micro-rock. |
+| ~1000–3020 | Shield Wall / Main Massif | Keep the successful large 0.5.9 scale. |
+| ~2450–3660 | Faulted Margin | Same fault width; substantially stronger lateral meander. |
+| ~2920–5650 | Broken Rock Desert | Large remnants near the massif, smaller/noisier remnants outward. |
+| ~4450–6500 | Sand–Rock Transition | Sparse low rock mixed with increasing dune activity. |
+| ~5850+ | Open Erg | Native dunes increasingly dominant; full suitability near 6700. |
 
-These are not Minecraft biome borders. They are environmental/geological weights available
-to later systems such as rock morphology, sand supply, ecology, settlements, and wind.
+The boundaries remain continuous warped fields, not Minecraft biome boundaries.
 
-Boundary positions are distorted by a very-low-frequency seed-dependent field. The strict
-exception is the first 800 blocks: that radius is protected before any warp is evaluated.
+## Inner Rock Foreland
 
-## Central basin and inner foreland
+0.5.9 had a single main small-formation field. 0.5.10 keeps that field and adds a second,
+smaller noise scale.
 
-The pure-sand reservation is reduced from 1000 to **800 blocks**.
-
-From roughly 800 to 1100 blocks a separate small-formation operator creates disconnected
-rock rather than a miniature copy of the Shield Wall. The development targets are:
-
-- roughly 10–20% rock occurrence depending on seed/direction;
-- typical formation height about 5–28 blocks;
-- scales of tens to low hundreds of blocks;
-- continuous sand between formations.
-
-This is intended to become a useful ecological/early-worm zone later, but 0.5.9 does not add
-little-maker spawning or ecology rules.
-
-## Shield Wall / main massif
-
-The main massif keeps approximately the same vertical authority as 0.5.8. Its provisional
-rock can still reach up to the existing 176-block development ceiling above Y=64.
-
-The key topology change is that the massif is made *more continuous*. Broad missing sectors
-are no longer responsible for most crossings. Crossings are created by explicit operators:
-
-1. narrow structural fault ravines;
-2. two broad seed-dependent sandy corridors.
-
-This should make the massif read as one major geological body cut by real passages rather
-than a loose collection of rounded mountains.
-
-## Fault ravines
-
-0.5.9 evaluates four long seeded fault traces. Each has:
-
-- its own non-radial orientation;
-- a seed-dependent offset so it normally does not pass through `(0,0)`;
-- broad low-frequency lateral warping;
-- a narrow carved center and wider transition walls.
-
-Faults normally carve high rock down toward a low **rocky floor** instead of deleting the
-rock completely. They are therefore intended to read as ravines / structural cuts / rocky
-passes rather than sand gates.
-
-This is still an abstract fault operator. Actual bedding offsets, talus, fracture zones,
-slot-canyon erosion, and seismic scar morphology remain future work.
-
-## Sandy Shield Wall corridors
-
-Two major seed-dependent corridors are generated roughly opposite one another around the
-central basin. Their centerlines curve slowly with radius and their width is measured in
-world blocks, so they do not become enormous wedges as they move outward.
-
-At the corridor center, provisional rock is suppressed completely. The corridors continue
-through the broken-rock zone, providing actual sand-connected routes between the inner and
-outer deserts.
-
-Later wind/sand-supply systems can use the same corridor mask as a preferred aeolian
-transport gateway.
-
-## Abrupt outer breakup
-
-The 0.5.8 massif faded gradually into the open desert. 0.5.9 separates two processes:
+The profile currently uses:
 
 ```text
-main massif body
-        ↓
-comparatively abrupt outer termination
-        ↓
-independent detached rock outliers
-        ↓
-broken rock desert
-        ↓
-smaller transition remnants
-        ↓
-open erg
+large scale          = 145 blocks
+detail scale         = 62 blocks
+micro scale          = 30 blocks
+large height         = 4–28 blocks
+micro height         = approximately 1.5–9 blocks
 ```
 
-The main massif radial envelope drops over roughly a hundred effective-radius blocks around
-its outer boundary. The next region is produced by a separate outlier noise field with
-provisional relief around 12–67 blocks, rather than by simply reducing the height of the
-main massif.
+The micro threshold is deliberately higher than the first experimental 0.5.10 value so the
+foreland remains predominantly sand rather than becoming a continuous boulder field.
 
-A second smaller-remnant field operates in the sand–rock transition with provisional relief
-around 4–26 blocks.
+## Fault network
 
-## Native dune suitability
+The useful 0.5.9 fault width is retained:
 
-`MacroGeologyField.Sample` exposes `duneSuitability` in addition to the geological fields.
-The initial rule is intentionally simple:
+```text
+core width           = 30 blocks
+outer carve width    = 105 blocks
+```
 
-- broken-rock desert contributes weak dune activity;
-- sand–rock transition contributes moderate/strong activity;
-- open erg contributes full activity;
-- existing rock height suppresses dune activity strongly.
+The centerline itself now has three deformation scales:
 
-This field is consumed by `NativeTransverseDuneField`; the iterative laboratory
-`DuneSimulation` remains separate.
+```text
+broad warp           = 240 blocks at ~1150-block scale
+medium warp          = 90 blocks at ~360-block scale
+sinusoidal component = 75 blocks at ~780-block scale
+```
 
-## Debug commands
+The broad and medium components are evaluated primarily as functions of distance **along**
+each fault. This bends the trace instead of only roughening the walls of a nearly straight
+line.
 
-The geology branch is registered by merging it into the canonical `/dune` root. In 0.5.9,
-`/dune geology` itself is also executable and is equivalent to `info`.
+### Fault floors
+
+Fault carving is applied after all rock contributors, including Broken Rock outliers. That
+prevents a late outlier from creating a narrow transverse "rock fence" across a carved basin.
+
+Each fault also receives a low-frequency along-fault floor field:
+
+- some segments retain a very low resistant rocky floor;
+- some center segments suppress the rock completely and expose the Y=64 sand surface.
+
+This should create a mix of rocky structural ravines and sand-floored caldera/fault basins.
+
+## Broken Rock Desert
+
+The Broken Rock Desert now persists much farther outward.
+
+Instead of one outlier field fading to zero, 0.5.10 blends:
+
+1. a large-remnant field;
+2. a second micro-remnant field.
+
+A radial `brokenProgress` value increases outward. It simultaneously:
+
+- raises the threshold for large formations;
+- reduces their maximum height;
+- gives more relative influence to the micro-remnant field;
+- raises the micro threshold farther outward.
+
+The intended sequence is:
+
+```text
+large detached remnants
+        ↓
+medium outliers
+        ↓
+small low formations
+        ↓
+rare micro-remnants
+        ↓
+sand-rock transition
+```
+
+The current rock envelope fades between roughly effective radius 5200 and 5650. A separate
+low-remnant transition continues toward roughly 6500.
+
+## Massif / mesa steepness
+
+0.5.10 deliberately does **not** attempt the true mesa/escarpment geometry yet.
+
+The target for that future pass is resistant ultra-hard remnant rock after long-term coronal
+wind erosion. The intended morphology can therefore include:
+
+- long near-vertical escarpments;
+- locally unclimbable walls;
+- caprock-supported shelves;
+- undercut sections;
+- locally negative-angle / overhanging faces where softer lower material has been removed;
+- talus only where collapse products have accumulated.
+
+Those properties require a 3D rock/erosion operator rather than simply making the current
+height-field smoothstep sharper.
+
+## Diagnostics
 
 ```mcfunction
 /dune geology
 /dune geology info
 /dune geology sample <x> <z>
+/dune geology profile
 ```
 
-The output now includes:
+`sample` reports computed terrain state at a coordinate. `profile` reports the main
+serialized settings currently loaded by the world's generator.
 
-- dominant province;
-- province weights;
-- rock height and formation masks;
-- fault mask;
-- sand-pass mask;
-- boundary warp;
-- dune suitability and native transverse dune height.
+Sample diagnostics now include `fault_sand` in addition to the existing fault carve mask.
 
-Pregeneration remains available:
+## Pregeneration
+
+Native chunk pregeneration is unchanged:
 
 ```mcfunction
 /dune geology generate
@@ -159,20 +185,4 @@ Pregeneration remains available:
 /dune geology generation cancel
 ```
 
-The commands request normal FULL chunks only; terrain is created by the native generator.
-
-## Deferred detailed rock morphology
-
-0.5.9 deliberately does **not** yet implement:
-
-- sandstone strata/bedding;
-- resistant caprock;
-- true plateau/mesa/butte morphology;
-- talus and scree;
-- thermal/salt weathering;
-- yardangs;
-- water/fluvial incision;
-- terrain-projected regional wind.
-
-The next rock pass should operate on top of these macro provinces rather than replacing
-them.
+Terrain itself remains part of normal native chunk generation.

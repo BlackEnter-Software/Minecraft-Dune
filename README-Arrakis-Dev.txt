@@ -1,12 +1,12 @@
 Minecraft: Dune — Arrakis Dev
 ==============================
 
-Geological provinces + native far-erg dunes — 0.5.9
----------------------------------------------------
+Terrain-profile tuning — 0.5.10
+-------------------------------
 
-For a clean morphology comparison, create a NEW Arrakis Dev world. 0.5.8 saves use the same
-native generator codec, but already-generated chunks keep their 0.5.8 terrain and can seam
-against newly generated 0.5.9 chunks.
+For a clean comparison, create a NEW Arrakis Dev world. 0.5.10 adds a serialized `terrain`
+object to the native generator codec. Older saves remain decodable through default values,
+but already-generated chunks keep their previous terrain and can seam against new chunks.
 
 Base overworld stratigraphy
 ---------------------------
@@ -30,23 +30,23 @@ Province sequence
 0-800          CENTRAL_BASIN
                Exact flat pure sand. Arrakeen reservation.
 
-800-~1120      INNER_ROCK_FORELAND
-               Mostly sand. Sparse small formations, roughly 5-28 blocks high.
+800-~1150      INNER_ROCK_FORELAND
+               Mostly sand. More 2-9 block micro-rocks plus 4-28 block knobs/shelves.
 
 ~1000-3020     SHIELD_WALL_MASSIF
                Main high rock body. Majestic 0.5.8 scale retained.
 
 ~2450-3660     FAULTED_MARGIN
-               Overlaps the outer massif. Four long narrow rocky fault-ravine traces.
+               Same useful width, but fault centerlines meander much more strongly.
 
-~2920-4450     BROKEN_ROCK_DESERT
-               Independent detached rock outliers after the massif terminates.
+~2920-5650     BROKEN_ROCK_DESERT
+               Longer-lived outliers; formations become smaller/noisier with distance.
 
-~3900-5400     SAND_ROCK_TRANSITION
-               Lower remnant rock plus increasing native dune activity.
+~4450-6500     SAND_ROCK_TRANSITION
+               Sparse low remnant rock plus increasing native dune activity.
 
-~4700+         OPEN_ERG
-               Native transverse dunes. Full suitability around effective radius 5250.
+~5850+         OPEN_ERG
+               Native transverse dunes. Full suitability around effective radius 6700.
 
 All non-central ranges overlap and are distorted by low-frequency world-seed fields.
 
@@ -56,8 +56,9 @@ Two separate crossing types are generated:
 
 1. Fault ravines
    - narrow;
-   - non-radial structural traces;
-   - usually low rocky floors.
+   - strongly warped non-radial structural traces;
+   - some segments keep a low resistant rocky floor;
+   - other segments cut fully to base sand, removing the 0.5.9 rock-fence artifact.
 
 2. Sandy corridors
    - two major seed-dependent routes;
@@ -71,7 +72,7 @@ The far desert does NOT run the finite 64x64 DuneSimulation per chunk. Native ge
 uses a continuous coordinate field with the calibrated transverse profile:
 
 maximum height       = 30
-spacing              = 350
+spacing              = 525
 spacing variation    = 0.18
 ridge sharpness      = 3.0
 valley cutoff        = 0.20
@@ -84,13 +85,24 @@ minecraftdune:sand_layer top block.
 
 The fixed 24-degree wind is temporary until regional wind exposure/shelter is implemented.
 
+Serialized terrain profile
+--------------------------
+The authoritative tuning values for new Arrakis Dev worlds are now stored in the world
+preset JSON under the generator's `terrain` object:
+
+src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
+
+The chunk-generator codec serializes the same values into the world generator data.
+
 Terrain inspection
 ------------------
 /dune geology
 /dune geology info
 /dune geology sample <x> <z>
+/dune geology profile
 
-The bare /dune geology command now works and reports the current terrain sample.
+The bare /dune geology command reports the current terrain sample. `profile` reports the
+serialized tuning profile loaded by the world's native Arrakis generator.
 
 Pregeneration
 -------------
@@ -125,10 +137,11 @@ The finite calibrated DuneSimulation remains available unchanged for development
 The native far-erg dune field is a separate chunk-safe implementation; it does not replace
 the laboratory transport/cascade code.
 
-Deferred after 0.5.9
---------------------
+Deferred after 0.5.10
+---------------------
 - sandstone strata / bedding;
 - caprock and true mesa/butte morphology;
+- near-vertical and locally undercut/negative-angle escarpment erosion;
 - talus / scree;
 - yardangs;
 - thermal and salt weathering;

@@ -5,6 +5,7 @@ import com.blackenter.minecraftdune.world.level.block.DuneSandLayerBlock;
 import com.blackenter.minecraftdune.worldgen.dune.NativeTransverseDuneField;
 import com.blackenter.minecraftdune.worldgen.geology.MacroGeologyField;
 import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.util.Mth;
@@ -29,30 +30,54 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Native Arrakis Dev terrain generator.
  *
- * <p>Version 0.5.9 keeps the fast 0.5.8 flat-generator foundation but evaluates a richer
- * {@link MacroGeologyField} and, where that field reports enough exposed sand, a continuous
- * {@link NativeTransverseDuneField}. Rock and dune blocks are written directly into
- * {@link ChunkAccess} during normal chunk generation.</p>
+ * <p>0.5.10 serializes the macro-terrain/dune profile into the generator codec. The normal
+ * flat Arrakis base remains unchanged; geology and native dunes are still written directly
+ * into ChunkAccess during generation.</p>
  */
 public final class ArrakisChunkGenerator extends FlatLevelSource {
     public static final MapCodec<ArrakisChunkGenerator> CODEC =
-            FlatLevelGeneratorSettings.CODEC
-                    .fieldOf("settings")
-                    .xmap(
-                            ArrakisChunkGenerator::new,
-                            ArrakisChunkGenerator::settings
-                    );
+            RecordCodecBuilder.mapCodec(instance -> instance.group(
+                    FlatLevelGeneratorSettings.CODEC
+                            .fieldOf("settings")
+                            .forGetter(ArrakisChunkGenerator::flatSettingsForCodec),
+                    ArrakisTerrainSettings.CODEC
+                            .optionalFieldOf(
+                                    "terrain",
+                                    ArrakisTerrainSettings.DEFAULT
+                            )
+                            .forGetter(ArrakisChunkGenerator::terrainSettings)
+            ).apply(instance, ArrakisChunkGenerator::new));
 
-    private static final BlockState ROCK_STATE = Blocks.STONE.defaultBlockState();
-    private static final int FIRST_NATIVE_Y = MacroGeologyField.BASE_SURFACE_Y + 1;
-    private static final int LAST_ROCK_Y =
-            MacroGeologyField.BASE_SURFACE_Y + MacroGeologyField.MAX_ADDED_ROCK_HEIGHT;
+    private static final BlockState ROCK_STATE =
+            Blocks.STONE.defaultBlockState();
+    private static final int FIRST_NATIVE_Y =
+            MacroGeologyField.BASE_SURFACE_Y + 1;
+
+    private final FlatLevelGeneratorSettings flatSettings;
+    private final ArrakisTerrainSettings terrainSettings;
 
     private volatile long worldSeed;
     private volatile boolean worldSeedInitialized;
 
     public ArrakisChunkGenerator(FlatLevelGeneratorSettings settings) {
+        this(settings, ArrakisTerrainSettings.DEFAULT);
+    }
+
+    public ArrakisChunkGenerator(
+            FlatLevelGeneratorSettings settings,
+            ArrakisTerrainSettings terrainSettings
+    ) {
         super(settings);
+        this.flatSettings = settings;
+        this.terrainSettings = terrainSettings;
+    }
+
+    public ArrakisTerrainSettings terrainSettings() {
+        return terrainSettings;
+    }
+
+    private FlatLevelGeneratorSettings flatSettingsForCodec() {
+        return flatSettings;
     }
 
     @Override
@@ -68,7 +93,11 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
     ) {
         worldSeed = seed;
         worldSeedInitialized = true;
-        return super.createState(structureSetLookup, randomState, seed);
+        return super.createState(
+                structureSetLookup,
+                randomState,
+                seed
+        );
     }
 
     @Override
@@ -94,7 +123,13 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             LevelHeightAccessor level,
             RandomState random
     ) {
-        int flatHeight = super.getBaseHeight(x, z, type, level, random);
+        int flatHeight = super.getBaseHeight(
+                x,
+                z,
+                type,
+                level,
+                random
+        );
         if (!worldSeedInitialized) {
             return flatHeight;
         }
@@ -115,7 +150,12 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             LevelHeightAccessor height,
             RandomState random
     ) {
-        NoiseColumn column = super.getBaseColumn(x, z, height, random);
+        NoiseColumn column = super.getBaseColumn(
+                x,
+                z,
+                height,
+                random
+        );
         if (!worldSeedInitialized) {
             return column;
         }
@@ -149,20 +189,34 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         int minimumZ = chunkPos.z << 4;
         int minimumY = chunk.getMinBuildHeight();
         int maximumY = chunk.getMaxBuildHeight() - 1;
-        BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos position =
+                new BlockPos.MutableBlockPos();
 
         for (int localZ = 0; localZ < 16; localZ++) {
             int worldZ = minimumZ + localZ;
 
             for (int localX = 0; localX < 16; localX++) {
                 int worldX = minimumX + localX;
-                TerrainColumn terrain = terrainColumn(worldX, worldZ);
+                TerrainColumn terrain = terrainColumn(
+                        worldX,
+                        worldZ
+                );
 
-                int firstRockY = Math.max(FIRST_NATIVE_Y, minimumY);
-                int lastRockY = Math.min(terrain.rockTopY(), maximumY);
+                int firstRockY = Math.max(
+                        FIRST_NATIVE_Y,
+                        minimumY
+                );
+                int lastRockY = Math.min(
+                        terrain.rockTopY(),
+                        maximumY
+                );
                 for (int y = firstRockY; y <= lastRockY; y++) {
                     position.set(worldX, y, worldZ);
-                    chunk.setBlockState(position, ROCK_STATE, false);
+                    chunk.setBlockState(
+                            position,
+                            ROCK_STATE,
+                            false
+                    );
                 }
 
                 writeDuneColumn(
@@ -171,7 +225,11 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                         maximumY,
                         (y, state) -> {
                             position.set(worldX, y, worldZ);
-                            chunk.setBlockState(position, state, false);
+                            chunk.setBlockState(
+                                    position,
+                                    state,
+                                    false
+                            );
                         }
                 );
             }
@@ -180,25 +238,39 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         return chunk;
     }
 
-    private TerrainColumn terrainColumn(int worldX, int worldZ) {
-        MacroGeologyField.Sample geology = MacroGeologyField.sample(
-                worldSeed,
-                worldX + 0.5,
-                worldZ + 0.5
-        );
-        NativeTransverseDuneField.Sample dune = NativeTransverseDuneField.sample(
-                worldSeed,
-                worldX + 0.5,
-                worldZ + 0.5,
-                geology.duneSuitability()
-        );
+    private TerrainColumn terrainColumn(
+            int worldX,
+            int worldZ
+    ) {
+        MacroGeologyField.Sample geology =
+                MacroGeologyField.sample(
+                        worldSeed,
+                        worldX + 0.5,
+                        worldZ + 0.5,
+                        terrainSettings
+                );
 
+        NativeTransverseDuneField.Sample dune =
+                NativeTransverseDuneField.sample(
+                        worldSeed,
+                        worldX + 0.5,
+                        worldZ + 0.5,
+                        geology.duneSuitability(),
+                        terrainSettings.nativeDunes()
+                );
+
+        int lastRockY = MacroGeologyField.BASE_SURFACE_Y
+                + terrainSettings.massif().maxAddedHeight();
         int rockTopY = Mth.clamp(
                 Mth.floor(geology.baseElevation() + 0.5),
                 MacroGeologyField.BASE_SURFACE_Y,
-                LAST_ROCK_Y
+                lastRockY
         );
-        return new TerrainColumn(rockTopY, dune.surfaceUnits());
+
+        return new TerrainColumn(
+                rockTopY,
+                dune.surfaceUnits()
+        );
     }
 
     private static void writeDuneColumn(
@@ -211,12 +283,20 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             return;
         }
 
-        int fullSandTopY = Math.min(terrain.duneFullTopY(), maximumY);
+        int fullSandTopY = Math.min(
+                terrain.duneFullTopY(),
+                maximumY
+        );
         int firstSandY = Math.max(
-                Math.max(FIRST_NATIVE_Y, terrain.rockTopY() + 1),
+                Math.max(
+                        FIRST_NATIVE_Y,
+                        terrain.rockTopY() + 1
+                ),
                 minimumY
         );
-        BlockState fullSand = ModBlocks.SAND.get().defaultBlockState();
+
+        BlockState fullSand =
+                ModBlocks.SAND.get().defaultBlockState();
         for (int y = firstSandY; y <= fullSandTopY; y++) {
             writer.set(y, fullSand);
         }
@@ -229,7 +309,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 && partialY <= maximumY) {
             BlockState partialSand = ModBlocks.SAND_LAYER.get()
                     .defaultBlockState()
-                    .setValue(DuneSandLayerBlock.LAYERS, partialLayers);
+                    .setValue(
+                            DuneSandLayerBlock.LAYERS,
+                            partialLayers
+                    );
             writer.set(partialY, partialSand);
         }
     }
@@ -239,21 +322,29 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         void set(int y, BlockState state);
     }
 
-    private record TerrainColumn(int rockTopY, int duneSurfaceUnits) {
+    private record TerrainColumn(
+            int rockTopY,
+            int duneSurfaceUnits
+    ) {
         int fullDuneBlocks() {
-            return duneSurfaceUnits / NativeTransverseDuneField.SUBDIVISIONS;
+            return duneSurfaceUnits
+                    / NativeTransverseDuneField.SUBDIVISIONS;
         }
 
         int partialDuneLayers() {
-            return duneSurfaceUnits % NativeTransverseDuneField.SUBDIVISIONS;
+            return duneSurfaceUnits
+                    % NativeTransverseDuneField.SUBDIVISIONS;
         }
 
         int duneFullTopY() {
-            return MacroGeologyField.BASE_SURFACE_Y + fullDuneBlocks();
+            return MacroGeologyField.BASE_SURFACE_Y
+                    + fullDuneBlocks();
         }
 
         int dunePartialY() {
-            return MacroGeologyField.BASE_SURFACE_Y + fullDuneBlocks() + 1;
+            return MacroGeologyField.BASE_SURFACE_Y
+                    + fullDuneBlocks()
+                    + 1;
         }
 
         int highestOccupiedY() {

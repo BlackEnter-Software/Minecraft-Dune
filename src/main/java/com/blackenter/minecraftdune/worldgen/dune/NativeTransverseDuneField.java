@@ -1,29 +1,20 @@
 package com.blackenter.minecraftdune.worldgen.dune;
 
+import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
+
 /**
  * Continuous, chunk-order-independent transverse dune morphology for native Arrakis terrain.
  *
- * <p>This is not the iterative 64 x 64 {@code DuneSimulation}. It extracts the calibrated
- * transverse morphology that proved useful in the laboratory and evaluates it directly from
- * absolute world coordinates, making it suitable for arbitrary independently generated
- * chunks.</p>
+ * <p>The 0.5.10 native profile is configured by the serialized world terrain profile. The
+ * finite 64 x 64 DuneSimulation remains unchanged and keeps its 350-block laboratory
+ * baseline; only the planetary native dune spacing moves to 525 blocks.</p>
  */
 public final class NativeTransverseDuneField {
     public static final int SUBDIVISIONS = 16;
-    public static final double MAX_HEIGHT_BLOCKS = 30.0;
-    public static final double DUNE_SPACING_BLOCKS = 350.0;
-    public static final double SPACING_VARIATION = 0.18;
-    public static final double RIDGE_SHARPNESS = 3.0;
-    public static final double VALLEY_CUTOFF = 0.20;
-    public static final double SLOPE_ASYMMETRY = 0.82;
-    public static final double WIND_ANGLE_DEGREES = 24.0;
 
-    // Maximum of the blended 0.82-asymmetry ridge profile before exponentiation.
-    // Normalizing it restores the laboratory convention that a full-suitability crest can
-    // reach the configured 30-block envelope.
     private static final double PROFILE_PEAK_NORMALIZATION = 0.9225;
-
     private static final double TWO_PI = Math.PI * 2.0;
+
     private static final long PHASE_A_SALT = 0x243F6A8885A308D3L;
     private static final long PHASE_B_SALT = 0x13198A2E03707344L;
     private static final long PHASE_C_SALT = 0xA4093822299F31D0L;
@@ -37,12 +28,29 @@ public final class NativeTransverseDuneField {
             double worldZ,
             double duneSuitability
     ) {
+        return sample(
+                worldSeed,
+                worldX,
+                worldZ,
+                duneSuitability,
+                ArrakisTerrainSettings.DEFAULT.nativeDunes()
+        );
+    }
+
+    public static Sample sample(
+            long worldSeed,
+            double worldX,
+            double worldZ,
+            double duneSuitability,
+            ArrakisTerrainSettings.NativeDuneSettings settings
+    ) {
         double suitability = clamp(duneSuitability, 0.0, 1.0);
         if (suitability <= 0.0) {
             return new Sample(0, 0.0, 0.0);
         }
 
-        double windRadians = Math.toRadians(WIND_ANGLE_DEGREES);
+        double spacing = Math.max(1.0, settings.spacing());
+        double windRadians = Math.toRadians(settings.windAngleDegrees());
         double windX = Math.cos(windRadians);
         double windZ = Math.sin(windRadians);
         double crosswindX = -windZ;
@@ -55,43 +63,56 @@ public final class NativeTransverseDuneField {
         double phaseB = seedPhase(worldSeed, PHASE_B_SALT);
         double phaseC = seedPhase(worldSeed, PHASE_C_SALT);
 
-        double phaseWarp = SPACING_VARIATION * TWO_PI * (
+        double phaseWarp = settings.spacingVariation() * TWO_PI * (
                 0.60 * Math.sin(
-                        acrossWind * TWO_PI / (DUNE_SPACING_BLOCKS * 2.8) + phaseA
+                        acrossWind * TWO_PI / (spacing * 2.8) + phaseA
                 )
                         + 0.28 * Math.sin(
-                        acrossWind * TWO_PI / (DUNE_SPACING_BLOCKS * 5.3) + phaseB
+                        acrossWind * TWO_PI / (spacing * 5.3) + phaseB
                 )
                         + 0.12 * Math.sin(
-                        alongWind * TWO_PI / (DUNE_SPACING_BLOCKS * 4.7) + phaseC
+                        alongWind * TWO_PI / (spacing * 4.7) + phaseC
                 )
         );
-        double phase = alongWind * TWO_PI / DUNE_SPACING_BLOCKS + phaseWarp;
+        double phase = alongWind * TWO_PI / spacing + phaseWarp;
 
         double ridgeBase = clamp(
-                transverseRidgeBase(phase, SLOPE_ASYMMETRY)
-                        / PROFILE_PEAK_NORMALIZATION,
+                transverseRidgeBase(
+                        phase,
+                        settings.slopeAsymmetry()
+                ) / PROFILE_PEAK_NORMALIZATION,
                 0.0,
                 1.0
         );
-        double ridge = Math.pow(ridgeBase, RIDGE_SHARPNESS);
-        double cleanedRidge = smoothStep(VALLEY_CUTOFF, 1.0, ridge);
+        double ridge = Math.pow(
+                ridgeBase,
+                settings.ridgeSharpness()
+        );
+        double cleanedRidge = smoothStep(
+                settings.valleyCutoff(),
+                1.0,
+                ridge
+        );
 
-        // A very low-amplitude crosswind modulation prevents every crest from having an
-        // identical height without adding stochastic contour-island noise.
         double crestModulation = 0.92 + 0.08 * (
                 0.5 + 0.5 * Math.sin(
-                        acrossWind * TWO_PI / (DUNE_SPACING_BLOCKS * 6.8) + phaseB
+                        acrossWind * TWO_PI / (spacing * 6.8) + phaseB
                 )
         );
-        double heightBlocks = MAX_HEIGHT_BLOCKS
+        double heightBlocks = settings.maxHeight()
                 * suitability
                 * cleanedRidge
                 * crestModulation;
-        int surfaceUnits = (int) Math.round(heightBlocks * SUBDIVISIONS);
+
+        int surfaceUnits = (int) Math.round(
+                heightBlocks * SUBDIVISIONS
+        );
+        int maximumUnits = (int) Math.round(
+                settings.maxHeight() * SUBDIVISIONS
+        );
         surfaceUnits = Math.max(
                 0,
-                Math.min((int) (MAX_HEIGHT_BLOCKS * SUBDIVISIONS), surfaceUnits)
+                Math.min(maximumUnits, surfaceUnits)
         );
 
         return new Sample(
@@ -101,7 +122,10 @@ public final class NativeTransverseDuneField {
         );
     }
 
-    private static double transverseRidgeBase(double phase, double slopeAsymmetry) {
+    private static double transverseRidgeBase(
+            double phase,
+            double slopeAsymmetry
+    ) {
         double symmetric = (Math.sin(phase) + 1.0) * 0.5;
         if (slopeAsymmetry <= 0.0) {
             return symmetric;
@@ -120,7 +144,11 @@ public final class NativeTransverseDuneField {
             asymmetric = 1.0 - smoothStep(0.0, 1.0, fall);
         }
 
-        return lerp(symmetric, asymmetric, slopeAsymmetry);
+        return lerp(
+                symmetric,
+                asymmetric,
+                slopeAsymmetry
+        );
     }
 
     private static double seedPhase(long seed, long salt) {
@@ -136,8 +164,19 @@ public final class NativeTransverseDuneField {
         return value ^ value >>> 31;
     }
 
-    private static double smoothStep(double edge0, double edge1, double value) {
-        double normalized = clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0);
+    private static double smoothStep(
+            double edge0,
+            double edge1,
+            double value
+    ) {
+        if (edge1 <= edge0) {
+            return value < edge0 ? 0.0 : 1.0;
+        }
+        double normalized = clamp(
+                (value - edge0) / (edge1 - edge0),
+                0.0,
+                1.0
+        );
         return normalized * normalized * (3.0 - 2.0 * normalized);
     }
 
@@ -145,7 +184,11 @@ public final class NativeTransverseDuneField {
         return start + (end - start) * amount;
     }
 
-    private static double clamp(double value, double minimum, double maximum) {
+    private static double clamp(
+            double value,
+            double minimum,
+            double maximum
+    ) {
         return Math.max(minimum, Math.min(maximum, value));
     }
 

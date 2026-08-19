@@ -31,6 +31,94 @@
             }
           ],
           "structure_overrides": []
+        },
+        "terrain": {
+          "profile_version": 510,
+          "basin": {
+            "pure_sand_radius": 800.0,
+            "transition_end_radius": 970.0
+          },
+          "foreland": {
+            "end_radius": 1150.0,
+            "large_scale": 145.0,
+            "detail_scale": 62.0,
+            "micro_scale": 30.0,
+            "large_threshold_low": 0.08,
+            "large_threshold_high": 0.4,
+            "micro_threshold_low": 0.15,
+            "micro_threshold_high": 0.42,
+            "large_min_height": 4.0,
+            "large_max_height": 28.0,
+            "micro_max_height": 9.0
+          },
+          "massif": {
+            "start_radius": 1000.0,
+            "full_radius": 1250.0,
+            "outer_start_radius": 2920.0,
+            "outer_end_radius": 3020.0,
+            "max_added_height": 176,
+            "continuity_low": -0.38,
+            "continuity_high": -0.02,
+            "shape_low": 0.07,
+            "shape_high": 0.58
+          },
+          "faults": {
+            "count": 4,
+            "start_radius": 1050.0,
+            "full_radius": 1350.0,
+            "fade_start_radius": 3400.0,
+            "end_radius": 3850.0,
+            "core_width": 30.0,
+            "outer_width": 105.0,
+            "broad_warp_scale": 1150.0,
+            "broad_warp_strength": 240.0,
+            "medium_warp_scale": 360.0,
+            "medium_warp_strength": 90.0,
+            "sine_warp_scale": 780.0,
+            "sine_warp_strength": 75.0,
+            "sandy_floor_threshold": 0.56
+          },
+          "sand_passes": {
+            "start_radius": 1000.0,
+            "full_radius": 1320.0,
+            "fade_start_radius": 4450.0,
+            "end_radius": 4950.0,
+            "primary_core_width": 105.0,
+            "primary_outer_width": 225.0,
+            "secondary_core_width": 135.0,
+            "secondary_outer_width": 285.0
+          },
+          "broken_rock": {
+            "start_radius": 2920.0,
+            "full_radius": 3150.0,
+            "outer_fade_start_radius": 5200.0,
+            "outer_radius": 5650.0,
+            "large_scale": 430.0,
+            "detail_scale": 180.0,
+            "micro_scale": 72.0,
+            "max_height_inner": 67.0,
+            "max_height_outer": 18.0,
+            "micro_max_height": 10.0
+          },
+          "outer_transition": {
+            "start_radius": 4450.0,
+            "full_radius": 4800.0,
+            "fade_start_radius": 6100.0,
+            "outer_radius": 6500.0,
+            "open_erg_start_radius": 5850.0,
+            "open_erg_full_radius": 6700.0
+          },
+          "native_dunes": {
+            "max_height": 30.0,
+            "spacing": 525.0,
+            "spacing_variation": 0.18,
+            "ridge_sharpness": 3.0,
+            "valley_cutoff": 0.2,
+            "slope_asymmetry": 0.82,
+            "wind_angle_degrees": 24.0,
+            "broken_rock_weight": 0.12,
+            "transition_weight": 0.68
+          }
         }
       }
     },

@@ -1,70 +1,85 @@
-# Native Arrakis terrain generation — 0.5.9
+# Native Arrakis terrain generation — 0.5.10
 
 ## Architecture
 
 0.5.8 established `minecraftdune:arrakis_dev` as a registered native chunk generator based
-on vanilla `FlatLevelSource`. 0.5.9 keeps that architecture and expands the terrain column
-from a single rock height into two coordinated native layers:
+on vanilla `FlatLevelSource`. 0.5.9 added native far-erg dunes. 0.5.10 keeps the same fast
+terrain-column architecture and adds a serialized terrain profile:
 
 ```text
-flat Arrakis base column
+FlatLevelGeneratorSettings
+        +
+ArrakisTerrainSettings
+        ↓
+ArrakisChunkGenerator
         ↓
 MacroGeologyField
         ↓
 provisional native rock
         ↓
-NativeTransverseDuneField (where dune suitability > 0)
+NativeTransverseDuneField
         ↓
 full + sixteenth-layer dune sand
 ```
 
-Everything is still evaluated from the actual world seed and absolute coordinates during
-normal chunk generation.
+Everything remains deterministic from the actual world seed, the serialized generator
+profile, and absolute coordinates.
+
+## Generator codec
+
+The custom generator codec now serializes two objects:
+
+```json
+{
+  "type": "minecraftdune:arrakis_dev",
+  "settings": {
+    "...": "vanilla flat Arrakis base settings"
+  },
+  "terrain": {
+    "...": "ArrakisTerrainSettings"
+  }
+}
+```
+
+The `terrain` field is optional when decoding and falls back to the current default profile.
+This keeps old generator data decodable while allowing new worlds to explicitly store their
+terrain parameters.
 
 ## Terrain-column order
 
 For each X/Z column:
 
 1. `FlatLevelSource` creates the base bedrock/deepslate/stone/sandstone/sand layers;
-2. `MacroGeologyField` determines the provisional native rock top;
-3. rock is written from Y=65 to that top;
-4. `NativeTransverseDuneField` determines an absolute sand surface above the Y=64 base;
-5. when the sand surface is above the rock surface, full dune-sand blocks are placed above
-   the rock and a partial sixteenth-layer top is added when required.
+2. `MacroGeologyField` evaluates the serialized geological profile;
+3. rock is written from Y=65 to the sampled rock top;
+4. `NativeTransverseDuneField` evaluates the serialized native-dune profile;
+5. when the dune surface exceeds the rock surface, full dune-sand blocks and an optional
+   sixteenth-layer top are placed.
 
-This allows a low rock remnant to be buried by a dune while keeping a tall outcrop exposed.
-
-`getBaseHeight()` and `getBaseColumn()` use the same combined terrain profile, so systems
-that query the generator's base terrain see both native geology and native dunes.
+`getBaseHeight()` and `getBaseColumn()` use the same profile.
 
 ## Performance
 
-The 0.5.9 fields are analytic per-column calculations. No `ServerLevel#setBlock` terrain
-materialization is performed and no iterative dune simulation is run per chunk.
+0.5.10 remains analytic per column:
 
-The macro field also has two fast exits:
+- no post-generation `ServerLevel#setBlock` cliff construction;
+- no finite iterative dune simulation per chunk;
+- exact early return inside the 0–800 basin;
+- far-erg early return after the full open-erg boundary.
 
-- the exact 0–800 Arrakeen basin returns immediately with no rock/dune work;
-- beyond the mixed sand–rock transition, expensive geological formation/fault noise is
-  skipped and only the low-frequency boundary sample plus the analytic dune field remain.
+The longer Broken Rock Desert adds some additional noise work between the massif and outer
+erg, but the far desert still uses the fast path.
 
-This is intended to preserve the strong 0.5.8 generation performance observed with Distant
-Horizons.
+## Save / test compatibility
 
-## Save compatibility
+Already generated chunks never change.
 
-0.5.8 and 0.5.9 use the same `minecraftdune:arrakis_dev` generator codec, so a 0.5.8 save is
-technically loadable.
-
-However, already-generated 0.5.8 chunks keep their old terrain. Newly generated 0.5.9 chunks
-use the new province/dune model and can form obvious seams beside old chunks.
-
-For morphology evaluation, create a **new Arrakis Dev world** or remove the relevant region
-files while the world is closed.
+For clean terrain comparison, create a new Arrakis Dev world after applying 0.5.10. The new
+world stores the explicit `terrain` profile in its generator data.
 
 ## Pregeneration
 
-The 0.5.8 chunk-pregeneration manager is retained unchanged:
+Pregeneration commands are unchanged:
 
 ```mcfunction
 /dune geology generate
@@ -74,6 +89,4 @@ The 0.5.8 chunk-pregeneration manager is retained unchanged:
 /dune geology generation cancel
 ```
 
-`generate_initial` still means a 100 vanilla-Minecraft-chunk / 1600-block radius around
-absolute `(0,0)`. Distant Horizons can also generate terrain independently; the commands are
-primarily useful for controlled test regions.
+Distant Horizons can continue generating the native terrain independently.

@@ -1,24 +1,17 @@
 package com.blackenter.minecraftdune.worldgen.geology;
 
+import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
+
 /**
- * Deterministic, coordinate-based macro-geology field for the first Gameplay Arrakis region.
+ * Deterministic, coordinate-based macro geology for Gameplay Arrakis.
  *
- * <p>Version 0.5.9 separates the broad landscape into explicit geological/environmental
- * provinces instead of fading one massif mask directly into open desert. The field remains
- * chunk-order independent: every value is derived only from the world seed and absolute X/Z
- * coordinates.</p>
+ * <p>0.5.10 keeps the 0.5.9 province architecture but moves its principal tuning values
+ * into {@link ArrakisTerrainSettings}. Broken rock persists farther outward, the foreland
+ * gains a second micro-rock scale, fault centerlines meander more strongly, and some fault
+ * segments are fully sand-floored instead of retaining a narrow rock fence.</p>
  */
 public final class MacroGeologyField {
     public static final int BASE_SURFACE_Y = 64;
-    public static final int MAX_ADDED_ROCK_HEIGHT = 176;
-
-    public static final double ARRAKEEN_PURE_SAND_RADIUS = 800.0;
-    public static final double INNER_FORELAND_END_RADIUS = 1120.0;
-    public static final double MAIN_MASSIF_OUTER_RADIUS = 3020.0;
-    public static final double BROKEN_ROCK_OUTER_RADIUS = 4450.0;
-    public static final double SAND_ROCK_TRANSITION_OUTER_RADIUS = 5400.0;
-    public static final double OPEN_ERG_START_RADIUS = 4700.0;
-    public static final double OPEN_ERG_FULL_RADIUS = 5250.0;
 
     private static final double TWO_PI = Math.PI * 2.0;
 
@@ -33,9 +26,14 @@ public final class MacroGeologyField {
     private static final long FORELAND_SALT = 0xF1357AEA2E62A9C5L;
     private static final long FORELAND_DETAIL_SALT = 0xB7E151628AED2A6BL;
     private static final long FORELAND_RELIEF_SALT = 0x8AED2A6ABF715880L;
+    private static final long FORELAND_MICRO_SALT = 0xC2B2AE3D27D4EB4FL;
+    private static final long FORELAND_MICRO_RELIEF_SALT = 0x165667B19E3779F9L;
 
     private static final long FAULT_SALT = 0xA0F2EC75A1FE1575L;
     private static final long FAULT_RELIEF_SALT = 0x89E182857D9ED689L;
+    private static final long FAULT_BROAD_WARP_SALT = 0x94D049BB133111EBL;
+    private static final long FAULT_MEDIUM_WARP_SALT = 0xBF58476D1CE4E5B9L;
+    private static final long FAULT_SAND_FLOOR_SALT = 0xD1342543DE82EF95L;
 
     private static final long SAND_PASS_A_SALT = 0x6A09E667F3BCC909L;
     private static final long SAND_PASS_B_SALT = 0xBB67AE8584CAA73BL;
@@ -43,41 +41,38 @@ public final class MacroGeologyField {
     private static final long OUTLIER_SALT = 0xC6BC279692B5CC83L;
     private static final long OUTLIER_DETAIL_SALT = 0xDB4F0B9175AE2165L;
     private static final long OUTLIER_RELIEF_SALT = 0xB5C0FBCFEC4D3B2FL;
+    private static final long OUTLIER_MICRO_SALT = 0x8CB92BA72F3D8DD7L;
+    private static final long OUTLIER_MICRO_RELIEF_SALT = 0x9E3779B97F4A7C15L;
 
     private static final long TRANSITION_SALT = 0xBBE0563303A4615FL;
     private static final long TRANSITION_DETAIL_SALT = 0xA54FF53A5F1D36F1L;
     private static final long TRANSITION_RELIEF_SALT = 0x510E527FADE682D1L;
 
-    private static final int FAULT_COUNT = 4;
-
     private MacroGeologyField() {
     }
 
     public static Sample sample(long worldSeed, double worldX, double worldZ) {
+        return sample(worldSeed, worldX, worldZ, ArrakisTerrainSettings.DEFAULT);
+    }
+
+    public static Sample sample(
+            long worldSeed,
+            double worldX,
+            double worldZ,
+            ArrakisTerrainSettings settings
+    ) {
+        ArrakisTerrainSettings.BasinSettings basinSettings = settings.basin();
+        ArrakisTerrainSettings.ForelandSettings forelandSettings = settings.foreland();
+        ArrakisTerrainSettings.MassifSettings massifSettings = settings.massif();
+        ArrakisTerrainSettings.BrokenRockSettings brokenSettings = settings.brokenRock();
+        ArrakisTerrainSettings.OuterTransitionSettings transitionSettings =
+                settings.outerTransition();
+        ArrakisTerrainSettings.NativeDuneSettings duneSettings = settings.nativeDunes();
+
         double radius = Math.hypot(worldX, worldZ);
 
-        // Arrakeen's construction basin is now a strict 800-block pure-sand reservation.
-        // No boundary warp, small rock, native dune or massif operator can intrude here.
-        if (radius <= ARRAKEEN_PURE_SAND_RADIUS) {
-            return new Sample(
-                    radius,
-                    radius,
-                    0.0,
-                    1.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    BASE_SURFACE_Y,
-                    Province.CENTRAL_BASIN
-            );
+        if (radius <= basinSettings.pureSandRadius()) {
+            return emptySample(radius, radius, 0.0, Province.CENTRAL_BASIN, 1.0);
         }
 
         double boundaryWarp = fbm(
@@ -88,10 +83,7 @@ public final class MacroGeologyField {
         ) * 320.0;
         double effectiveRadius = radius + boundaryWarp;
 
-        // Beyond the mixed transition all geological rock fields are identically zero.
-        // Return before evaluating the expensive formation/fault noise stack; far-erg chunk
-        // generation then costs one low-frequency boundary sample plus the analytic dune field.
-        if (effectiveRadius >= SAND_ROCK_TRANSITION_OUTER_RADIUS) {
+        if (effectiveRadius >= transitionSettings.openErgFullRadius()) {
             return new Sample(
                     radius,
                     effectiveRadius,
@@ -107,58 +99,155 @@ public final class MacroGeologyField {
                     0.0,
                     0.0,
                     0.0,
+                    0.0,
                     1.0,
                     BASE_SURFACE_Y,
                     Province.OPEN_ERG
             );
         }
 
-        double centralBasin = 1.0 - smoothStep(800.0, 970.0, effectiveRadius);
-        double innerForeland = smoothStep(790.0, 840.0, radius)
-                * (1.0 - smoothStep(1030.0, 1120.0, effectiveRadius));
-        double massif = smoothStep(1000.0, 1250.0, radius)
-                * smoothStep(980.0, 1280.0, effectiveRadius)
-                * (1.0 - smoothStep(2920.0, 3020.0, effectiveRadius));
-        double faultedMargin = smoothStep(2450.0, 2780.0, effectiveRadius)
-                * (1.0 - smoothStep(3380.0, 3660.0, effectiveRadius));
-        double brokenRock = smoothStep(2920.0, 3150.0, effectiveRadius)
-                * (1.0 - smoothStep(4250.0, 4450.0, effectiveRadius));
-        double sandRockTransition = smoothStep(3900.0, 4200.0, effectiveRadius)
-                * (1.0 - smoothStep(5100.0, 5400.0, effectiveRadius));
+        double centralBasin = 1.0 - smoothStep(
+                basinSettings.pureSandRadius(),
+                basinSettings.transitionEndRadius(),
+                effectiveRadius
+        );
+        double innerForeland = smoothStep(
+                basinSettings.pureSandRadius() - 10.0,
+                basinSettings.pureSandRadius() + 40.0,
+                radius
+        ) * (1.0 - smoothStep(
+                forelandSettings.endRadius() - 100.0,
+                forelandSettings.endRadius(),
+                effectiveRadius
+        ));
+
+        double massif = smoothStep(
+                massifSettings.startRadius(),
+                massifSettings.fullRadius(),
+                radius
+        ) * smoothStep(
+                massifSettings.startRadius() - 20.0,
+                massifSettings.fullRadius() + 30.0,
+                effectiveRadius
+        ) * (1.0 - smoothStep(
+                massifSettings.outerStartRadius(),
+                massifSettings.outerEndRadius(),
+                effectiveRadius
+        ));
+
+        double faultedMargin = smoothStep(
+                massifSettings.outerStartRadius() - 570.0,
+                massifSettings.outerStartRadius() - 240.0,
+                effectiveRadius
+        ) * (1.0 - smoothStep(
+                massifSettings.outerEndRadius() + 360.0,
+                massifSettings.outerEndRadius() + 640.0,
+                effectiveRadius
+        ));
+
+        double brokenRock = smoothStep(
+                brokenSettings.startRadius(),
+                brokenSettings.fullRadius(),
+                effectiveRadius
+        ) * (1.0 - smoothStep(
+                brokenSettings.outerFadeStartRadius(),
+                brokenSettings.outerRadius(),
+                effectiveRadius
+        ));
+
+        double sandRockTransition = smoothStep(
+                transitionSettings.startRadius(),
+                transitionSettings.fullRadius(),
+                effectiveRadius
+        ) * (1.0 - smoothStep(
+                transitionSettings.fadeStartRadius(),
+                transitionSettings.outerRadius(),
+                effectiveRadius
+        ));
+
         double openErg = smoothStep(
-                OPEN_ERG_START_RADIUS,
-                OPEN_ERG_FULL_RADIUS,
+                transitionSettings.openErgStartRadius(),
+                transitionSettings.openErgFullRadius(),
                 effectiveRadius
         );
 
-        // 800-~1100: disconnected knobs, shelves and small formations. This is deliberately
-        // a separate morphology rather than a scaled-down Shield Wall.
+        // Medium foreland knobs.
         double forelandPotential =
                 0.72 * fbm(
                         worldSeed ^ FORELAND_SALT,
-                        worldX / 145.0,
-                        worldZ / 145.0,
+                        worldX / forelandSettings.largeScale(),
+                        worldZ / forelandSettings.largeScale(),
                         3
                 )
                         + 0.28 * fbm(
                         worldSeed ^ FORELAND_DETAIL_SALT,
-                        worldX / 62.0,
-                        worldZ / 62.0,
+                        worldX / forelandSettings.detailScale(),
+                        worldZ / forelandSettings.detailScale(),
                         2
                 );
-        double smallFormationMask = innerForeland
-                * smoothStep(0.14, 0.44, forelandPotential);
+        double largeForelandMask = innerForeland * smoothStep(
+                forelandSettings.largeThresholdLow(),
+                forelandSettings.largeThresholdHigh(),
+                forelandPotential
+        );
         double forelandRelief = 0.5 + 0.5 * fbm(
                 worldSeed ^ FORELAND_RELIEF_SALT,
-                worldX / 180.0,
-                worldZ / 180.0,
+                worldX / (forelandSettings.largeScale() * 1.25),
+                worldZ / (forelandSettings.largeScale() * 1.25),
                 2
         );
-        double smallFormationHeight = (5.0 + 23.0 * forelandRelief)
-                * smoothStep(0.08, 0.65, smallFormationMask);
+        double largeForelandHeight = (
+                forelandSettings.largeMinHeight()
+                        + (
+                        forelandSettings.largeMaxHeight()
+                                - forelandSettings.largeMinHeight()
+                ) * forelandRelief
+        ) * smoothStep(0.08, 0.65, largeForelandMask);
 
-        // The main Shield Wall is intentionally more continuous than the 0.5.7 horseshoe.
-        // Narrow faults and two explicit sand corridors now provide most of the crossings.
+        // New micro-rock scale: more numerous, lower remnants between the larger knobs.
+        double microForelandPotential =
+                0.68 * fbm(
+                        worldSeed ^ FORELAND_MICRO_SALT,
+                        worldX / forelandSettings.microScale(),
+                        worldZ / forelandSettings.microScale(),
+                        3
+                )
+                        + 0.32 * fbm(
+                        worldSeed ^ FORELAND_DETAIL_SALT,
+                        worldX / (forelandSettings.microScale() * 0.48),
+                        worldZ / (forelandSettings.microScale() * 0.48),
+                        2
+                );
+        double microForelandMask = innerForeland
+                * smoothStep(
+                        forelandSettings.microThresholdLow(),
+                        forelandSettings.microThresholdHigh(),
+                        microForelandPotential
+                )
+                * (1.0 - 0.40 * largeForelandMask);
+        double microForelandRelief = 0.5 + 0.5 * fbm(
+                worldSeed ^ FORELAND_MICRO_RELIEF_SALT,
+                worldX / (forelandSettings.microScale() * 1.7),
+                worldZ / (forelandSettings.microScale() * 1.7),
+                2
+        );
+        double microForelandHeight = (
+                1.5
+                        + (
+                        forelandSettings.microMaxHeight() - 1.5
+                ) * microForelandRelief
+        ) * smoothStep(0.04, 0.58, microForelandMask);
+
+        double smallFormationMask = Math.max(
+                largeForelandMask,
+                microForelandMask
+        );
+        double smallFormationHeight = Math.max(
+                largeForelandHeight,
+                microForelandHeight
+        );
+
+        // Main Shield Wall remains intentionally close to 0.5.9.
         double broadFormation = fbm(
                 worldSeed ^ FORMATION_SALT,
                 worldX / 1150.0,
@@ -185,9 +274,17 @@ public final class MacroGeologyField {
                         + secondaryFormation * 0.18
                         + massif * 0.28
                         + angularContinuity * 0.42;
-        double massifContinuity = smoothStep(-0.38, -0.02, massifPotential);
+        double massifContinuity = smoothStep(
+                massifSettings.continuityLow(),
+                massifSettings.continuityHigh(),
+                massifPotential
+        );
         double massifMask = massif * massifContinuity;
-        double massifShape = smoothStep(0.07, 0.58, massifMask);
+        double massifShape = smoothStep(
+                massifSettings.shapeLow(),
+                massifSettings.shapeHigh(),
+                massifMask
+        );
         double massifRelief = 0.5 + 0.5 * fbm(
                 worldSeed ^ RELIEF_SALT,
                 worldX / 1300.0,
@@ -204,64 +301,153 @@ public final class MacroGeologyField {
                 worldSeed,
                 worldX,
                 worldZ,
-                radius
+                radius,
+                settings.sandPasses()
         );
-        double faultCarveMask = faultNetworkMask(
+        FaultNetworkSample fault = faultNetworkSample(
                 worldSeed,
                 worldX,
                 worldZ,
-                radius
+                radius,
+                settings.faults()
         );
 
-        // The outer Shield Wall does not simply fade away anymore. The massif body ends over
-        // a comparatively narrow band; a separate outlier field then produces broken rock.
+        // Broken Rock Desert persists farther and progressively changes scale.
+        double brokenProgress = smoothStep(
+                brokenSettings.fullRadius(),
+                brokenSettings.outerRadius(),
+                effectiveRadius
+        );
+
         double outlierPotential =
-                0.68 * fbm(
+                0.62 * fbm(
                         worldSeed ^ OUTLIER_SALT,
-                        worldX / 420.0,
-                        worldZ / 420.0,
+                        worldX / brokenSettings.largeScale(),
+                        worldZ / brokenSettings.largeScale(),
                         4
                 )
-                        + 0.32 * fbm(
+                        + 0.38 * fbm(
                         worldSeed ^ OUTLIER_DETAIL_SALT,
-                        worldX / 190.0,
-                        worldZ / 190.0,
+                        worldX / brokenSettings.detailScale(),
+                        worldZ / brokenSettings.detailScale(),
                         3
                 );
-        double outlierMask = brokenRock * smoothStep(0.10, 0.34, outlierPotential);
-        double outlierShape = smoothStep(0.12, 0.70, outlierMask);
+        double largeOutlierMask = brokenRock
+                * (1.0 - 0.38 * brokenProgress)
+                * smoothStep(
+                        lerp(0.06, 0.28, brokenProgress),
+                        lerp(0.31, 0.55, brokenProgress),
+                        outlierPotential
+                );
+
+        double microOutlierPotential =
+                0.66 * fbm(
+                        worldSeed ^ OUTLIER_MICRO_SALT,
+                        worldX / brokenSettings.microScale(),
+                        worldZ / brokenSettings.microScale(),
+                        3
+                )
+                        + 0.34 * fbm(
+                        worldSeed ^ OUTLIER_DETAIL_SALT,
+                        worldX / (brokenSettings.microScale() * 0.48),
+                        worldZ / (brokenSettings.microScale() * 0.48),
+                        2
+                );
+        double microOutlierMask = brokenRock
+                * (0.24 + 0.76 * brokenProgress)
+                * smoothStep(
+                        lerp(0.08, 0.24, brokenProgress),
+                        lerp(0.34, 0.50, brokenProgress),
+                        microOutlierPotential
+                );
+        double outlierMask = Math.max(
+                largeOutlierMask,
+                microOutlierMask
+        );
+
         double outlierRelief = 0.5 + 0.5 * fbm(
                 worldSeed ^ OUTLIER_RELIEF_SALT,
                 worldX / 600.0,
                 worldZ / 600.0,
                 3
         );
-        double outlierHeight = (12.0 + 55.0 * outlierRelief) * outlierShape;
+        double largeOutlierMaxHeight = lerp(
+                brokenSettings.maxHeightInner(),
+                brokenSettings.maxHeightOuter(),
+                brokenProgress
+        );
+        double largeOutlierHeight = (
+                8.0
+                        + Math.max(
+                        0.0,
+                        largeOutlierMaxHeight - 8.0
+                ) * outlierRelief
+        ) * smoothStep(0.10, 0.58, largeOutlierMask);
 
-        // The sand-rock transition carries lower, smaller remnants before the true erg.
-        double transitionPotential =
-                0.70 * fbm(
-                        worldSeed ^ TRANSITION_SALT,
-                        worldX / 260.0,
-                        worldZ / 260.0,
-                        3
-                )
-                        + 0.30 * fbm(
-                        worldSeed ^ TRANSITION_DETAIL_SALT,
-                        worldX / 100.0,
-                        worldZ / 100.0,
-                        2
-                );
-        double transitionRockMask = sandRockTransition
-                * smoothStep(0.20, 0.45, transitionPotential);
-        double transitionRelief = 0.5 + 0.5 * fbm(
-                worldSeed ^ TRANSITION_RELIEF_SALT,
-                worldX / 350.0,
-                worldZ / 350.0,
+        double microOutlierRelief = 0.5 + 0.5 * fbm(
+                worldSeed ^ OUTLIER_MICRO_RELIEF_SALT,
+                worldX / (brokenSettings.microScale() * 2.1),
+                worldZ / (brokenSettings.microScale() * 2.1),
                 2
         );
-        double transitionRockHeight = (4.0 + 22.0 * transitionRelief)
-                * smoothStep(0.10, 0.65, transitionRockMask);
+        double microOutlierMaxHeight = lerp(
+                Math.min(18.0, brokenSettings.maxHeightInner()),
+                brokenSettings.microMaxHeight(),
+                brokenProgress
+        );
+        double microOutlierHeight = (
+                2.0
+                        + Math.max(
+                        0.0,
+                        microOutlierMaxHeight - 2.0
+                ) * microOutlierRelief
+        ) * smoothStep(0.08, 0.58, microOutlierMask);
+
+        double outlierHeight = Math.max(
+                largeOutlierHeight,
+                microOutlierHeight
+        );
+
+        // Outer mixed transition: progressively sparse low remnants.
+        double transitionPotential =
+                0.68 * fbm(
+                        worldSeed ^ TRANSITION_SALT,
+                        worldX / 235.0,
+                        worldZ / 235.0,
+                        3
+                )
+                        + 0.32 * fbm(
+                        worldSeed ^ TRANSITION_DETAIL_SALT,
+                        worldX / 88.0,
+                        worldZ / 88.0,
+                        2
+                );
+        double transitionProgress = smoothStep(
+                transitionSettings.fullRadius(),
+                transitionSettings.outerRadius(),
+                effectiveRadius
+        );
+        double transitionRockMask = sandRockTransition
+                * (1.0 - 0.45 * transitionProgress)
+                * smoothStep(
+                        lerp(0.18, 0.31, transitionProgress),
+                        lerp(0.43, 0.56, transitionProgress),
+                        transitionPotential
+                );
+        double transitionRelief = 0.5 + 0.5 * fbm(
+                worldSeed ^ TRANSITION_RELIEF_SALT,
+                worldX / 320.0,
+                worldZ / 320.0,
+                2
+        );
+        double transitionRockHeight = (
+                3.0
+                        + lerp(
+                        18.0,
+                        8.0,
+                        transitionProgress
+                ) * transitionRelief
+        ) * smoothStep(0.10, 0.62, transitionRockMask);
 
         double rawRockMask = Math.max(
                 smallFormationMask,
@@ -278,46 +464,57 @@ public final class MacroGeologyField {
                 )
         );
 
-        // The two seeded sand corridors are broad enough for navigation and sand transport.
-        // They fully suppress the provisional rock mass through the Shield Wall and continue
-        // into the outer broken-rock province.
+        // Sand corridors are final suppressors.
         addedRockHeight *= 1.0 - sandCorridorMask;
         rawRockMask *= 1.0 - sandCorridorMask;
 
-        // Fault ravines are narrower and normally retain a low rocky floor. They read as
-        // structural cuts instead of wide missing sectors in the massif.
-        if (faultCarveMask > 0.0 && addedRockHeight > 0.0) {
-            double faultFloor = 3.0 + 5.0 * (
-                    0.5 + 0.5 * fbm(
-                            worldSeed ^ FAULT_RELIEF_SALT,
-                            worldX / 230.0,
-                            worldZ / 230.0,
-                            2
-                    )
-            );
-            addedRockHeight = lerp(
-                    addedRockHeight,
-                    Math.min(addedRockHeight, faultFloor),
-                    faultCarveMask * 0.93
-            );
-            rawRockMask *= 1.0 - 0.72 * faultCarveMask;
+        // Fault carving is deliberately final so no later outlier can form a fence across it.
+        double effectiveFaultSandFloorMask = smoothStep(
+                0.55,
+                0.90,
+                fault.sandFloorMask()
+        );
+
+        if (fault.carveMask() > 0.0 && addedRockHeight > 0.0) {
+            if (effectiveFaultSandFloorMask > 0.0) {
+                addedRockHeight *= 1.0 - effectiveFaultSandFloorMask;
+                rawRockMask *= 1.0 - effectiveFaultSandFloorMask;
+            }
+
+            double rockyFaultMask = fault.carveMask()
+                    * (1.0 - effectiveFaultSandFloorMask);
+            if (rockyFaultMask > 0.0 && addedRockHeight > 0.0) {
+                double faultFloor = 2.5 + 4.5 * (
+                        0.5 + 0.5 * fbm(
+                                worldSeed ^ FAULT_RELIEF_SALT,
+                                worldX / 230.0,
+                                worldZ / 230.0,
+                                2
+                        )
+                );
+                addedRockHeight = lerp(
+                        addedRockHeight,
+                        Math.min(addedRockHeight, faultFloor),
+                        rockyFaultMask * 0.96
+                );
+                rawRockMask *= 1.0 - 0.85 * rockyFaultMask;
+            }
         }
 
         addedRockHeight = clamp(
                 addedRockHeight,
                 0.0,
-                MAX_ADDED_ROCK_HEIGHT
+                massifSettings.maxAddedHeight()
         );
-        double baseElevation = BASE_SURFACE_Y + addedRockHeight;
         double rockFormationMask = clamp(rawRockMask, 0.0, 1.0);
+        double baseElevation = BASE_SURFACE_Y + addedRockHeight;
 
-        // Dunes begin as low broken-desert forms, become common in the transition, and reach
-        // their full calibrated 30-block envelope in the open erg. Rock height strongly
-        // suppresses them; this lets dunes occupy sand corridors around outcrops without
-        // simply coating tall formations.
         double duneProvinceStrength = Math.max(
-                0.18 * brokenRock,
-                Math.max(0.68 * sandRockTransition, openErg)
+                duneSettings.brokenRockWeight() * brokenRock,
+                Math.max(
+                        duneSettings.transitionWeight() * sandRockTransition,
+                        openErg
+                )
         );
         double duneSuitability = clamp(
                 duneProvinceStrength
@@ -349,7 +546,8 @@ public final class MacroGeologyField {
                 openErg,
                 smallFormationMask,
                 rockFormationMask,
-                faultCarveMask,
+                fault.carveMask(),
+                effectiveFaultSandFloorMask,
                 sandCorridorMask,
                 duneSuitability,
                 baseElevation,
@@ -357,22 +555,63 @@ public final class MacroGeologyField {
         );
     }
 
-    private static double faultNetworkMask(
+    private static Sample emptySample(
+            double radius,
+            double effectiveRadius,
+            double boundaryWarp,
+            Province province,
+            double centralBasinWeight
+    ) {
+        return new Sample(
+                radius,
+                effectiveRadius,
+                boundaryWarp,
+                centralBasinWeight,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                BASE_SURFACE_Y,
+                province
+        );
+    }
+
+    private static FaultNetworkSample faultNetworkSample(
             long worldSeed,
             double worldX,
             double worldZ,
-            double radius
+            double radius,
+            ArrakisTerrainSettings.FaultSettings settings
     ) {
-        double radialGate = smoothStep(1050.0, 1350.0, radius)
-                * (1.0 - smoothStep(3350.0, 3700.0, radius));
-        if (radialGate <= 0.0) {
-            return 0.0;
+        double radialGate = smoothStep(
+                settings.startRadius(),
+                settings.fullRadius(),
+                radius
+        ) * (1.0 - smoothStep(
+                settings.fadeStartRadius(),
+                settings.endRadius(),
+                radius
+        ));
+
+        if (radialGate <= 0.0 || settings.count() <= 0) {
+            return new FaultNetworkSample(0.0, 0.0);
         }
 
-        double strongest = 0.0;
-        for (int fault = 0; fault < FAULT_COUNT; fault++) {
+        double strongestCarve = 0.0;
+        double strongestSandFloor = 0.0;
+
+        for (int fault = 0; fault < settings.count(); fault++) {
             long step = (long) fault * 0x9E3779B97F4A7C15L;
             long faultSalt = FAULT_SALT + step;
+
             double direction = seedPhase(worldSeed, faultSalt);
             double directionX = Math.cos(direction);
             double directionZ = Math.sin(direction);
@@ -387,37 +626,99 @@ public final class MacroGeologyField {
                     350.0 + 650.0 * Math.abs(offsetUnit),
                     offsetUnit == 0.0 ? 1.0 : offsetUnit
             );
-            double warp =
-                    110.0 * Math.sin(
-                            along / 720.0
-                                    + seedPhase(
-                                    worldSeed,
-                                    ANGLE_PHASE_A_SALT + (long) fault * 101L
-                            )
-                    )
-                            + 65.0 * fbm(
-                            worldSeed ^ (faultSalt + 0x632BE59BD9B4E019L),
-                            worldX / 900.0,
-                            worldZ / 900.0,
-                            3
-                    );
 
-            double distance = Math.abs(perpendicular - offset - warp);
-            double faultMask = (1.0 - smoothStep(30.0, 105.0, distance))
-                    * radialGate;
-            strongest = Math.max(strongest, faultMask);
+            // Centerline warp is evaluated mainly along the fault, so the trace itself bends.
+            double broadWarp = settings.broadWarpStrength() * valueNoise(
+                    worldSeed ^ (FAULT_BROAD_WARP_SALT + step),
+                    along / settings.broadWarpScale(),
+                    fault * 17.125
+            );
+            double mediumWarp = settings.mediumWarpStrength() * valueNoise(
+                    worldSeed ^ (FAULT_MEDIUM_WARP_SALT + step),
+                    along / settings.mediumWarpScale(),
+                    fault * 29.75
+            );
+            double sineWarp = settings.sineWarpStrength() * Math.sin(
+                    along / settings.sineWarpScale()
+                            + seedPhase(
+                            worldSeed,
+                            ANGLE_PHASE_A_SALT + (long) fault * 101L
+                    )
+            );
+            double secondarySine = settings.sineWarpStrength() * 0.35 * Math.sin(
+                    along / (settings.sineWarpScale() * 0.43)
+                            + seedPhase(
+                            worldSeed,
+                            ANGLE_PHASE_B_SALT + (long) fault * 173L
+                    )
+            );
+
+            double centerline = offset
+                    + broadWarp
+                    + mediumWarp
+                    + sineWarp
+                    + secondarySine;
+
+            double distance = Math.abs(perpendicular - centerline);
+            double faultMask = (
+                    1.0 - smoothStep(
+                            settings.coreWidth(),
+                            settings.outerWidth(),
+                            distance
+                    )
+            ) * radialGate;
+
+            if (faultMask <= 0.0) {
+                continue;
+            }
+
+            // Low-frequency along-fault variation creates intermittent sandy basin floors.
+            double floorNoise = 0.5 + 0.5 * valueNoise(
+                    worldSeed ^ (FAULT_SAND_FLOOR_SALT + step),
+                    along / 920.0,
+                    fault * 13.625
+            );
+            double sandSegment = smoothStep(
+                    settings.sandyFloorThreshold(),
+                    Math.min(
+                            0.98,
+                            settings.sandyFloorThreshold() + 0.22
+                    ),
+                    floorNoise
+            );
+            double sandFloorMask = faultMask
+                    * smoothStep(0.58, 0.93, faultMask)
+                    * sandSegment;
+
+            strongestCarve = Math.max(strongestCarve, faultMask);
+            strongestSandFloor = Math.max(
+                    strongestSandFloor,
+                    sandFloorMask
+            );
         }
-        return clamp(strongest, 0.0, 1.0);
+
+        return new FaultNetworkSample(
+                clamp(strongestCarve, 0.0, 1.0),
+                clamp(strongestSandFloor, 0.0, 1.0)
+        );
     }
 
     private static double sandCorridorMask(
             long worldSeed,
             double worldX,
             double worldZ,
-            double radius
+            double radius,
+            ArrakisTerrainSettings.SandPassSettings settings
     ) {
-        double radialGate = smoothStep(1000.0, 1320.0, radius)
-                * (1.0 - smoothStep(4050.0, 4450.0, radius));
+        double radialGate = smoothStep(
+                settings.startRadius(),
+                settings.fullRadius(),
+                radius
+        ) * (1.0 - smoothStep(
+                settings.fadeStartRadius(),
+                settings.endRadius(),
+                radius
+        ));
         if (radialGate <= 0.0) {
             return 0.0;
         }
@@ -429,24 +730,43 @@ public final class MacroGeologyField {
         double secondaryAngle = primaryAngle + secondOffset;
 
         double primaryCurve = 0.12 * Math.sin(
-                radius / 750.0 + seedPhase(worldSeed, ANGLE_PHASE_A_SALT)
+                radius / 750.0
+                        + seedPhase(worldSeed, ANGLE_PHASE_A_SALT)
         );
         double secondaryCurve = 0.10 * Math.sin(
-                radius / 910.0 + seedPhase(worldSeed, ANGLE_PHASE_B_SALT)
+                radius / 910.0
+                        + seedPhase(worldSeed, ANGLE_PHASE_B_SALT)
         );
 
-        double primaryDistance = Math.abs(wrappedAngleDifference(
-                angle,
-                primaryAngle + primaryCurve
-        )) * Math.max(radius, 800.0);
-        double secondaryDistance = Math.abs(wrappedAngleDifference(
-                angle,
-                secondaryAngle + secondaryCurve
-        )) * Math.max(radius, 800.0);
+        double primaryDistance = Math.abs(
+                wrappedAngleDifference(
+                        angle,
+                        primaryAngle + primaryCurve
+                )
+        ) * Math.max(radius, 800.0);
+        double secondaryDistance = Math.abs(
+                wrappedAngleDifference(
+                        angle,
+                        secondaryAngle + secondaryCurve
+                )
+        ) * Math.max(radius, 800.0);
 
-        double primary = 1.0 - smoothStep(105.0, 225.0, primaryDistance);
-        double secondary = 1.0 - smoothStep(135.0, 285.0, secondaryDistance);
-        return clamp(Math.max(primary, secondary) * radialGate, 0.0, 1.0);
+        double primary = 1.0 - smoothStep(
+                settings.primaryCoreWidth(),
+                settings.primaryOuterWidth(),
+                primaryDistance
+        );
+        double secondary = 1.0 - smoothStep(
+                settings.secondaryCoreWidth(),
+                settings.secondaryOuterWidth(),
+                secondaryDistance
+        );
+
+        return clamp(
+                Math.max(primary, secondary) * radialGate,
+                0.0,
+                1.0
+        );
     }
 
     private static Province dominantProvince(
@@ -460,6 +780,7 @@ public final class MacroGeologyField {
     ) {
         Province province = Province.CENTRAL_BASIN;
         double best = centralBasin;
+
         if (innerForeland > best) {
             best = innerForeland;
             province = Province.INNER_ROCK_FORELAND;
@@ -483,6 +804,7 @@ public final class MacroGeologyField {
         if (openErg > best) {
             province = Province.OPEN_ERG;
         }
+
         return province;
     }
 
@@ -491,6 +813,7 @@ public final class MacroGeologyField {
         double normalization = 0.0;
         double amplitude = 1.0;
         double frequency = 1.0;
+
         for (int octave = 0; octave < octaves; octave++) {
             result += valueNoise(
                     seed + (long) octave * 0x9E3779B97F4A7C15L,
@@ -501,6 +824,7 @@ public final class MacroGeologyField {
             amplitude *= 0.5;
             frequency *= 2.0;
         }
+
         return result / normalization;
     }
 
@@ -516,6 +840,7 @@ public final class MacroGeologyField {
         double northEast = latticeValue(seed, x0 + 1L, z0);
         double southWest = latticeValue(seed, x0, z0 + 1L);
         double southEast = latticeValue(seed, x0 + 1L, z0 + 1L);
+
         double north = lerp(northWest, northEast, smoothX);
         double south = lerp(southWest, southEast, smoothX);
         return lerp(north, south, smoothZ);
@@ -558,8 +883,20 @@ public final class MacroGeologyField {
         return value ^ value >>> 31;
     }
 
-    private static double smoothStep(double edge0, double edge1, double value) {
-        double normalized = clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0);
+    private static double smoothStep(
+            double edge0,
+            double edge1,
+            double value
+    ) {
+        if (edge1 <= edge0) {
+            return value < edge0 ? 0.0 : 1.0;
+        }
+
+        double normalized = clamp(
+                (value - edge0) / (edge1 - edge0),
+                0.0,
+                1.0
+        );
         return normalized * normalized * (3.0 - 2.0 * normalized);
     }
 
@@ -567,7 +904,11 @@ public final class MacroGeologyField {
         return start + (end - start) * amount;
     }
 
-    private static double clamp(double value, double minimum, double maximum) {
+    private static double clamp(
+            double value,
+            double minimum,
+            double maximum
+    ) {
         return Math.max(minimum, Math.min(maximum, value));
     }
 
@@ -591,6 +932,12 @@ public final class MacroGeologyField {
         }
     }
 
+    private record FaultNetworkSample(
+            double carveMask,
+            double sandFloorMask
+    ) {
+    }
+
     public record Sample(
             double radiusBlocks,
             double effectiveRadiusBlocks,
@@ -605,6 +952,7 @@ public final class MacroGeologyField {
             double smallFormationMask,
             double rockFormationMask,
             double faultCarveMask,
+            double faultSandFloorMask,
             double sandCorridorMask,
             double duneSuitability,
             double baseElevation,
