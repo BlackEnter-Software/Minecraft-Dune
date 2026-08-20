@@ -46,6 +46,7 @@ Profile checks
 Entity and spawn checks
 -----------------------
 - Muad'dib's model root is rotated 180 degrees around Y.
+- Muad'dib head pitch compensates for the rotated local X axis; yaw remains unmodified.
 - Muad'dib movement speed is 0.9 (3x Rabbit's 0.3 baseline).
 - Muad'dib launch power is 1.5x Rabbit's value (approximately 2x apex height).
 - minecraftdune:arrakis_desert defines only Muad'dib and Desert Hare natural creatures.

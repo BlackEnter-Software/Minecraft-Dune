@@ -24,6 +24,8 @@
 
 - Rotated the complete exported Muad'dib model hierarchy 180 degrees so its visible facing
   direction agrees with Rabbit locomotion instead of making forward hops look backwards.
+- Compensated head pitch for that rotated hierarchy so Muad'dib looks up toward nearby players
+  instead of pitching farther downward as they approach; horizontal head tracking is unchanged.
 - Raised Muad'dib's movement-speed attribute from Rabbit's `0.3` baseline to `0.9`, exactly
   three times the original value.
 - Multiplied Rabbit's launch power by `1.5`. Under Minecraft's discrete gravity this produces

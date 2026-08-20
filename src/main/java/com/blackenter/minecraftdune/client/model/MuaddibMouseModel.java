@@ -230,6 +230,8 @@ public final class MuaddibMouseModel extends HierarchicalModel<MuaddibMouseEntit
         tailTip.yRot += idleTail * 1.45F;
 
         head.yRot += Mth.clamp(netHeadYaw, -45.0F, 45.0F) * Mth.DEG_TO_RAD;
-        head.xRot += Mth.clamp(headPitch, -30.0F, 30.0F) * Mth.DEG_TO_RAD;
+        // The 180-degree body-facing correction reverses the head bone's local X axis.
+        // Negate pitch so Minecraft's look-up/look-down input remains visually correct.
+        head.xRot -= Mth.clamp(headPitch, -30.0F, 30.0F) * Mth.DEG_TO_RAD;
     }
 }
