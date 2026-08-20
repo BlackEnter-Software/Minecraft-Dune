@@ -58,7 +58,9 @@ public final class MuaddibMouseModel extends HierarchicalModel<MuaddibMouseEntit
                         .addBox(-1.0F, -1.0F, -1.0F, 2.0F, 2.0F, 2.0F, new CubeDeformation(0.0F))
                         .texOffs(12, 4)
                         .addBox(-1.0F, 0.0F, -2.0F, 2.0F, 1.0F, 1.0F, new CubeDeformation(0.0F)),
-                PartPose.offset(0.0F, 20.0F, 0.0F)
+                // The Blockbench export's head points along +Z. Minecraft entity models face
+                // -Z, so rotate the complete hierarchy once instead of changing every cube.
+                PartPose.offsetAndRotation(0.0F, 20.0F, 0.0F, 0.0F, (float) Math.PI, 0.0F)
         );
 
         PartDefinition hindlegs = body.addOrReplaceChild(

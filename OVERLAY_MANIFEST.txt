@@ -26,6 +26,7 @@ docs/MACRO_GEOLOGY.md
 docs/NATIVE_ARRAKIS_TERRAIN.md
 docs/PROJECT_STRUCTURE.md
 docs/BLOCKBENCH_WORKFLOW.md
+src/main/java/com/blackenter/minecraftdune/MinecraftDune.java
 src/main/java/com/blackenter/minecraftdune/entity/DesertHareEntity.java
 src/main/java/com/blackenter/minecraftdune/entity/MuaddibMouseEntity.java
 src/main/java/com/blackenter/minecraftdune/client/model/DesertHareAnimations.java
@@ -40,6 +41,8 @@ src/main/java/com/blackenter/minecraftdune/worldgen/geology/LithologyBlockPalett
 src/main/java/com/blackenter/minecraftdune/worldgen/geology/LithologyField.java
 src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyCommand.java
 src/main/java/com/blackenter/minecraftdune/worldgen/geology/MassifFractureField.java
+src/main/resources/data/minecraft/tags/block/rabbits_spawnable_on.json
+src/main/resources/data/minecraftdune/worldgen/biome/arrakis_desert.json
 src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
 
 Intentionally unchanged
@@ -77,6 +80,15 @@ Entity split
 ------------
 The original animated entity is now `desert_hare`; the freed `muaddib_mouse` identifier uses
 the new Blockbench Java export and texture. Both entity types have separately wired spawn eggs.
+
+Muad'dib movement and Arrakis fauna refinement
+----------------------------------------------
+The Muad'dib model is rotated 180 degrees to agree with travel, uses 3x Rabbit base movement
+speed, and reaches approximately 2x Rabbit's jump apex. New worlds use the featureless
+`minecraftdune:arrakis_desert` biome with only Muad'dib and Desert Hare in its spawn table.
+Arrakis-generator placement and finalization gates also reject vanilla natural, patrol, event,
+structure and spawner paths in existing saves while deliberate spawn tools remain available.
+The release and generator-profile versions remain 0.5.13 and 513.
 
 The optional GameTest-server smoke attempt was blocked before Minecraft startup by the
 client-only Sodium jar in the shared `run/mods` directory (`org.lwjgl.Version` unavailable

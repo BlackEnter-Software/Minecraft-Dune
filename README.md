@@ -57,8 +57,12 @@ The native generator retains the same base stratigraphy:
 | -63 to -1 | Deepslate |
 | -64 | Bedrock |
 
-Biome features, lakes, structures, and caves remain disabled in the Arrakis Dev overworld.
-The Nether and End retain normal vanilla generation.
+New Arrakis Dev worlds use the featureless `minecraftdune:arrakis_desert` biome. Its natural
+spawn table contains only Muad'dib and Desert Hare; an Arrakis-generator placement gate also
+blocks vanilla natural spawns in older Arrakis saves that still serialize `minecraft:desert`.
+A finalization gate also covers autonomous patrol, event, structure, and spawner paths.
+Commands, spawn eggs, buckets, dispensers, and breeding remain usable. Lakes, structures,
+caves, and biome features stay disabled. The Nether and End retain normal vanilla generation.
 
 ## Lithology and massif fissures — 0.5.13
 
@@ -354,7 +358,9 @@ Batch capture:
 
 `desert_hare` is the renamed original entity and retains its idle, hop, sniff, and head-wiggle
 animations and Rabbit-based behavior. `muaddib_mouse` uses the separate 32×32 Blockbench Java
-export and texture from `blockbench/java/`.
+export and texture from `blockbench/java/`. The runtime model is rotated 180 degrees to face
+its travel direction. Muad'dib uses three times Rabbit's base movement speed and a 1.5× launch
+velocity, which produces approximately twice Rabbit's normal jump apex under Minecraft gravity.
 
 ## Build the distributable mod
 

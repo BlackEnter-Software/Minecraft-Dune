@@ -20,6 +20,27 @@
   mobs or eggs carrying that old ID therefore resolve as Muad'dib; Desert Hare uses the new
   `desert_hare` and `desert_hare_spawn_egg` IDs.
 
+### Muad'dib movement and Arrakis fauna refinement
+
+- Rotated the complete exported Muad'dib model hierarchy 180 degrees so its visible facing
+  direction agrees with Rabbit locomotion instead of making forward hops look backwards.
+- Raised Muad'dib's movement-speed attribute from Rabbit's `0.3` baseline to `0.9`, exactly
+  three times the original value.
+- Multiplied Rabbit's launch power by `1.5`. Under Minecraft's discrete gravity this produces
+  approximately twice the original jump apex; doubling launch velocity itself would produce
+  roughly four times the jump height.
+- Added the featureless `minecraftdune:arrakis_desert` biome for newly created Arrakis Dev
+  worlds. Its only natural creature entries are Muad'dib and Desert Hare, with no monster,
+  ambient, underground-water, water-creature, water-ambient or axolotl entries.
+- Registered valid on-ground placement rules for both desert entities and made full and
+  layered Dune Sand valid Rabbit-family spawn surfaces.
+- Added Arrakis-generator placement and finalization gates that reject every entity type
+  except Muad'dib and Desert Hare from natural, patrol, event, structure, spawner, and other
+  autonomous spawn paths. This also prevents vanilla nighttime spawning in older Arrakis
+  saves whose serialized biome is still `minecraft:desert`. Commands, spawn eggs, buckets,
+  dispensers, and breeding remain available for deliberate player/test activity.
+- Kept the project and generator profile versions at `0.5.13` / `513` for this refinement.
+
 ### Native lithology
 
 - Added optional serialized `terrain.lithology` settings with backwards-decoding defaults.

@@ -27,6 +27,19 @@ full + sixteenth-layer dune sand
 Everything remains deterministic from the actual world seed, the serialized generator
 profile, and absolute coordinates.
 
+## Arrakis biome and fauna
+
+New worlds use `minecraftdune:arrakis_desert`, a featureless biome whose natural spawn table
+contains only Muad'dib and Desert Hare. No monster, ambient, cave-water, water-creature,
+water-ambient, or axolotl entries are defined. Both entities use on-ground Rabbit placement
+rules, and Dune Sand plus layered Dune Sand are valid spawn surfaces.
+
+Older Arrakis worlds may retain a serialized `minecraft:desert` biome holder. Generator-
+scoped placement and finalization checks therefore reject all other natural and autonomous
+entity types whenever the active chunk generator is `ArrakisChunkGenerator`, including patrol,
+event, structure and spawner paths. Commands, spawn eggs, buckets, dispensers, and breeding
+remain available for deliberate player/test activity.
+
 ## Generator codec
 
 The custom generator codec now serializes two objects:

@@ -5,7 +5,7 @@
       "generator": {
         "type": "minecraftdune:arrakis_dev",
         "settings": {
-          "biome": "minecraft:desert",
+          "biome": "minecraftdune:arrakis_desert",
           "features": false,
           "lakes": false,
           "layers": [

@@ -29,13 +29,20 @@ Y   0 to 44     : Stone (45 blocks)
 Y -63 to -1     : Deepslate (63 blocks)
 Y -64           : Bedrock (1 block)
 
-Biome: minecraft:desert
+Biome: minecraftdune:arrakis_desert (new worlds)
 Biome features: disabled
 Lakes: disabled
 Structures: disabled
 Caves: disabled by the flat-generator base
 Generator type: minecraftdune:arrakis_dev
 Nether and End: normal vanilla generation
+
+Natural fauna: Muad'dib and Desert Hare only. The Arrakis generator rejects other natural
+spawn-placement attempts and autonomous patrol/event/structure/spawner paths, including vanilla
+nighttime mobs in older Arrakis saves that retain the minecraft:desert biome. Commands, spawn
+eggs, buckets, dispensers, and breeding remain available. Muad'dib faces its travel direction,
+moves at 3x Rabbit's base speed, and uses a 1.5x launch velocity for approximately 2x the normal
+jump apex.
 
 Province sequence
 -----------------

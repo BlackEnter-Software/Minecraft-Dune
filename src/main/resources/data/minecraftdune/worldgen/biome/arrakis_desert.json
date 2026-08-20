@@ -1,0 +1,31 @@
+{
+  "has_precipitation": false,
+  "temperature": 2.0,
+  "downfall": 0.0,
+  "effects": {
+    "fog_color": 12638463,
+    "water_color": 4159204,
+    "water_fog_color": 329011,
+    "sky_color": 7254527
+  },
+  "carvers": {},
+  "features": [],
+  "creature_spawn_probability": 0.1,
+  "spawners": {
+    "creature": [
+      {
+        "type": "minecraftdune:muaddib_mouse",
+        "weight": 12,
+        "minCount": 2,
+        "maxCount": 5
+      },
+      {
+        "type": "minecraftdune:desert_hare",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 3
+      }
+    ]
+  },
+  "spawn_costs": {}
+}
