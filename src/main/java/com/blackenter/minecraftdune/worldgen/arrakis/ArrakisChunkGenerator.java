@@ -3,7 +3,10 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 import com.blackenter.minecraftdune.registry.ModBlocks;
 import com.blackenter.minecraftdune.world.level.block.DuneSandLayerBlock;
 import com.blackenter.minecraftdune.worldgen.dune.NativeTransverseDuneField;
+import com.blackenter.minecraftdune.worldgen.geology.LithologyBlockPalette;
+import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
 import com.blackenter.minecraftdune.worldgen.geology.MacroGeologyField;
+import com.blackenter.minecraftdune.worldgen.geology.MassifFractureField;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
@@ -30,9 +33,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Native Arrakis Dev terrain generator.
  *
- * <p>0.5.10 serializes the macro-terrain/dune profile into the generator codec. The normal
- * flat Arrakis base remains unchanged; geology and native dunes are still written directly
- * into ChunkAccess during generation.</p>
+ * <p>The normal flat Arrakis base remains unchanged. Macro relief, 3D lithology, massif-top
+ * fissures and native dunes are written directly into ChunkAccess during generation.</p>
  */
 public final class ArrakisChunkGenerator extends FlatLevelSource {
     public static final MapCodec<ArrakisChunkGenerator> CODEC =
@@ -48,13 +50,12 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                             .forGetter(ArrakisChunkGenerator::terrainSettings)
             ).apply(instance, ArrakisChunkGenerator::new));
 
-    private static final BlockState ROCK_STATE =
-            Blocks.STONE.defaultBlockState();
     private static final int FIRST_NATIVE_Y =
             MacroGeologyField.BASE_SURFACE_Y + 1;
 
     private final FlatLevelGeneratorSettings flatSettings;
     private final ArrakisTerrainSettings terrainSettings;
+    private final LithologyBlockPalette lithologyPalette;
 
     private volatile long worldSeed;
     private volatile boolean worldSeedInitialized;
@@ -70,6 +71,9 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         super(settings);
         this.flatSettings = settings;
         this.terrainSettings = terrainSettings;
+        lithologyPalette = new LithologyBlockPalette(
+                terrainSettings.lithology().materials()
+        );
     }
 
     public ArrakisTerrainSettings terrainSettings() {
@@ -178,7 +182,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                     maximumY
             );
             for (int y = firstRockY; y <= lastRockY; y++) {
-                column.setBlock(y, ROCK_STATE);
+                column.setBlock(
+                        y,
+                        lithologyPalette.state(terrain.materialAt(y))
+                );
             }
         }
 
@@ -234,7 +241,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                         position.set(worldX, y, worldZ);
                         chunk.setBlockState(
                                 position,
-                                ROCK_STATE,
+                                lithologyPalette.state(terrain.materialAt(y)),
                                 false
                         );
                     }
@@ -282,23 +289,50 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
 
         int lastRockY = MacroGeologyField.BASE_SURFACE_Y
                 + terrainSettings.massif().maxAddedHeight();
-        int rockTopY = Mth.clamp(
+        int originalRockTopY = Mth.clamp(
                 Mth.floor(geology.baseElevation() + 0.5),
                 MacroGeologyField.BASE_SURFACE_Y,
                 lastRockY
         );
+        LithologyField.Column lithology = LithologyField.column(
+                worldSeed,
+                worldX + 0.5,
+                worldZ + 0.5,
+                terrainSettings.lithology()
+        );
+        LithologyField.Sample surfaceLithology = lithology.sample(originalRockTopY);
+        MassifFractureField.Sample fracture = MassifFractureField.sample(
+                worldSeed,
+                worldX + 0.5,
+                worldZ + 0.5,
+                originalRockTopY,
+                geology,
+                surfaceLithology.resistance(),
+                terrainSettings.fractures()
+        );
+        int carveDepth = Math.min(
+                Mth.floor(fracture.carveDepth()),
+                Math.max(
+                        0,
+                        originalRockTopY - (MacroGeologyField.BASE_SURFACE_Y + 1)
+                )
+        );
+        int rockTopY = originalRockTopY - carveDepth;
 
         return new TerrainColumn(
                 rockTopY,
-                dune.surfaceUnits()
+                originalRockTopY,
+                dune.surfaceUnits(),
+                lithology,
+                fracture
         );
     }
 
     /**
      * Finds the highest existing hard-rock layer in the flat Arrakis base column. Native
      * geology then replaces every softer layer above it (currently sandstone + sand) with
-     * stone before continuing upward into the visible formation. This roots rock bodies in
-     * the underlying crust instead of leaving a sand pocket beneath them.
+     * coherent native lithology before continuing upward into the visible formation. This
+     * roots rock bodies in the underlying crust instead of leaving a sand pocket beneath them.
      */
     private static int findFoundationTopY(
             NoiseColumn column,
@@ -389,8 +423,18 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
 
     private record TerrainColumn(
             int rockTopY,
-            int duneSurfaceUnits
+            int originalRockTopY,
+            int duneSurfaceUnits,
+            LithologyField.Column lithology,
+            MassifFractureField.Sample fracture
     ) {
+        LithologyField.Material materialAt(int y) {
+            if (fracture.calciteExposure(y, originalRockTopY, rockTopY)) {
+                return LithologyField.Material.CALCITE;
+            }
+            return lithology.sample(y).material();
+        }
+
         boolean hasNativeRock() {
             return rockTopY > MacroGeologyField.BASE_SURFACE_Y;
         }

@@ -1,5 +1,172 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.13 — Lithology & Fracture Framework
+
+### Native lithology
+
+- Added optional serialized `terrain.lithology` settings with backwards-decoding defaults.
+- Replaced uniform native stone with deterministic coherent 3D/stratigraphic rock units.
+- Added geological roles and resistance classes:
+  - soft: sandstone, tuff, limestone;
+  - medium: background stone and calcite-bearing host;
+  - hard: andesite and diorite intrusions;
+  - very hard: basalt dikes/sheets and rare blackstone bodies;
+  - loose: gravel talus/collapse material, never intact bedrock.
+- Added warped strata, broad units/lenses, hard intrusions, rare limestone/blackstone bodies,
+  basalt dikes/sheets, and thin calcite veins without per-block decorative speckle.
+- Added registry-based material identifiers. `create:limestone` is used when available in the
+  current mod set and falls back to `minecraft:sandstone` without a compile-time Create
+  dependency.
+
+### Massif-top fractures
+
+- Added optional serialized `terrain.fractures` settings with backwards-decoding defaults.
+- Added an absolute-coordinate local fracture network separate from regional faults.
+- Active cells contribute finite bent trunks and probabilistic tapered branches, producing
+  deterministic nonuniform traces tens to hundreds of blocks long across chunk boundaries.
+- Default target geometry is approximately 1–12 blocks wide and 5–68 blocks deep, ranging
+  from shallow cracks to slots and deeper chasm hazards.
+- Fractures favor substantial exposed massif/faulted-margin rock and are suppressed on low
+  foreland stones.
+- Soft/hard resistance modestly changes width/depth now and exposes a stable model for the
+  full 0.5.14 differential-erosion pass.
+- Some fracture networks are mineralized. Their floors and wall shells expose calcite as a
+  visual old-fluid-movement signal.
+- Fissure floors retain at least one native-rock block above the Y64 base, and all visible
+  rock remains connected through the former sand/sandstone layers to hard crust.
+
+### Talus, caves, and future passes
+
+- Added serialized talus definitions and a fissure talus-candidate hook using gravel as the
+  principal loose material.
+- Left local scree disabled and did not generate final large talus cones in 0.5.13.
+- Did not add full caves or water. Rare limestone lenses and fracture/mineralization metadata
+  are inputs for the later 0.5.15 dry/mineralized/collapse cavern and extremely rare sealed
+  water-cavern pass.
+- Did not add 0.5.14 undercuts, overhangs, negative-angle cliffs, or full escarpment erosion.
+
+### Diagnostics and documentation
+
+- Extended `/dune geology info` and `/dune geology sample <x> <z>` with dominant logical and
+  resolved lithology, resistance, limestone-host, intrusion/basalt/calcite, fissure strength,
+  width/depth, activation and mineralization values.
+- Extended `/dune geology profile` with active lithology/fracture settings and resolved
+  limestone/talus blocks.
+- Added a complete JSON parameter and design reference in
+  `docs/LITHOLOGY_AND_FRACTURES.md`.
+- Bumped the generator source profile to `513` and project version to `0.5.13`.
+
+### Preserved baselines
+
+- Preserved all current 0.5.12 user tuning outside additive lithology/fracture fields.
+- Preserved the 0.5.12 absolute fault-floor behavior and `rocky_floor_height`.
+- Preserved native dune settings, layered sand, cameras/screenshots, Muad'dib, the frozen
+  finite `DuneSimulation` laboratory, NeoForge 21.1.248, and runClient ZGC/JVM settings.
+- Generation remains direct-to-`ChunkAccess`, deterministic from world seed + profile +
+  absolute coordinates, with no `ServerLevel#setBlock` terrain post-pass.
+
+## Minecraft: Dune 0.5.12 — Fault Floor Consistency
+
+0.5.12 is a focused correction to the native fault-depth model.
+
+### Problem
+
+In 0.5.11, fault depth was applied proportionally to the original rock height:
+
+```text
+new height = lerp(original height, low fault floor, fault mask * 0.96)
+```
+
+Even a nominally full fault retained 4% of the original massif height. On a ~200-block wall
+that residual alone could leave several additional blocks, and slightly sub-core masks could
+leave much larger shelves. The sandy-floor selection was also thresholded twice.
+
+This made fault depth vary too strongly with the height of the rock it crossed.
+
+### Changes
+
+- Fault cores now target an **absolute structural floor height**.
+- `core_width` now literally represents the half-width of the full-depth core when the radial
+  fault gate is fully active.
+- Removed the old `0.96` residual-depth multiplier.
+- Added `faults.rocky_floor_height`.
+  - default: `4.0`
+  - fully rocky core target: approximately Y68
+  - fully sandy core target: Y64
+- Sandy-floor noise now chooses the floor state independently from the carve depth.
+- Removed the previous second sand-floor threshold stage.
+- Strong sand-floor segments snap to a true sand target; strong rocky segments snap to the
+  configured rocky target.
+- At fault intersections, the floor metadata now follows the fault that supplies the dominant
+  carve mask at that X/Z column instead of mixing maxima from unrelated faults.
+- Fault centerline geometry, widths, warp parameters, count, radial activation window, massif
+  tuning, foreland tuning, broken-rock tuning, sand passes and native dunes are otherwise
+  unchanged.
+- The current user-tuned `arrakis_dev.json` from GitHub was used as the source profile. 0.5.12
+  changes only `profile_version` and adds `rocky_floor_height` to that profile.
+- Project version bumped to 0.5.12.
+
+### Intended cross-section
+
+With `core_width = 30`, `outer_width = 105`, and `rocky_floor_height = 4`:
+
+```text
+surrounding massif
+██████████\                         /██████████
+██████████ \                       / ██████████
+██████████  \_____________________/  ██████████
+                    ~Y68
+             full rocky fault core
+
+or, on a sand-floor segment:
+
+██████████  \_____________________/  ██████████
+                    Y64
+```
+
+The outer shoulders still interpolate smoothly. The central depth no longer depends on the
+original mountain height.
+
+## Minecraft: Dune 0.5.11 — Rock gradients, rooted geology, and interior dunes
+
+- Preserved the user's current pushed 0.5.10 Arrakis terrain profile as the tuning baseline:
+  - pure-sand basin radius 1500;
+  - foreland end 3050;
+  - massif start 3000 / outer end 4500;
+  - six faults;
+  - broken-rock range 4000–6650;
+  - outer transition to 9000;
+  - native dune spacing 512 and spacing variation 0.38.
+- Added radial **foreland growth** so the first boulders near the basin are smaller and the
+  surviving fragments become progressively larger toward `massif.start_radius`.
+- Added `foreland.inner_height_scale`.
+  - Controls the inner-edge vertical scale of large foreland fragments.
+- Added `foreland.inner_threshold_boost`.
+  - Raises both large-rock thresholds at the inner edge, shrinking their footprint/density;
+    the boost fades to zero toward the massif.
+- Added `foreland.growth_power`.
+  - Shapes how early/late the foreland reaches full size.
+- Micro-rock remains small but gains some height toward the massif.
+- Changed Broken Rock size progression so decay starts at `broken_rock.start_radius` rather
+  than waiting until `broken_rock.full_radius`.
+- Added `broken_rock.size_decay_power`.
+  - Controls how quickly large near-massif remnants transition toward small outer remnants.
+- Added `native_dunes.foreland_weight`.
+  - Enables low dune activity in sandy foreland gaps.
+- Raised the supplied profile's `broken_rock_weight` from 0.12 to 0.22 for visible but still
+  subordinate dune activity among broken-rock outliers.
+- Native dunes remain locally suppressed by rock height, so they preferentially occupy sand
+  between formations rather than growing through major rock bodies.
+- Rooted all visible native geological formations into the underlying hard crust:
+  - the generator scans downward from Y=64 until it finds stone/deepslate/bedrock;
+  - sandstone and sand between that crust and a visible rock formation are replaced by stone;
+  - ordinary sand-only columns keep the original Arrakis flat stratigraphy.
+- Updated terrain profile version to 511 and mod version to 0.5.11.
+- Added backwards-compatible codec defaults for all new JSON fields so 0.5.10 generator data
+  lacking the new fields remains decodable.
+- Updated the terrain profile documentation with detailed explanations of the new fields and
+  the rock-foundation behavior.
+
 ## Minecraft: Dune 0.5.10 — Terrain profile + morphology tuning
 
 - Added `ArrakisTerrainSettings` and serialized it in the `minecraftdune:arrakis_dev`

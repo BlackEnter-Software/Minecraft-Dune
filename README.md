@@ -2,13 +2,15 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.10**
+Current development version: **0.5.13**
 
 The project currently contains:
 
 - the Muad'dib desert mouse test entity, model, texture, and animations;
 - the selectable **Arrakis Dev** desert world preset;
 - native deterministic macro geology generated as part of the Arrakis chunk pipeline;
+- coherent 3D lithology with geological resistance roles and optional Create limestone;
+- deterministic branching massif-top cracks, slots and chasms with calcite mineralization;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -37,12 +39,12 @@ other development/test mods can be installed manually.
 
 ## Arrakis Dev world
 
-**Create a new Arrakis Dev world for clean 0.5.10 morphology/profile testing.**
+**Create a new Arrakis Dev world for clean 0.5.13 lithology/fracture testing.**
 
-Version 0.5.10 extends the `minecraftdune:arrakis_dev` generator codec with a serialized
-`terrain` profile. The field is optional for older saves so they remain decodable, but
-newly generated chunks would use the 0.5.10 defaults. Create a new world (or regenerate
-closed-world region files) for clean visual comparisons and to store the explicit profile.
+The `minecraftdune:arrakis_dev` generator codec stores its serialized `terrain` profile.
+0.5.13 adds optional `lithology` and `fractures` sections, so older generator data remains
+decodable with defaults. Existing chunks are never rewritten; create a new world (or
+regenerate closed-world region files) for clean visual comparisons.
 
 The native generator retains the same base stratigraphy:
 
@@ -58,7 +60,34 @@ The native generator retains the same base stratigraphy:
 Biome features, lakes, structures, and caves remain disabled in the Arrakis Dev overworld.
 The Nether and End retain normal vanilla generation.
 
-## Terrain-profile tuning — 0.5.10
+## Lithology and massif fissures — 0.5.13
+
+Native rock now reads as coherent geological units rather than uniform stone or per-block
+speckle. Stone, sandstone, tuff, calcite, andesite, diorite, basalt and blackstone have
+explicit roles and soft/medium/hard/very-hard resistance classes. Gravel is defined as loose
+talus/collapse material rather than intact bedrock.
+
+The current development mod set contains Create and the profile requests `create:limestone`
+for rare sedimentary lenses. Minecraft: Dune keeps Create optional by resolving the identifier
+through the block registry and falling back to `minecraft:sandstone` when it is absent.
+
+An independent absolute-coordinate fracture field creates bent, branching massif-top traces:
+
+- approximately 1–12 blocks wide;
+- tens to hundreds of blocks long;
+- approximately 5–68 blocks deep at their strongest centers;
+- resistance-modulated so soft units open modestly more than basalt/blackstone;
+- occasionally mineralized with visible calcite wall and floor exposure.
+
+This is still height-column fissure geometry. The 0.5.14 escarpment pass will own true
+undercuts, overhangs/negative-angle faces, differential erosion and final talus deposition.
+The 0.5.15 cave pass will consume rare limestone hosts and fractures; no caves or water are
+generated yet.
+
+See [Lithology and fracture framework](docs/LITHOLOGY_AND_FRACTURES.md) and the full
+[terrain profile reference](docs/ARRAKIS_TERRAIN_PROFILE.md).
+
+## Historical terrain-profile tuning — 0.5.10
 
 Version 0.5.10 keeps the fast native chunk-generation architecture and tunes the 0.5.9
 province model from in-world testing. The principal terrain parameters now live in the
@@ -127,8 +156,8 @@ terrain shelter and sand-supply fields remain later work.
 
 ### Serialized terrain profile
 
-The active world preset now contains a `terrain` JSON object. It stores the basin, foreland,
-massif, fault, sand-pass, broken-rock, outer-transition, and native-dune tuning values.
+The active world preset contains a `terrain` JSON object. It stores basin, foreland, massif,
+fault, lithology, fracture, sand-pass, broken-rock, outer-transition, and native-dune values.
 `ArrakisChunkGenerator.CODEC` serializes the same object into the world's generator data.
 
 This makes terrain tuning explicit and prevents diagnostic values from being scattered across
@@ -324,7 +353,7 @@ Batch capture:
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.10.jar
+build/libs/minecraftdune-0.5.13.jar
 ```
 
 ## Package and namespace
@@ -335,4 +364,6 @@ build/libs/minecraftdune-0.5.10.jar
 
 ## Version history
 
-See [`PATCH_NOTES-0.5.10.md`](PATCH_NOTES-0.5.10.md) for this release, [`PATCH_NOTES-0.5.9.md`](PATCH_NOTES-0.5.9.md) for the province/dune milestone, and [`PATCH_NOTES.md`](PATCH_NOTES.md) for the preserved earlier history.
+See [`PATCH_NOTES-0.5.13.md`](PATCH_NOTES-0.5.13.md) for this release,
+[`PATCH_NOTES-0.5.12.md`](PATCH_NOTES-0.5.12.md) for the fault-floor correction, and
+[`PATCH_NOTES.md`](PATCH_NOTES.md) for preserved project history.

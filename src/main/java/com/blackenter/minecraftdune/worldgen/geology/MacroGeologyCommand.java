@@ -129,19 +129,78 @@ public final class MacroGeologyCommand {
                         sample.duneSuitability(),
                         settings.nativeDunes()
                 );
+        int originalRockTopY = (int) Math.floor(sample.baseElevation() + 0.5);
+        LithologyField.Column lithologyColumn = LithologyField.column(
+                worldSeed,
+                x,
+                z,
+                settings.lithology()
+        );
+        LithologyField.Sample lithology = lithologyColumn.sample(originalRockTopY);
+        MassifFractureField.Sample fracture = MassifFractureField.sample(
+                worldSeed,
+                x,
+                z,
+                originalRockTopY,
+                sample,
+                lithology.resistance(),
+                settings.fractures()
+        );
+        int fractureRockTopY = originalRockTopY - Math.min(
+                (int) Math.floor(fracture.carveDepth()),
+                Math.max(
+                        0,
+                        originalRockTopY - (MacroGeologyField.BASE_SURFACE_Y + 1)
+                )
+        );
+        LithologyBlockPalette palette = new LithologyBlockPalette(
+                settings.lithology().materials()
+        );
 
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
                         "Arrakis terrain @ X=%.1f Z=%.1f: radius=%.1f, "
                                 + "effective_radius=%.1f, province=%s, "
-                                + "rock_surface_Y=%.1f.",
+                                + "macro_rock_Y=%.1f, fissure_rock_Y=%d.",
                         x,
                         z,
                         sample.radiusBlocks(),
                         sample.effectiveRadiusBlocks(),
                         sample.dominantProvince().commandName(),
-                        sample.baseElevation()
+                        sample.baseElevation(),
+                        fractureRockTopY
+                )),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
+                        "Lithology: %s (%s, block=%s), limestone_host=%s, "
+                                + "intrusive=%s, basalt_structure=%s, calcite_vein=%s.",
+                        lithology.material().commandName(),
+                        lithology.resistance().commandName(),
+                        palette.resolvedId(lithology.material()),
+                        lithology.limestoneHost(),
+                        lithology.intrusive(),
+                        lithology.basaltStructure(),
+                        lithology.calciteVein()
+                )),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
+                        "Massif fissure: strength=%.2f, width=%.1f, carve_depth=%.1f, "
+                                + "activation=%.2f, calcite_indicator=%.2f, mineralized=%s.",
+                        fracture.strength(),
+                        fracture.width(),
+                        fracture.carveDepth(),
+                        fracture.activation(),
+                        fracture.mineralization(),
+                        fracture.mineralized()
                 )),
                 false
         );
@@ -269,6 +328,62 @@ public final class MacroGeologyCommand {
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
+                        "Lithology: units=%.0f x %.0f scale, strata=%.0f, "
+                                + "intrusions >= %.2f, limestone <= -%.2f, "
+                                + "blackstone >= %.2f; dikes=%.1f half-width / %.0f spacing.",
+                        settings.lithology().unitHorizontalScale(),
+                        settings.lithology().unitVerticalScale(),
+                        settings.lithology().strataThickness(),
+                        settings.lithology().intrusionThreshold(),
+                        settings.lithology().limestoneThreshold(),
+                        settings.lithology().blackstoneThreshold(),
+                        settings.lithology().dikeHalfWidth(),
+                        settings.lithology().dikeSpacing()
+                )),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
+                        "Fissures: enabled=%s, cells=%.0f, density=%.2f, "
+                                + "length=%.0f..%.0f, width=%.1f..%.1f, depth=%.0f..%.0f, "
+                                + "branch=%.2f, mineralized=%.2f.",
+                        settings.fractures().enabled(),
+                        settings.fractures().cellSize(),
+                        settings.fractures().density(),
+                        settings.fractures().minimumLength(),
+                        settings.fractures().maximumLength(),
+                        settings.fractures().minimumWidth(),
+                        settings.fractures().maximumWidth(),
+                        settings.fractures().minimumDepth(),
+                        settings.fractures().maximumDepth(),
+                        settings.fractures().branchChance(),
+                        settings.fractures().mineralizationChance()
+                )),
+                false
+        );
+
+        LithologyBlockPalette profilePalette = new LithologyBlockPalette(
+                settings.lithology().materials()
+        );
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
+                        "Material resolution: limestone=%s (configured %s; fallback %s), "
+                                + "talus=%s; local_scree=%s (0.5.14 hook).",
+                        profilePalette.resolvedId(LithologyField.Material.LIMESTONE),
+                        settings.lithology().materials().limestone(),
+                        settings.lithology().materials().limestoneFallback(),
+                        profilePalette.resolvedId(LithologyField.Material.GRAVEL),
+                        settings.lithology().talus().localScreeEnabled()
+                )),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
                         "Native dunes: spacing=%.0f, max_height=%.0f, variation=%.2f, "
                                 + "sharpness=%.2f, cutoff=%.2f, asymmetry=%.2f, wind=%.0f deg; "
                                 + "weights foreland=%.2f broken=%.2f transition=%.2f.",
@@ -306,7 +421,8 @@ public final class MacroGeologyCommand {
             CommandContext<CommandSourceStack> context
     ) {
         context.getSource().sendFailure(Component.literal(
-                "Macro geology and native dunes are chunk terrain in 0.5.11 and cannot "
+                "Macro geology, lithology, fissures and native dunes are chunk terrain in "
+                        + "0.5.13 and cannot "
                         + "be cleared independently. Use a fresh Arrakis Dev world, or "
                         + "delete/regenerate affected region files while the world is closed."
         ));

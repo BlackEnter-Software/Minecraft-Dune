@@ -33,7 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 512,
+          "profile_version": 513,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0
@@ -78,6 +78,59 @@
             "sine_warp_strength": 75.0,
             "sandy_floor_threshold": 0.56,
             "rocky_floor_height": 4.0
+          },
+          "lithology": {
+            "unit_horizontal_scale": 260.0,
+            "unit_vertical_scale": 46.0,
+            "strata_thickness": 28.0,
+            "strata_warp_scale": 210.0,
+            "strata_warp_strength": 16.0,
+            "intrusion_scale": 190.0,
+            "intrusion_threshold": 0.58,
+            "rare_body_scale": 420.0,
+            "limestone_threshold": 0.7,
+            "blackstone_threshold": 0.86,
+            "dike_spacing": 180.0,
+            "dike_half_width": 2.5,
+            "calcite_vein_spacing": 86.0,
+            "calcite_vein_half_width": 1.1,
+            "materials": {
+              "background": "minecraft:stone",
+              "sandstone": "minecraft:sandstone",
+              "tuff": "minecraft:tuff",
+              "limestone": "create:limestone",
+              "limestone_fallback": "minecraft:sandstone",
+              "calcite": "minecraft:calcite",
+              "andesite": "minecraft:andesite",
+              "diorite": "minecraft:diorite",
+              "basalt": "minecraft:basalt",
+              "blackstone": "minecraft:blackstone",
+              "talus": "minecraft:gravel"
+            },
+            "talus": {
+              "local_scree_enabled": false,
+              "minimum_fracture_strength": 0.78,
+              "maximum_thickness": 3,
+              "spread": 5.0
+            }
+          },
+          "fractures": {
+            "enabled": true,
+            "cell_size": 260.0,
+            "density": 0.48,
+            "minimum_length": 72.0,
+            "maximum_length": 230.0,
+            "branch_chance": 0.72,
+            "minimum_width": 1.0,
+            "maximum_width": 12.0,
+            "minimum_depth": 5.0,
+            "maximum_depth": 68.0,
+            "minimum_rock_height": 18.0,
+            "minimum_massif_weight": 0.18,
+            "mineralization_chance": 0.24,
+            "calcite_wall_thickness": 1.5,
+            "resistance_width_influence": 0.3,
+            "resistance_depth_influence": 0.22
           },
           "sand_passes": {
             "start_radius": 1500.0,

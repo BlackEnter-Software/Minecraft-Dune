@@ -1,9 +1,13 @@
-# Macro geology — 0.5.10 tuning pass
+# Macro geology — 0.5.13 active framework
 
 ## Scope
 
-0.5.10 is a parameterization and morphology-tuning pass on the native 0.5.9 province model.
-The native chunk-generation architecture is unchanged.
+The 0.5.10 province tuning remains the macro surface-height baseline. Version 0.5.13 adds
+coherent lithology and local branching fractures without changing the tuned province radii,
+fault geometry, fault-floor correction, sand passes, broken-rock values, or native dunes.
+
+See [LITHOLOGY_AND_FRACTURES.md](LITHOLOGY_AND_FRACTURES.md) for the active 0.5.13 material,
+resistance, fissure, optional Create limestone, talus and future cavern framework.
 
 The main changes are:
 

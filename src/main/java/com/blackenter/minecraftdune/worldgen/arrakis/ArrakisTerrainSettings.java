@@ -15,12 +15,72 @@ public record ArrakisTerrainSettings(
         ForelandSettings foreland,
         MassifSettings massif,
         FaultSettings faults,
+        LithologySettings lithology,
+        FractureSettings fractures,
         SandPassSettings sandPasses,
         BrokenRockSettings brokenRock,
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 512;
+    public static final int CURRENT_PROFILE_VERSION = 513;
+
+    public static final MaterialPaletteSettings DEFAULT_MATERIALS =
+            new MaterialPaletteSettings(
+                    "minecraft:stone",
+                    "minecraft:sandstone",
+                    "minecraft:tuff",
+                    "create:limestone",
+                    "minecraft:sandstone",
+                    "minecraft:calcite",
+                    "minecraft:andesite",
+                    "minecraft:diorite",
+                    "minecraft:basalt",
+                    "minecraft:blackstone",
+                    "minecraft:gravel"
+            );
+
+    public static final TalusSettings DEFAULT_TALUS =
+            new TalusSettings(false, 0.78, 3, 5.0);
+
+    public static final LithologySettings DEFAULT_LITHOLOGY =
+            new LithologySettings(
+                    260.0,
+                    46.0,
+                    28.0,
+                    210.0,
+                    16.0,
+                    190.0,
+                    0.58,
+                    420.0,
+                    0.70,
+                    0.86,
+                    180.0,
+                    2.5,
+                    86.0,
+                    1.1,
+                    DEFAULT_MATERIALS,
+                    DEFAULT_TALUS
+            );
+
+    public static final FractureSettings DEFAULT_FRACTURES =
+            new FractureSettings(
+                    true,
+                    260.0,
+                    0.48,
+                    72.0,
+                    230.0,
+                    0.72,
+                    1.0,
+                    12.0,
+                    5.0,
+                    68.0,
+                    18.0,
+                    0.18,
+                    0.24,
+                    1.5,
+                    0.30,
+                    0.22
+            );
 
     public static final ArrakisTerrainSettings DEFAULT = new ArrakisTerrainSettings(
             CURRENT_PROFILE_VERSION,
@@ -69,6 +129,8 @@ public record ArrakisTerrainSettings(
                     0.56,
                     4.0
             ),
+            DEFAULT_LITHOLOGY,
+            DEFAULT_FRACTURES,
             new SandPassSettings(
                     1000.0,
                     1320.0,
@@ -126,6 +188,16 @@ public record ArrakisTerrainSettings(
                             .forGetter(ArrakisTerrainSettings::massif),
                     FaultSettings.CODEC.fieldOf("faults")
                             .forGetter(ArrakisTerrainSettings::faults),
+                    LithologySettings.CODEC.optionalFieldOf(
+                                    "lithology",
+                                    DEFAULT_LITHOLOGY
+                            )
+                            .forGetter(ArrakisTerrainSettings::lithology),
+                    FractureSettings.CODEC.optionalFieldOf(
+                                    "fractures",
+                                    DEFAULT_FRACTURES
+                            )
+                            .forGetter(ArrakisTerrainSettings::fractures),
                     SandPassSettings.CODEC.fieldOf("sand_passes")
                             .forGetter(ArrakisTerrainSettings::sandPasses),
                     BrokenRockSettings.CODEC.fieldOf("broken_rock")
@@ -267,6 +339,188 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.optionalFieldOf("rocky_floor_height", 4.0)
                                 .forGetter(FaultSettings::rockyFloorHeight)
                 ).apply(instance, FaultSettings::new));
+    }
+
+    /**
+     * Coherent native-rock units. Horizontal/vertical scales control geological bodies,
+     * while the dike and vein settings control thin structural features. Block identifiers
+     * are data, so optional mod materials never become compile-time dependencies.
+     */
+    public record LithologySettings(
+            double unitHorizontalScale,
+            double unitVerticalScale,
+            double strataThickness,
+            double strataWarpScale,
+            double strataWarpStrength,
+            double intrusionScale,
+            double intrusionThreshold,
+            double rareBodyScale,
+            double limestoneThreshold,
+            double blackstoneThreshold,
+            double dikeSpacing,
+            double dikeHalfWidth,
+            double calciteVeinSpacing,
+            double calciteVeinHalfWidth,
+            MaterialPaletteSettings materials,
+            TalusSettings talus
+    ) {
+        public static final Codec<LithologySettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.DOUBLE.optionalFieldOf("unit_horizontal_scale", 260.0)
+                                .forGetter(LithologySettings::unitHorizontalScale),
+                        Codec.DOUBLE.optionalFieldOf("unit_vertical_scale", 46.0)
+                                .forGetter(LithologySettings::unitVerticalScale),
+                        Codec.DOUBLE.optionalFieldOf("strata_thickness", 28.0)
+                                .forGetter(LithologySettings::strataThickness),
+                        Codec.DOUBLE.optionalFieldOf("strata_warp_scale", 210.0)
+                                .forGetter(LithologySettings::strataWarpScale),
+                        Codec.DOUBLE.optionalFieldOf("strata_warp_strength", 16.0)
+                                .forGetter(LithologySettings::strataWarpStrength),
+                        Codec.DOUBLE.optionalFieldOf("intrusion_scale", 190.0)
+                                .forGetter(LithologySettings::intrusionScale),
+                        Codec.DOUBLE.optionalFieldOf("intrusion_threshold", 0.58)
+                                .forGetter(LithologySettings::intrusionThreshold),
+                        Codec.DOUBLE.optionalFieldOf("rare_body_scale", 420.0)
+                                .forGetter(LithologySettings::rareBodyScale),
+                        Codec.DOUBLE.optionalFieldOf("limestone_threshold", 0.70)
+                                .forGetter(LithologySettings::limestoneThreshold),
+                        Codec.DOUBLE.optionalFieldOf("blackstone_threshold", 0.86)
+                                .forGetter(LithologySettings::blackstoneThreshold),
+                        Codec.DOUBLE.optionalFieldOf("dike_spacing", 180.0)
+                                .forGetter(LithologySettings::dikeSpacing),
+                        Codec.DOUBLE.optionalFieldOf("dike_half_width", 2.5)
+                                .forGetter(LithologySettings::dikeHalfWidth),
+                        Codec.DOUBLE.optionalFieldOf("calcite_vein_spacing", 86.0)
+                                .forGetter(LithologySettings::calciteVeinSpacing),
+                        Codec.DOUBLE.optionalFieldOf("calcite_vein_half_width", 1.1)
+                                .forGetter(LithologySettings::calciteVeinHalfWidth),
+                        MaterialPaletteSettings.CODEC.optionalFieldOf(
+                                        "materials",
+                                        DEFAULT_MATERIALS
+                                )
+                                .forGetter(LithologySettings::materials),
+                        TalusSettings.CODEC.optionalFieldOf("talus", DEFAULT_TALUS)
+                                .forGetter(LithologySettings::talus)
+                ).apply(instance, LithologySettings::new));
+    }
+
+    public record MaterialPaletteSettings(
+            String background,
+            String sandstone,
+            String tuff,
+            String limestone,
+            String limestoneFallback,
+            String calcite,
+            String andesite,
+            String diorite,
+            String basalt,
+            String blackstone,
+            String talus
+    ) {
+        public static final Codec<MaterialPaletteSettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.STRING.optionalFieldOf("background", "minecraft:stone")
+                                .forGetter(MaterialPaletteSettings::background),
+                        Codec.STRING.optionalFieldOf("sandstone", "minecraft:sandstone")
+                                .forGetter(MaterialPaletteSettings::sandstone),
+                        Codec.STRING.optionalFieldOf("tuff", "minecraft:tuff")
+                                .forGetter(MaterialPaletteSettings::tuff),
+                        Codec.STRING.optionalFieldOf("limestone", "create:limestone")
+                                .forGetter(MaterialPaletteSettings::limestone),
+                        Codec.STRING.optionalFieldOf(
+                                        "limestone_fallback",
+                                        "minecraft:sandstone"
+                                )
+                                .forGetter(MaterialPaletteSettings::limestoneFallback),
+                        Codec.STRING.optionalFieldOf("calcite", "minecraft:calcite")
+                                .forGetter(MaterialPaletteSettings::calcite),
+                        Codec.STRING.optionalFieldOf("andesite", "minecraft:andesite")
+                                .forGetter(MaterialPaletteSettings::andesite),
+                        Codec.STRING.optionalFieldOf("diorite", "minecraft:diorite")
+                                .forGetter(MaterialPaletteSettings::diorite),
+                        Codec.STRING.optionalFieldOf("basalt", "minecraft:basalt")
+                                .forGetter(MaterialPaletteSettings::basalt),
+                        Codec.STRING.optionalFieldOf("blackstone", "minecraft:blackstone")
+                                .forGetter(MaterialPaletteSettings::blackstone),
+                        Codec.STRING.optionalFieldOf("talus", "minecraft:gravel")
+                                .forGetter(MaterialPaletteSettings::talus)
+                ).apply(instance, MaterialPaletteSettings::new));
+    }
+
+    /** Reserved 0.5.14 scree controls; generation stays disabled by default in 0.5.13. */
+    public record TalusSettings(
+            boolean localScreeEnabled,
+            double minimumFractureStrength,
+            int maximumThickness,
+            double spread
+    ) {
+        public static final Codec<TalusSettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.BOOL.optionalFieldOf("local_scree_enabled", false)
+                                .forGetter(TalusSettings::localScreeEnabled),
+                        Codec.DOUBLE.optionalFieldOf("minimum_fracture_strength", 0.78)
+                                .forGetter(TalusSettings::minimumFractureStrength),
+                        Codec.INT.optionalFieldOf("maximum_thickness", 3)
+                                .forGetter(TalusSettings::maximumThickness),
+                        Codec.DOUBLE.optionalFieldOf("spread", 5.0)
+                                .forGetter(TalusSettings::spread)
+                ).apply(instance, TalusSettings::new));
+    }
+
+    /** Massif-top fissures, separate from the kilometre-scale regional fault network. */
+    public record FractureSettings(
+            boolean enabled,
+            double cellSize,
+            double density,
+            double minimumLength,
+            double maximumLength,
+            double branchChance,
+            double minimumWidth,
+            double maximumWidth,
+            double minimumDepth,
+            double maximumDepth,
+            double minimumRockHeight,
+            double minimumMassifWeight,
+            double mineralizationChance,
+            double calciteWallThickness,
+            double resistanceWidthInfluence,
+            double resistanceDepthInfluence
+    ) {
+        public static final Codec<FractureSettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.BOOL.optionalFieldOf("enabled", true)
+                                .forGetter(FractureSettings::enabled),
+                        Codec.DOUBLE.optionalFieldOf("cell_size", 260.0)
+                                .forGetter(FractureSettings::cellSize),
+                        Codec.DOUBLE.optionalFieldOf("density", 0.48)
+                                .forGetter(FractureSettings::density),
+                        Codec.DOUBLE.optionalFieldOf("minimum_length", 72.0)
+                                .forGetter(FractureSettings::minimumLength),
+                        Codec.DOUBLE.optionalFieldOf("maximum_length", 230.0)
+                                .forGetter(FractureSettings::maximumLength),
+                        Codec.DOUBLE.optionalFieldOf("branch_chance", 0.72)
+                                .forGetter(FractureSettings::branchChance),
+                        Codec.DOUBLE.optionalFieldOf("minimum_width", 1.0)
+                                .forGetter(FractureSettings::minimumWidth),
+                        Codec.DOUBLE.optionalFieldOf("maximum_width", 12.0)
+                                .forGetter(FractureSettings::maximumWidth),
+                        Codec.DOUBLE.optionalFieldOf("minimum_depth", 5.0)
+                                .forGetter(FractureSettings::minimumDepth),
+                        Codec.DOUBLE.optionalFieldOf("maximum_depth", 68.0)
+                                .forGetter(FractureSettings::maximumDepth),
+                        Codec.DOUBLE.optionalFieldOf("minimum_rock_height", 18.0)
+                                .forGetter(FractureSettings::minimumRockHeight),
+                        Codec.DOUBLE.optionalFieldOf("minimum_massif_weight", 0.18)
+                                .forGetter(FractureSettings::minimumMassifWeight),
+                        Codec.DOUBLE.optionalFieldOf("mineralization_chance", 0.24)
+                                .forGetter(FractureSettings::mineralizationChance),
+                        Codec.DOUBLE.optionalFieldOf("calcite_wall_thickness", 1.5)
+                                .forGetter(FractureSettings::calciteWallThickness),
+                        Codec.DOUBLE.optionalFieldOf("resistance_width_influence", 0.30)
+                                .forGetter(FractureSettings::resistanceWidthInfluence),
+                        Codec.DOUBLE.optionalFieldOf("resistance_depth_influence", 0.22)
+                                .forGetter(FractureSettings::resistanceDepthInfluence)
+                ).apply(instance, FractureSettings::new));
     }
 
     public record SandPassSettings(

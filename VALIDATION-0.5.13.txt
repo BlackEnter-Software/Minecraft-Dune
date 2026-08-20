@@ -1,0 +1,60 @@
+Minecraft: Dune 0.5.13 validation
+=================================
+
+Repository baseline
+-------------------
+Path: C:\Modding\Minecraft\Minecraft-Dune
+Baseline commit: a811751
+Baseline branch: main
+Baseline status: clean
+
+Required build
+--------------
+Command: .\gradlew.bat clean build
+Result: BUILD SUCCESSFUL
+
+Tasks completed:
+- clean
+- generateModMetadata
+- processResources
+- compileJava
+- classes
+- test (NO-SOURCE)
+- check
+- jar
+- assemble
+- build
+
+Produced artifact
+-----------------
+build\libs\minecraftdune-0.5.13.jar
+Embedded mod version: 0.5.13
+Minecraft dependency: 1.21.1
+NeoForge dependency: 21.1.248 or newer in the 21.1 line
+
+Profile checks
+--------------
+- arrakis_dev.json parses as JSON.
+- terrain.profile_version = 513.
+- all existing 0.5.12 tuning is unchanged outside the additive lithology/fracture objects.
+- configured limestone = create:limestone.
+- configured fallback = minecraft:sandstone.
+- configured talus = minecraft:gravel.
+- local scree remains disabled for 0.5.13.
+
+Additional smoke attempt
+------------------------
+Command: .\gradlew.bat runGameTestServer
+Result: environment-blocked before Minecraft startup.
+
+The shared run/mods directory contains the client Sodium jar. Its headless early bootstrap
+requires org.lwjgl.Version, which is not present on the GameTest server classpath. This is
+unrelated to Minecraft: Dune compilation/resources. No mods were moved or changed.
+
+Source integrity
+----------------
+- git diff --check passed (only repository line-ending conversion notices).
+- NativeTransverseDuneField and DuneSimulation are unchanged.
+- build.gradle and runClient JVM/ZGC settings are unchanged.
+- layered-sand, camera/screenshot, and Muad'dib sources/assets are unchanged.
+- no commit or push was performed.

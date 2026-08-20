@@ -1,4 +1,4 @@
-# Arrakis terrain profile — parameter reference (0.5.11)
+# Arrakis terrain profile — parameter reference (0.5.13)
 
 The native Arrakis generator reads its terrain parameters from:
 
@@ -9,6 +9,26 @@ src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
 The `terrain` object is serialized into the world's chunk-generator data. For clean visual
 comparisons after changing world-generation parameters, create a new Arrakis Dev world or
 regenerate the affected region files while the world is closed.
+
+## 0.5.13 lithology and fracture sections
+
+The profile now includes two optional, backwards-decodable objects:
+
+```json
+"lithology": {
+  "...": "3D units, strata, intrusions, rare bodies, dikes, veins, materials and talus"
+},
+"fractures": {
+  "...": "local branching massif-top fissure geometry and mineralization"
+}
+```
+
+Older serialized profiles that omit either object receive the 0.5.13 defaults. Existing
+generated chunks are not rewritten. The complete explanation of every new JSON field,
+material role, resistance class, optional Create fallback, diagnostic, and future erosion /
+cavern hook is in [Lithology and fracture framework](LITHOLOGY_AND_FRACTURES.md).
+
+`profile_version` is `513` for the source 0.5.13 profile.
 
 ## 0.5.12 fault-floor correction
 

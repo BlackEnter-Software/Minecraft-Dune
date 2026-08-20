@@ -1,52 +1,70 @@
-Minecraft-Dune 0.5.12 — Fault Floor Consistency overlay
+Minecraft-Dune 0.5.13 — Lithology & Fracture Framework
 
-GitHub source-of-truth baseline
--------------------------------
+Local source-of-truth baseline
+------------------------------
 Repository: BlackEnter-Software/Minecraft-Dune
 Branch: main
-Observed current commit: 2f349ae33200e33612b9565a5e965d449f5aef48
-Observed project version: 0.5.11
+Observed baseline commit: a811751 (0.5.12-Fault-Depth-Consistency-Overlay)
+Observed project version: 0.5.12
+Observed baseline worktree: clean
 
-The current pushed `arrakis_dev.json` was preserved as the tuning baseline.
+All existing `arrakis_dev.json` basin, foreland, massif, fault, sand-pass, broken-rock,
+outer-transition, and native-dune tuning was preserved. Version 0.5.13 changes only the
+profile version and adds lithology/fracture settings.
 
-Changed/new files
------------------
+Core changed/new files
+----------------------
 gradle.properties
-PATCH_NOTES-0.5.12.md
-VALIDATION-0.5.12.txt
+PATCH_NOTES.md
+PATCH_NOTES-0.5.13.md
+VALIDATION-0.5.13.txt
 OVERLAY_MANIFEST.txt
+README.md
+README-Arrakis-Dev.txt
 docs/ARRAKIS_TERRAIN_PROFILE.md
+docs/LITHOLOGY_AND_FRACTURES.md
+docs/MACRO_GEOLOGY.md
+docs/NATIVE_ARRAKIS_TERRAIN.md
+docs/PROJECT_STRUCTURE.md
+src/main/java/com/blackenter/minecraftdune/worldgen/arrakis/ArrakisChunkGenerator.java
 src/main/java/com/blackenter/minecraftdune/worldgen/arrakis/ArrakisTerrainSettings.java
-src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyField.java
+src/main/java/com/blackenter/minecraftdune/worldgen/geology/GeologyNoise.java
+src/main/java/com/blackenter/minecraftdune/worldgen/geology/LithologyBlockPalette.java
+src/main/java/com/blackenter/minecraftdune/worldgen/geology/LithologyField.java
 src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyCommand.java
+src/main/java/com/blackenter/minecraftdune/worldgen/geology/MassifFractureField.java
 src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
 
 Intentionally unchanged
 -----------------------
-ArrakisChunkGenerator.java
-  Existing 0.5.11 rock-to-foundation behavior remains intact.
+MacroGeologyField.java
+  0.5.12 macro relief, regional faults, absolute fault floors, and user tuning are unchanged.
 
 NativeTransverseDuneField.java / DuneSimulation.java
-  Dune mathematics and current user JSON dune settings are unchanged.
+  Native dune mathematics and the frozen finite laboratory are unchanged.
 
-Sand-pass geometry
-  0.5.12 corrects the fault-floor algorithm only.
+Layered sand / camera and screenshot / Muad'dib code and assets
+  Unrelated systems are unchanged.
 
-Foreland / massif / broken-rock parameters
-  Current user-tuned GitHub values are preserved.
+build.gradle
+  NeoForge 21.1.248 and the existing runClient ZGC/JVM settings are unchanged.
 
-Apply
------
-Extract this overlay into the repository root and allow replacement.
+Deferred
+--------
+0.5.14: full differential erosion, true escarpments, undercuts/negative-angle faces,
+        and final talus deposition.
+0.5.15: dry/mineralized/collapse caves and extremely rare sealed water caverns.
 
-Then:
+Validation
+----------
   .\gradlew.bat clean build
-  .\gradlew.bat runClient
+  BUILD SUCCESSFUL
 
-Create a new Arrakis Dev world for clean visual testing.
+The optional GameTest-server smoke attempt was blocked before Minecraft startup by the
+client-only Sodium jar in the shared `run/mods` directory (`org.lwjgl.Version` unavailable
+on the headless server). The mod folder was left untouched.
 
-Useful diagnostics:
+Useful diagnostics in a fresh Arrakis Dev world:
   /dune geology profile
+  /dune geology info
   /dune geology sample <x> <z>
-
-The sample output now labels the fault value as `fault_depth`.

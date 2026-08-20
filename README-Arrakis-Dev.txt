@@ -1,12 +1,21 @@
 Minecraft: Dune — Arrakis Dev
 ==============================
 
-Terrain-profile tuning — 0.5.10
+Lithology and fractures — 0.5.13
 -------------------------------
 
-For a clean comparison, create a NEW Arrakis Dev world. 0.5.10 adds a serialized `terrain`
-object to the native generator codec. Older saves remain decodable through default values,
-but already-generated chunks keep their previous terrain and can seam against new chunks.
+For a clean comparison, create a NEW Arrakis Dev world. 0.5.13 adds optional serialized
+`lithology` and `fractures` objects to the native terrain profile. Older generator data remains
+decodable through defaults, but already-generated chunks keep old terrain and can seam against
+new chunks.
+
+Native rock now forms coherent stone/sandstone/tuff/limestone/calcite/andesite/diorite/basalt/
+blackstone units with geological resistance roles. Create limestone is resolved by registry
+and falls back to vanilla sandstone if Create is absent. Gravel is reserved as loose talus.
+
+Separate branching massif-top fissures form approximately 1-12 block wide, 5-68+ block deep
+cracks, slots and chasms. Some expose calcite mineralization. Full erosion, undercuts, final
+talus cones, caves and rare sealed water caverns remain later passes.
 
 Base overworld stratigraphy
 ---------------------------
