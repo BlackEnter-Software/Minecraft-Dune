@@ -40,20 +40,20 @@
           },
           "foreland": {
             "end_radius": 3050.0,
-            "large_scale": 145.0,
-            "detail_scale": 62.0,
-            "micro_scale": 30.0,
+            "large_scale": 200.0,
+            "detail_scale": 50.0,
+            "micro_scale": 40.0,
             "large_threshold_low": 0.08,
             "large_threshold_high": 0.4,
-            "micro_threshold_low": 0.15,
-            "micro_threshold_high": 0.42,
-            "large_min_height": 4.0,
-            "large_max_height": 28.0,
-            "micro_max_height": 9.0
+            "micro_threshold_low": 0.45,
+            "micro_threshold_high": 0.52,
+            "large_min_height": 5.0,
+            "large_max_height": 35.0,
+            "micro_max_height": 4.0
           },
           "massif": {
             "start_radius": 3000.0,
-            "full_radius": 3250.0,
+            "full_radius": 3150.0,
             "outer_start_radius": 4000.0,
             "outer_end_radius": 4500.0,
             "max_added_height": 200,
@@ -63,8 +63,8 @@
             "shape_high": 0.58
           },
           "faults": {
-            "count": 4,
-            "start_radius": 1500.0,
+            "count": 6,
+            "start_radius": 1400.0,
             "full_radius": 2000.0,
             "fade_start_radius": 4500.0,
             "end_radius": 5850.0,
@@ -89,10 +89,10 @@
             "secondary_outer_width": 285.0
           },
           "broken_rock": {
-            "start_radius": 2920.0,
-            "full_radius": 3150.0,
-            "outer_fade_start_radius": 5200.0,
-            "outer_radius": 5650.0,
+            "start_radius": 4000.0,
+            "full_radius": 5500.0,
+            "outer_fade_start_radius": 6000.0,
+            "outer_radius": 6650.0,
             "large_scale": 430.0,
             "detail_scale": 180.0,
             "micro_scale": 72.0,
@@ -101,17 +101,17 @@
             "micro_max_height": 10.0
           },
           "outer_transition": {
-            "start_radius": 4450.0,
-            "full_radius": 4800.0,
-            "fade_start_radius": 6100.0,
-            "outer_radius": 6500.0,
-            "open_erg_start_radius": 5850.0,
-            "open_erg_full_radius": 6700.0
+            "start_radius": 6000.0,
+            "full_radius": 7000.0,
+            "fade_start_radius": 8000.0,
+            "outer_radius": 9000.0,
+            "open_erg_start_radius": 8500.0,
+            "open_erg_full_radius": 9000.0
           },
           "native_dunes": {
             "max_height": 30.0,
-            "spacing": 525.0,
-            "spacing_variation": 0.18,
+            "spacing": 512.0,
+            "spacing_variation": 0.38,
             "ridge_sharpness": 3.0,
             "valley_cutoff": 0.2,
             "slope_asymmetry": 0.82,
