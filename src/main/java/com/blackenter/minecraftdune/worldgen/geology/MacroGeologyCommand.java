@@ -167,7 +167,7 @@ public final class MacroGeologyCommand {
                 () -> Component.literal(String.format(
                         Locale.ROOT,
                         "Rock: +%.1f blocks, small=%.2f, mask=%.2f, "
-                                + "fault=%.2f, fault_sand=%.2f, sand_pass=%.2f, "
+                                + "fault_depth=%.2f, fault_sand=%.2f, sand_pass=%.2f, "
                                 + "boundary_warp=%+.0f.",
                         sample.addedRockHeight(),
                         sample.smallFormationMask(),
@@ -252,11 +252,12 @@ public final class MacroGeologyCommand {
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
-                        "Faults: count=%d, width=%.0f..%.0f, broad_warp=%.0f @ %.0f scale, "
-                                + "medium_warp=%.0f @ %.0f scale.",
+                        "Faults: count=%d, width=%.0f..%.0f, rocky_floor=Y+%.1f, "
+                                + "broad_warp=%.0f @ %.0f scale, medium_warp=%.0f @ %.0f scale.",
                         settings.faults().count(),
                         settings.faults().coreWidth(),
                         settings.faults().outerWidth(),
+                        settings.faults().rockyFloorHeight(),
                         settings.faults().broadWarpStrength(),
                         settings.faults().broadWarpScale(),
                         settings.faults().mediumWarpStrength(),

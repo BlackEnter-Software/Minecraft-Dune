@@ -1,67 +1,52 @@
-Minecraft-Dune 0.5.11 rock-gradient / foundation / dune overlay
+Minecraft-Dune 0.5.12 — Fault Floor Consistency overlay
 
-Baseline
---------
+GitHub source-of-truth baseline
+-------------------------------
 Repository: BlackEnter-Software/Minecraft-Dune
 Branch: main
-Observed baseline mod version: 0.5.10
+Observed current commit: 2f349ae33200e33612b9565a5e965d449f5aef48
+Observed project version: 0.5.11
 
-The Arrakis world-preset JSON in this overlay starts from the user's currently pushed/uploaded
-tuning profile and preserves those values except for the explicitly noted 0.5.11 additions.
+The current pushed `arrakis_dev.json` was preserved as the tuning baseline.
 
 Changed/new files
 -----------------
 gradle.properties
-PATCH_NOTES-0.5.11.md
+PATCH_NOTES-0.5.12.md
+VALIDATION-0.5.12.txt
 OVERLAY_MANIFEST.txt
-VALIDATION-0.5.11.txt
 docs/ARRAKIS_TERRAIN_PROFILE.md
 src/main/java/com/blackenter/minecraftdune/worldgen/arrakis/ArrakisTerrainSettings.java
-src/main/java/com/blackenter/minecraftdune/worldgen/arrakis/ArrakisChunkGenerator.java
 src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyField.java
 src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyCommand.java
 src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
 
-New JSON parameters
--------------------
-foreland.inner_height_scale
-foreland.inner_threshold_boost
-foreland.growth_power
-broken_rock.size_decay_power
-native_dunes.foreland_weight
+Intentionally unchanged
+-----------------------
+ArrakisChunkGenerator.java
+  Existing 0.5.11 rock-to-foundation behavior remains intact.
 
-Supplied profile additions
---------------------------
-foreland.inner_height_scale     = 0.22
-foreland.inner_threshold_boost  = 0.20
-foreland.growth_power           = 1.0
-broken_rock.size_decay_power    = 1.0
-native_dunes.foreland_weight    = 0.16
-native_dunes.broken_rock_weight = 0.22  (was 0.12)
+NativeTransverseDuneField.java / DuneSimulation.java
+  Dune mathematics and current user JSON dune settings are unchanged.
 
-Important generation behavior
------------------------------
-Visible native rock columns now replace the sand/sandstone directly beneath them down to the
-existing hard crust. With the current flat layers, stone at Y=44 is found and the formation
-is rooted upward from Y=45.
+Sand-pass geometry
+  0.5.12 corrects the fault-floor algorithm only.
 
-Normal sand-only columns are not modified.
+Foreland / massif / broken-rock parameters
+  Current user-tuned GitHub values are preserved.
 
-Testing
--------
-Apply over the current main checkout, then:
+Apply
+-----
+Extract this overlay into the repository root and allow replacement.
 
+Then:
   .\gradlew.bat clean build
   .\gradlew.bat runClient
 
-Create a new Arrakis Dev world for clean terrain comparison.
+Create a new Arrakis Dev world for clean visual testing.
 
-Useful:
+Useful diagnostics:
   /dune geology profile
-  /dune geology sample 1600 0
-  /dune geology sample 2000 0
-  /dune geology sample 2500 0
-  /dune geology sample 2900 0
-  /dune geology sample 4500 0
-  /dune geology sample 5500 0
-  /dune geology sample 6200 0
+  /dune geology sample <x> <z>
+
+The sample output now labels the fault value as `fault_depth`.

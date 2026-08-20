@@ -20,7 +20,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 511;
+    public static final int CURRENT_PROFILE_VERSION = 512;
 
     public static final ArrakisTerrainSettings DEFAULT = new ArrakisTerrainSettings(
             CURRENT_PROFILE_VERSION,
@@ -66,7 +66,8 @@ public record ArrakisTerrainSettings(
                     90.0,
                     780.0,
                     75.0,
-                    0.56
+                    0.56,
+                    4.0
             ),
             new SandPassSettings(
                     1000.0,
@@ -236,7 +237,8 @@ public record ArrakisTerrainSettings(
             double mediumWarpStrength,
             double sineWarpScale,
             double sineWarpStrength,
-            double sandyFloorThreshold
+            double sandyFloorThreshold,
+            double rockyFloorHeight
     ) {
         public static final Codec<FaultSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -261,7 +263,9 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.fieldOf("sine_warp_strength")
                                 .forGetter(FaultSettings::sineWarpStrength),
                         Codec.DOUBLE.fieldOf("sandy_floor_threshold")
-                                .forGetter(FaultSettings::sandyFloorThreshold)
+                                .forGetter(FaultSettings::sandyFloorThreshold),
+                        Codec.DOUBLE.optionalFieldOf("rocky_floor_height", 4.0)
+                                .forGetter(FaultSettings::rockyFloorHeight)
                 ).apply(instance, FaultSettings::new));
     }
 

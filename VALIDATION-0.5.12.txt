@@ -1,0 +1,42 @@
+Minecraft: Dune 0.5.12 — deterministic fault-field validation
+
+Validation performed without the Minecraft/NeoForge runtime
+------------------------------------------------------------
+The updated `MacroGeologyField.java` was compiled with a minimal
+`ArrakisTerrainSettings` API stub using the current pushed terrain values.
+
+A dense grid was sampled across the fully active radial fault window using test world seed:
+
+  123456789
+
+Full-core samples found:
+  104,781
+
+Strong rocky-core samples:
+  63,389
+
+Strong sandy-core samples:
+  16,370
+
+Observed full-core final rock relief:
+  rocky segments: 0.000 .. 4.000 blocks
+  configured target: <= 4.000 blocks
+
+Observed full-core sandy relief:
+  maximum: 0.000 blocks
+  target: 0.000 blocks / base Y64 sand
+
+This confirms the main 0.5.12 invariant:
+a fully active fault core reaches its absolute target floor independently of the original
+massif height.
+
+Limitations
+-----------
+The complete NeoForge build cannot be run in this execution environment. The user's local
+Gradle build remains the authoritative integration test.
+
+Recommended:
+  .\gradlew.bat clean build
+  .\gradlew.bat runClient
+
+Use a new Arrakis Dev world for visual comparison.

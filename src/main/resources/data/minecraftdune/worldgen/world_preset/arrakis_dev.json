@@ -33,7 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 510,
+          "profile_version": 512,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0
@@ -76,7 +76,8 @@
             "medium_warp_strength": 90.0,
             "sine_warp_scale": 780.0,
             "sine_warp_strength": 75.0,
-            "sandy_floor_threshold": 0.56
+            "sandy_floor_threshold": 0.56,
+            "rocky_floor_height": 4.0
           },
           "sand_passes": {
             "start_radius": 1500.0,

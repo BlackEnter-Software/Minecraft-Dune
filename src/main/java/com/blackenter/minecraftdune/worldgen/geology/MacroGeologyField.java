@@ -8,7 +8,9 @@ import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
  * <p>0.5.10 keeps the 0.5.9 province architecture but moves its principal tuning values
  * into {@link ArrakisTerrainSettings}. Broken rock persists farther outward, the foreland
  * gains a second micro-rock scale, fault centerlines meander more strongly, and some fault
- * segments are fully sand-floored instead of retaining a narrow rock fence.</p>
+ * segments are fully sand-floored instead of retaining a narrow rock fence. 0.5.12 makes
+ * fault depth target an absolute floor height instead of leaving a percentage of the
+ * original massif height.</p>
  */
 public final class MacroGeologyField {
     public static final int BASE_SURFACE_Y = 64;
@@ -518,36 +520,57 @@ public final class MacroGeologyField {
         rawRockMask *= 1.0 - sandCorridorMask;
 
         // Fault carving is deliberately final so no later outlier can form a fence across it.
-        double effectiveFaultSandFloorMask = smoothStep(
-                0.55,
-                0.90,
-                fault.sandFloorMask()
+        //
+        // 0.5.12 changes the meaning of the fault mask from "remove this percentage of the
+        // original mountain" to "interpolate toward an absolute structural floor". This is
+        // important on a tall massif: a fully active fault core now reaches the same floor
+        // whether the surrounding wall is 80 or 200 blocks high.
+        double faultDepthMask = clamp(
+                fault.carveMask(),
+                0.0,
+                1.0
+        );
+        double faultSandFloorBlend = clamp(
+                fault.sandFloorMask(),
+                0.0,
+                1.0
         );
 
-        if (fault.carveMask() > 0.0 && addedRockHeight > 0.0) {
-            if (effectiveFaultSandFloorMask > 0.0) {
-                addedRockHeight *= 1.0 - effectiveFaultSandFloorMask;
-                rawRockMask *= 1.0 - effectiveFaultSandFloorMask;
-            }
+        if (faultDepthMask > 0.0 && addedRockHeight > 0.0) {
+            double rockyFloorHeight = Math.max(
+                    0.0,
+                    settings.faults().rockyFloorHeight()
+            );
+            double targetFaultFloorHeight = lerp(
+                    rockyFloorHeight,
+                    0.0,
+                    faultSandFloorBlend
+            );
 
-            double rockyFaultMask = fault.carveMask()
-                    * (1.0 - effectiveFaultSandFloorMask);
-            if (rockyFaultMask > 0.0 && addedRockHeight > 0.0) {
-                double faultFloor = 2.5 + 4.5 * (
-                        0.5 + 0.5 * fbm(
-                                worldSeed ^ FAULT_RELIEF_SALT,
-                                worldX / 230.0,
-                                worldZ / 230.0,
-                                2
-                        )
-                );
-                addedRockHeight = lerp(
-                        addedRockHeight,
-                        Math.min(addedRockHeight, faultFloor),
-                        rockyFaultMask * 0.96
-                );
-                rawRockMask *= 1.0 - 0.85 * rockyFaultMask;
-            }
+            double targetHeight = Math.min(
+                    addedRockHeight,
+                    targetFaultFloorHeight
+            );
+
+            // Inside core_width, with the fault radial gate fully active, faultDepthMask is
+            // exactly 1.0. There is intentionally no 0.96 residual multiplier anymore.
+            addedRockHeight = lerp(
+                    addedRockHeight,
+                    targetHeight,
+                    faultDepthMask
+            );
+
+            // Diagnostic mask follows the target floor: rocky floors remain geological rock,
+            // fully sandy floors become zero-rock at the core, and the outer walls transition
+            // naturally with faultDepthMask.
+            double targetRockMask = targetFaultFloorHeight >= 0.5
+                    ? 1.0
+                    : 0.0;
+            rawRockMask = lerp(
+                    rawRockMask,
+                    targetRockMask,
+                    faultDepthMask
+            );
         }
 
         addedRockHeight = clamp(
@@ -599,8 +622,8 @@ public final class MacroGeologyField {
                 openErg,
                 smallFormationMask,
                 rockFormationMask,
-                fault.carveMask(),
-                effectiveFaultSandFloorMask,
+                faultDepthMask,
+                faultSandFloorBlend,
                 sandCorridorMask,
                 duneSuitability,
                 baseElevation,
@@ -725,29 +748,36 @@ public final class MacroGeologyField {
                 continue;
             }
 
-            // Low-frequency along-fault variation creates intermittent sandy basin floors.
+            // Low-frequency along-fault variation chooses the *floor material*, not the
+            // fault depth. Depth is controlled only by the cross-section + radial gate.
+            // This removes the old double threshold that made some nominal fault cores stay
+            // unexpectedly high.
             double floorNoise = 0.5 + 0.5 * valueNoise(
                     worldSeed ^ (FAULT_SAND_FLOOR_SALT + step),
                     along / 920.0,
                     fault * 13.625
             );
-            double sandSegment = smoothStep(
+            double sandFloorBlend = smoothStep(
                     settings.sandyFloorThreshold(),
                     Math.min(
                             0.98,
-                            settings.sandyFloorThreshold() + 0.22
+                            settings.sandyFloorThreshold() + 0.18
                     ),
                     floorNoise
             );
-            double sandFloorMask = faultMask
-                    * smoothStep(0.58, 0.93, faultMask)
-                    * sandSegment;
+            if (sandFloorBlend >= 0.95) {
+                sandFloorBlend = 1.0;
+            } else if (sandFloorBlend <= 0.05) {
+                sandFloorBlend = 0.0;
+            }
 
-            strongestCarve = Math.max(strongestCarve, faultMask);
-            strongestSandFloor = Math.max(
-                    strongestSandFloor,
-                    sandFloorMask
-            );
+            // Keep the floor metadata associated with the fault that actually dominates the
+            // carve at this column. This avoids combining the carve from one fault with the
+            // sandy-floor state of a different intersecting fault.
+            if (faultMask > strongestCarve) {
+                strongestCarve = faultMask;
+                strongestSandFloor = sandFloorBlend;
+            }
         }
 
         return new FaultNetworkSample(

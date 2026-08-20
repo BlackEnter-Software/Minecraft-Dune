@@ -10,6 +10,27 @@ The `terrain` object is serialized into the world's chunk-generator data. For cl
 comparisons after changing world-generation parameters, create a new Arrakis Dev world or
 regenerate the affected region files while the world is closed.
 
+## 0.5.12 fault-floor correction
+
+Fault depth is now defined by an **absolute target floor elevation**. A fully active fault
+core no longer retains a residual percentage of the original mountain height.
+
+With the default:
+
+```json
+"rocky_floor_height": 4.0
+```
+
+the two principal full-depth states are:
+
+```text
+rocky core -> Y64 + 4 = approximately Y68
+sandy core -> Y64
+```
+
+Fault start/end radial fades and the `core_width -> outer_width` wall transition remain
+continuous.
+
 ## General rules
 
 - Values ending in `_radius`, `_scale`, `_width`, `_height`, or `spacing` are measured in
@@ -206,10 +227,27 @@ Radial activation of the fault network.
 Outer fade/deactivation of the fault network.
 
 ### `core_width`
-Width of the strongest fault core.
+Half-width, in blocks, of the guaranteed deepest fault core.
+
+For example:
+
+```text
+core_width = 30
+```
+
+means the full-depth central floor is approximately 60 blocks wide when the radial fault
+gate is fully active.
+
+From 0.5.12 this has literal depth semantics: inside the core, the generator targets the
+configured structural floor instead of merely removing a percentage of the original massif
+height.
 
 ### `outer_width`
-Total width over which the fault carve fades toward zero.
+Half-width where the fault carve has faded completely back into unaffected terrain.
+
+Between `core_width` and `outer_width`, the terrain interpolates from the structural floor
+toward the surrounding rock. This controls wall/shoulder width; it does **not** change the
+target floor elevation.
 
 ### `broad_warp_scale` / `broad_warp_strength`
 Large meander of the fault centerline.
@@ -224,11 +262,37 @@ Smaller/faster centerline meander.
 Additional smooth periodic bending.
 
 ### `sandy_floor_threshold`
-Controls how often strong fault-core segments cut all the way to the base sand instead of
-retaining a low rocky floor.
+Controls whether a fault segment has a rocky structural floor or is filled/cut to the base
+sand.
 
-Lower -> more sand-floored fault segments.
-Higher -> more low-rock fault floors.
+The along-fault floor noise is evaluated independently from fault depth:
+
+```text
+lower threshold  -> more sand-floor segments
+higher threshold -> more rocky-floor segments
+```
+
+0.5.12 removes the old double thresholding. The sand/rock decision now changes the target
+floor material/elevation but does not weaken the depth of the fault itself.
+
+### `rocky_floor_height` — NEW in 0.5.12
+Absolute height, in blocks, of a fully carved **rocky** fault floor above the base Arrakis
+sand surface at Y=64.
+
+Example:
+
+```json
+"rocky_floor_height": 4.0
+```
+
+means a full rocky fault core targets approximately Y=68 regardless of whether the
+surrounding massif is 80 blocks or 200 blocks high.
+
+A fully sandy fault segment targets Y=64.
+
+This is the main 0.5.12 correction. Previously the generator retained a percentage of the
+original mountain height, so the same fault could become unexpectedly shallow when it
+crossed a tall part of the massif.
 
 ---
 
