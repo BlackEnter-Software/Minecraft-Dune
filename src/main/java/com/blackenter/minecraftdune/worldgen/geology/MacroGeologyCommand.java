@@ -223,6 +223,19 @@ public final class MacroGeologyCommand {
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
+                        "Foreland growth: inner_height_scale=%.2f, threshold_boost=%.2f, "
+                                + "growth_power=%.2f. Broken-rock size_decay_power=%.2f.",
+                        settings.foreland().innerHeightScale(),
+                        settings.foreland().innerThresholdBoost(),
+                        settings.foreland().growthPower(),
+                        settings.brokenRock().sizeDecayPower()
+                )),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
                         "Broken rock: %.0f..%.0f (fade after %.0f); transition=%.0f..%.0f; "
                                 + "open_erg=%.0f..%.0f.",
                         settings.brokenRock().startRadius(),
@@ -256,14 +269,18 @@ public final class MacroGeologyCommand {
                 () -> Component.literal(String.format(
                         Locale.ROOT,
                         "Native dunes: spacing=%.0f, max_height=%.0f, variation=%.2f, "
-                                + "sharpness=%.2f, cutoff=%.2f, asymmetry=%.2f, wind=%.0f deg.",
+                                + "sharpness=%.2f, cutoff=%.2f, asymmetry=%.2f, wind=%.0f deg; "
+                                + "weights foreland=%.2f broken=%.2f transition=%.2f.",
                         settings.nativeDunes().spacing(),
                         settings.nativeDunes().maxHeight(),
                         settings.nativeDunes().spacingVariation(),
                         settings.nativeDunes().ridgeSharpness(),
                         settings.nativeDunes().valleyCutoff(),
                         settings.nativeDunes().slopeAsymmetry(),
-                        settings.nativeDunes().windAngleDegrees()
+                        settings.nativeDunes().windAngleDegrees(),
+                        settings.nativeDunes().forelandWeight(),
+                        settings.nativeDunes().brokenRockWeight(),
+                        settings.nativeDunes().transitionWeight()
                 )),
                 false
         );
@@ -288,7 +305,7 @@ public final class MacroGeologyCommand {
             CommandContext<CommandSourceStack> context
     ) {
         context.getSource().sendFailure(Component.literal(
-                "Macro geology and native dunes are chunk terrain in 0.5.10 and cannot "
+                "Macro geology and native dunes are chunk terrain in 0.5.11 and cannot "
                         + "be cleared independently. Use a fresh Arrakis Dev world, or "
                         + "delete/regenerate affected region files while the world is closed."
         ));

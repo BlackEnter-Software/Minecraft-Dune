@@ -20,7 +20,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 510;
+    public static final int CURRENT_PROFILE_VERSION = 511;
 
     public static final ArrakisTerrainSettings DEFAULT = new ArrakisTerrainSettings(
             CURRENT_PROFILE_VERSION,
@@ -36,7 +36,10 @@ public record ArrakisTerrainSettings(
                     0.42,
                     4.0,
                     28.0,
-                    9.0
+                    9.0,
+                    0.25,
+                    0.18,
+                    1.0
             ),
             new MassifSettings(
                     1000.0,
@@ -85,7 +88,8 @@ public record ArrakisTerrainSettings(
                     72.0,
                     67.0,
                     18.0,
-                    10.0
+                    10.0,
+                    1.0
             ),
             new OuterTransitionSettings(
                     4450.0,
@@ -103,6 +107,7 @@ public record ArrakisTerrainSettings(
                     0.20,
                     0.82,
                     24.0,
+                    0.16,
                     0.12,
                     0.68
             )
@@ -154,7 +159,10 @@ public record ArrakisTerrainSettings(
             double microThresholdHigh,
             double largeMinHeight,
             double largeMaxHeight,
-            double microMaxHeight
+            double microMaxHeight,
+            double innerHeightScale,
+            double innerThresholdBoost,
+            double growthPower
     ) {
         public static final Codec<ForelandSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -175,7 +183,13 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.fieldOf("large_max_height")
                                 .forGetter(ForelandSettings::largeMaxHeight),
                         Codec.DOUBLE.fieldOf("micro_max_height")
-                                .forGetter(ForelandSettings::microMaxHeight)
+                                .forGetter(ForelandSettings::microMaxHeight),
+                        Codec.DOUBLE.optionalFieldOf("inner_height_scale", 0.25)
+                                .forGetter(ForelandSettings::innerHeightScale),
+                        Codec.DOUBLE.optionalFieldOf("inner_threshold_boost", 0.18)
+                                .forGetter(ForelandSettings::innerThresholdBoost),
+                        Codec.DOUBLE.optionalFieldOf("growth_power", 1.0)
+                                .forGetter(ForelandSettings::growthPower)
                 ).apply(instance, ForelandSettings::new));
     }
 
@@ -289,7 +303,8 @@ public record ArrakisTerrainSettings(
             double microScale,
             double maxHeightInner,
             double maxHeightOuter,
-            double microMaxHeight
+            double microMaxHeight,
+            double sizeDecayPower
     ) {
         public static final Codec<BrokenRockSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -306,7 +321,9 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.fieldOf("max_height_outer")
                                 .forGetter(BrokenRockSettings::maxHeightOuter),
                         Codec.DOUBLE.fieldOf("micro_max_height")
-                                .forGetter(BrokenRockSettings::microMaxHeight)
+                                .forGetter(BrokenRockSettings::microMaxHeight),
+                        Codec.DOUBLE.optionalFieldOf("size_decay_power", 1.0)
+                                .forGetter(BrokenRockSettings::sizeDecayPower)
                 ).apply(instance, BrokenRockSettings::new));
     }
 
@@ -343,6 +360,7 @@ public record ArrakisTerrainSettings(
             double valleyCutoff,
             double slopeAsymmetry,
             double windAngleDegrees,
+            double forelandWeight,
             double brokenRockWeight,
             double transitionWeight
     ) {
@@ -360,6 +378,8 @@ public record ArrakisTerrainSettings(
                                 .forGetter(NativeDuneSettings::slopeAsymmetry),
                         Codec.DOUBLE.fieldOf("wind_angle_degrees")
                                 .forGetter(NativeDuneSettings::windAngleDegrees),
+                        Codec.DOUBLE.optionalFieldOf("foreland_weight", 0.16)
+                                .forGetter(NativeDuneSettings::forelandWeight),
                         Codec.DOUBLE.fieldOf("broken_rock_weight")
                                 .forGetter(NativeDuneSettings::brokenRockWeight),
                         Codec.DOUBLE.fieldOf("transition_weight")

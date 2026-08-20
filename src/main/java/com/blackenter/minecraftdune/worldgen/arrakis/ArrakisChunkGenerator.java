@@ -164,10 +164,22 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         int minimumY = height.getMinBuildHeight();
         int maximumY = height.getMaxBuildHeight() - 1;
 
-        int firstRockY = Math.max(FIRST_NATIVE_Y, minimumY);
-        int lastRockY = Math.min(terrain.rockTopY(), maximumY);
-        for (int y = firstRockY; y <= lastRockY; y++) {
-            column.setBlock(y, ROCK_STATE);
+        if (terrain.hasNativeRock()) {
+            int foundationTopY = findFoundationTopY(
+                    column,
+                    minimumY
+            );
+            int firstRockY = Math.max(
+                    foundationTopY + 1,
+                    minimumY
+            );
+            int lastRockY = Math.min(
+                    terrain.rockTopY(),
+                    maximumY
+            );
+            for (int y = firstRockY; y <= lastRockY; y++) {
+                column.setBlock(y, ROCK_STATE);
+            }
         }
 
         writeDuneColumn(
@@ -202,21 +214,30 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                         worldZ
                 );
 
-                int firstRockY = Math.max(
-                        FIRST_NATIVE_Y,
-                        minimumY
-                );
-                int lastRockY = Math.min(
-                        terrain.rockTopY(),
-                        maximumY
-                );
-                for (int y = firstRockY; y <= lastRockY; y++) {
-                    position.set(worldX, y, worldZ);
-                    chunk.setBlockState(
+                if (terrain.hasNativeRock()) {
+                    int foundationTopY = findFoundationTopY(
+                            chunk,
                             position,
-                            ROCK_STATE,
-                            false
+                            worldX,
+                            worldZ,
+                            minimumY
                     );
+                    int firstRockY = Math.max(
+                            foundationTopY + 1,
+                            minimumY
+                    );
+                    int lastRockY = Math.min(
+                            terrain.rockTopY(),
+                            maximumY
+                    );
+                    for (int y = firstRockY; y <= lastRockY; y++) {
+                        position.set(worldX, y, worldZ);
+                        chunk.setBlockState(
+                                position,
+                                ROCK_STATE,
+                                false
+                        );
+                    }
                 }
 
                 writeDuneColumn(
@@ -273,6 +294,50 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         );
     }
 
+    /**
+     * Finds the highest existing hard-rock layer in the flat Arrakis base column. Native
+     * geology then replaces every softer layer above it (currently sandstone + sand) with
+     * stone before continuing upward into the visible formation. This roots rock bodies in
+     * the underlying crust instead of leaving a sand pocket beneath them.
+     */
+    private static int findFoundationTopY(
+            NoiseColumn column,
+            int minimumY
+    ) {
+        for (int y = MacroGeologyField.BASE_SURFACE_Y;
+                y >= minimumY;
+                y--) {
+            if (isFoundationRock(column.getBlock(y))) {
+                return y;
+            }
+        }
+        return minimumY - 1;
+    }
+
+    private static int findFoundationTopY(
+            ChunkAccess chunk,
+            BlockPos.MutableBlockPos position,
+            int worldX,
+            int worldZ,
+            int minimumY
+    ) {
+        for (int y = MacroGeologyField.BASE_SURFACE_Y;
+                y >= minimumY;
+                y--) {
+            position.set(worldX, y, worldZ);
+            if (isFoundationRock(chunk.getBlockState(position))) {
+                return y;
+            }
+        }
+        return minimumY - 1;
+    }
+
+    private static boolean isFoundationRock(BlockState state) {
+        return state.is(Blocks.STONE)
+                || state.is(Blocks.DEEPSLATE)
+                || state.is(Blocks.BEDROCK);
+    }
+
     private static void writeDuneColumn(
             TerrainColumn terrain,
             int minimumY,
@@ -326,6 +391,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             int rockTopY,
             int duneSurfaceUnits
     ) {
+        boolean hasNativeRock() {
+            return rockTopY > MacroGeologyField.BASE_SURFACE_Y;
+        }
+
         int fullDuneBlocks() {
             return duneSurfaceUnits
                     / NativeTransverseDuneField.SUBDIVISIONS;

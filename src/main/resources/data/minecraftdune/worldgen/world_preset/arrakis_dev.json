@@ -33,7 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 510,
+          "profile_version": 511,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0
@@ -49,7 +49,10 @@
             "micro_threshold_high": 0.52,
             "large_min_height": 5.0,
             "large_max_height": 35.0,
-            "micro_max_height": 4.0
+            "micro_max_height": 4.0,
+            "inner_height_scale": 0.22,
+            "inner_threshold_boost": 0.2,
+            "growth_power": 1.0
           },
           "massif": {
             "start_radius": 3000.0,
@@ -98,7 +101,8 @@
             "micro_scale": 72.0,
             "max_height_inner": 67.0,
             "max_height_outer": 18.0,
-            "micro_max_height": 10.0
+            "micro_max_height": 10.0,
+            "size_decay_power": 1.0
           },
           "outer_transition": {
             "start_radius": 6000.0,
@@ -116,7 +120,8 @@
             "valley_cutoff": 0.2,
             "slope_asymmetry": 0.82,
             "wind_angle_degrees": 24.0,
-            "broken_rock_weight": 0.12,
+            "foreland_weight": 0.16,
+            "broken_rock_weight": 0.22,
             "transition_weight": 0.68
           }
         }

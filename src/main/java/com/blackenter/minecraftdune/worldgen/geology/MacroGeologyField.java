@@ -171,7 +171,26 @@ public final class MacroGeologyField {
                 effectiveRadius
         );
 
-        // Medium foreland knobs.
+        // Foreland fragments are interpreted as progressively less-eroded pieces of the
+        // main massif. Near the inner basin only the strongest noise peaks survive and their
+        // height is strongly reduced. Approaching the massif restores the user's configured
+        // thresholds and full height range.
+        double forelandGrowthBase = smoothStep(
+                basinSettings.pureSandRadius(),
+                Math.max(
+                        basinSettings.pureSandRadius() + 1.0,
+                        massifSettings.startRadius()
+                ),
+                radius
+        );
+        double forelandGrowth = Math.pow(
+                forelandGrowthBase,
+                Math.max(0.05, forelandSettings.growthPower())
+        );
+        double innerThresholdOffset =
+                forelandSettings.innerThresholdBoost()
+                        * (1.0 - forelandGrowth);
+
         double forelandPotential =
                 0.72 * fbm(
                         worldSeed ^ FORELAND_SALT,
@@ -186,8 +205,10 @@ public final class MacroGeologyField {
                         2
                 );
         double largeForelandMask = innerForeland * smoothStep(
-                forelandSettings.largeThresholdLow(),
-                forelandSettings.largeThresholdHigh(),
+                forelandSettings.largeThresholdLow()
+                        + innerThresholdOffset,
+                forelandSettings.largeThresholdHigh()
+                        + innerThresholdOffset,
                 forelandPotential
         );
         double forelandRelief = 0.5 + 0.5 * fbm(
@@ -196,15 +217,25 @@ public final class MacroGeologyField {
                 worldZ / (forelandSettings.largeScale() * 1.25),
                 2
         );
+        double forelandHeightScale = lerp(
+                clamp(
+                        forelandSettings.innerHeightScale(),
+                        0.0,
+                        1.0
+                ),
+                1.0,
+                forelandGrowth
+        );
         double largeForelandHeight = (
                 forelandSettings.largeMinHeight()
                         + (
                         forelandSettings.largeMaxHeight()
                                 - forelandSettings.largeMinHeight()
                 ) * forelandRelief
-        ) * smoothStep(0.08, 0.65, largeForelandMask);
+        ) * smoothStep(0.08, 0.65, largeForelandMask)
+                * forelandHeightScale;
 
-        // New micro-rock scale: more numerous, lower remnants between the larger knobs.
+        // Micro-rocks remain small everywhere but gain some vertical scale toward the massif.
         double microForelandPotential =
                 0.68 * fbm(
                         worldSeed ^ FORELAND_MICRO_SALT,
@@ -236,7 +267,19 @@ public final class MacroGeologyField {
                         + (
                         forelandSettings.microMaxHeight() - 1.5
                 ) * microForelandRelief
-        ) * smoothStep(0.04, 0.58, microForelandMask);
+        ) * smoothStep(0.04, 0.58, microForelandMask)
+                * lerp(
+                Math.max(
+                        0.45,
+                        clamp(
+                                forelandSettings.innerHeightScale(),
+                                0.0,
+                                1.0
+                        )
+                ),
+                1.0,
+                forelandGrowth
+        );
 
         double smallFormationMask = Math.max(
                 largeForelandMask,
@@ -312,11 +355,17 @@ public final class MacroGeologyField {
                 settings.faults()
         );
 
-        // Broken Rock Desert persists farther and progressively changes scale.
-        double brokenProgress = smoothStep(
-                brokenSettings.fullRadius(),
+        // Broken-rock remnants now begin their size decay immediately after the massif-facing
+        // edge instead of staying full-sized until broken_rock.full_radius. This produces
+        // large near-massif remnants and progressively smaller pieces outward.
+        double brokenProgressBase = smoothStep(
+                brokenSettings.startRadius(),
                 brokenSettings.outerRadius(),
                 effectiveRadius
+        );
+        double brokenProgress = Math.pow(
+                brokenProgressBase,
+                Math.max(0.05, brokenSettings.sizeDecayPower())
         );
 
         double outlierPotential =
@@ -510,10 +559,14 @@ public final class MacroGeologyField {
         double baseElevation = BASE_SURFACE_Y + addedRockHeight;
 
         double duneProvinceStrength = Math.max(
-                duneSettings.brokenRockWeight() * brokenRock,
+                duneSettings.forelandWeight() * innerForeland,
                 Math.max(
-                        duneSettings.transitionWeight() * sandRockTransition,
-                        openErg
+                        duneSettings.brokenRockWeight() * brokenRock,
+                        Math.max(
+                                duneSettings.transitionWeight()
+                                        * sandRockTransition,
+                                openErg
+                        )
                 )
         );
         double duneSuitability = clamp(
