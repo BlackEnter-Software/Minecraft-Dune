@@ -13,9 +13,12 @@ Native rock now forms coherent stone/sandstone/tuff/limestone/calcite/andesite/d
 blackstone units with geological resistance roles. Create limestone is resolved by registry
 and falls back to vanilla sandstone if Create is absent. Gravel is reserved as loose talus.
 
-Separate branching massif-top fissures form approximately 1-12 block wide, 5-68+ block deep
-cracks, slots and chasms. Some expose calcite mineralization. Full erosion, undercuts, final
-talus cones, caves and rare sealed water caverns remain later passes.
+Continuous warped primary fissures cross the exposed massif; finite tapered branches can end
+inside it. They form approximately 1-12 block wide, 5-68+ block deep cracks, slots and chasms.
+Mineralization varies by fissure and appears as intermittent horizontal calcite wall bands.
+Lithology contacts carry coherent multi-scale roughness instead of smooth geometric borders.
+Full erosion, summit dents, undercuts, final talus cones, caves and rare sealed water caverns
+remain later passes.
 
 Base overworld stratigraphy
 ---------------------------

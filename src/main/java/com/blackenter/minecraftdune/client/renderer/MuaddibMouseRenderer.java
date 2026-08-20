@@ -21,14 +21,12 @@ public final class MuaddibMouseRenderer
                 new MuaddibMouseModel(
                         context.bakeLayer(MuaddibMouseModel.LAYER_LOCATION)
                 ),
-                0.18F
+                0.12F
         );
     }
 
     @Override
-    public ResourceLocation getTextureLocation(
-            MuaddibMouseEntity entity
-    ) {
+    public ResourceLocation getTextureLocation(MuaddibMouseEntity entity) {
         return TEXTURE;
     }
 }

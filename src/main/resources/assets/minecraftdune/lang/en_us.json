@@ -1,6 +1,8 @@
 {
-    "entity.minecraftdune.muaddib_mouse":  "Muad\u0027dib Mouse",
-    "item.minecraftdune.muaddib_mouse_spawn_egg":  "Muad\u0027dib Mouse Spawn Egg",
+    "entity.minecraftdune.desert_hare": "Desert Hare",
+    "item.minecraftdune.desert_hare_spawn_egg": "Desert Hare Spawn Egg",
+    "entity.minecraftdune.muaddib_mouse": "Muad\u0027dib",
+    "item.minecraftdune.muaddib_mouse_spawn_egg": "Muad\u0027dib Spawn Egg",
     "generator.minecraftdune.arrakis_dev":  "Arrakis Dev",
     "block.minecraftdune.sand": "Dune Sand",
     "block.minecraftdune.sand_layer": "Dune Sand Layer"

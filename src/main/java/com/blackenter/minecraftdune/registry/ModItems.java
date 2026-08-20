@@ -10,13 +10,24 @@ public final class ModItems {
     public static final DeferredRegister.Items ITEMS =
             DeferredRegister.createItems(MinecraftDune.MOD_ID);
 
+    public static final DeferredItem<DeferredSpawnEggItem> DESERT_HARE_SPAWN_EGG =
+            ITEMS.registerItem(
+                    "desert_hare_spawn_egg",
+                    properties -> new DeferredSpawnEggItem(
+                            ModEntityTypes.DESERT_HARE,
+                            0xB58E57,
+                            0x5C412A,
+                            properties
+                    )
+            );
+
     public static final DeferredItem<DeferredSpawnEggItem> MUADDIB_MOUSE_SPAWN_EGG =
             ITEMS.registerItem(
                     "muaddib_mouse_spawn_egg",
                     properties -> new DeferredSpawnEggItem(
                             ModEntityTypes.MUADDIB_MOUSE,
-                            0xB58E57,
-                            0x5C412A,
+                            0xC9AA6B,
+                            0x2A1D16,
                             properties
                     )
             );

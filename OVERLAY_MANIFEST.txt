@@ -16,7 +16,6 @@ Core changed/new files
 ----------------------
 gradle.properties
 PATCH_NOTES.md
-PATCH_NOTES-0.5.13.md
 VALIDATION-0.5.13.txt
 OVERLAY_MANIFEST.txt
 README.md
@@ -26,6 +25,14 @@ docs/LITHOLOGY_AND_FRACTURES.md
 docs/MACRO_GEOLOGY.md
 docs/NATIVE_ARRAKIS_TERRAIN.md
 docs/PROJECT_STRUCTURE.md
+docs/BLOCKBENCH_WORKFLOW.md
+src/main/java/com/blackenter/minecraftdune/entity/DesertHareEntity.java
+src/main/java/com/blackenter/minecraftdune/entity/MuaddibMouseEntity.java
+src/main/java/com/blackenter/minecraftdune/client/model/DesertHareAnimations.java
+src/main/java/com/blackenter/minecraftdune/client/model/DesertHareModel.java
+src/main/java/com/blackenter/minecraftdune/client/model/MuaddibMouseModel.java
+src/main/java/com/blackenter/minecraftdune/client/renderer/DesertHareRenderer.java
+src/main/java/com/blackenter/minecraftdune/client/renderer/MuaddibMouseRenderer.java
 src/main/java/com/blackenter/minecraftdune/worldgen/arrakis/ArrakisChunkGenerator.java
 src/main/java/com/blackenter/minecraftdune/worldgen/arrakis/ArrakisTerrainSettings.java
 src/main/java/com/blackenter/minecraftdune/worldgen/geology/GeologyNoise.java
@@ -43,7 +50,7 @@ MacroGeologyField.java
 NativeTransverseDuneField.java / DuneSimulation.java
   Native dune mathematics and the frozen finite laboratory are unchanged.
 
-Layered sand / camera and screenshot / Muad'dib code and assets
+Layered sand / camera and screenshot code and assets
   Unrelated systems are unchanged.
 
 build.gradle
@@ -59,6 +66,17 @@ Validation
 ----------
   .\gradlew.bat clean build
   BUILD SUCCESSFUL
+
+Initial screenshot refinement
+-----------------------------
+Primary fissures now cross the exposed massif and only their finite side branches may form
+internal dead ends. Basalt and calcite use horizontal sheets/bands, fissure mineralization is
+variable and intermittent, and coherent contact detail breaks up smooth material boundaries.
+
+Entity split
+------------
+The original animated entity is now `desert_hare`; the freed `muaddib_mouse` identifier uses
+the new Blockbench Java export and texture. Both entity types have separately wired spawn eggs.
 
 The optional GameTest-server smoke attempt was blocked before Minecraft startup by the
 client-only Sodium jar in the shared `run/mods` directory (`org.lwjgl.Version` unavailable

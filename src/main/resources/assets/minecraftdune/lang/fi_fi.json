@@ -1,6 +1,8 @@
 {
-  "entity.minecraftdune.muaddib_mouse": "Muad'dib-aavikkohiiri",
-  "item.minecraftdune.muaddib_mouse_spawn_egg": "Muad'dib-aavikkohiiren synnytysmuna",
+  "entity.minecraftdune.desert_hare": "Aavikkojänis",
+  "item.minecraftdune.desert_hare_spawn_egg": "Aavikkojäniksen synnytysmuna",
+  "entity.minecraftdune.muaddib_mouse": "Muad'dib",
+  "item.minecraftdune.muaddib_mouse_spawn_egg": "Muad'dibin synnytysmuna",
   "block.minecraftdune.sand": "Dyynihiekka",
   "block.minecraftdune.sand_layer": "Dyynihiekkakerros"
 }

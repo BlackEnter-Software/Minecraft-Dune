@@ -3,8 +3,9 @@
 ## Scope
 
 The 0.5.10 province tuning remains the macro surface-height baseline. Version 0.5.13 adds
-coherent lithology and local branching fractures without changing the tuned province radii,
-fault geometry, fault-floor correction, sand passes, broken-rock values, or native dunes.
+coherent lithology and through-going local primary fractures with finite branches, without
+changing the tuned province radii, fault geometry, fault-floor correction, sand passes,
+broken-rock values, or native dunes.
 
 See [LITHOLOGY_AND_FRACTURES.md](LITHOLOGY_AND_FRACTURES.md) for the active 0.5.13 material,
 resistance, fissure, optional Create limestone, talus and future cavern framework.

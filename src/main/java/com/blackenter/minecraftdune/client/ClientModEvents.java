@@ -1,7 +1,9 @@
 package com.blackenter.minecraftdune.client;
 
 import com.blackenter.minecraftdune.MinecraftDune;
+import com.blackenter.minecraftdune.client.model.DesertHareModel;
 import com.blackenter.minecraftdune.client.model.MuaddibMouseModel;
+import com.blackenter.minecraftdune.client.renderer.DesertHareRenderer;
 import com.blackenter.minecraftdune.client.renderer.MuaddibMouseRenderer;
 import com.blackenter.minecraftdune.registry.ModEntityTypes;
 import net.neoforged.api.distmarker.Dist;
@@ -22,6 +24,10 @@ public final class ClientModEvents {
             EntityRenderersEvent.RegisterLayerDefinitions event
     ) {
         event.registerLayerDefinition(
+                DesertHareModel.LAYER_LOCATION,
+                DesertHareModel::createBodyLayer
+        );
+        event.registerLayerDefinition(
                 MuaddibMouseModel.LAYER_LOCATION,
                 MuaddibMouseModel::createBodyLayer
         );
@@ -31,6 +37,10 @@ public final class ClientModEvents {
     public static void registerRenderers(
             EntityRenderersEvent.RegisterRenderers event
     ) {
+        event.registerEntityRenderer(
+                ModEntityTypes.DESERT_HARE.get(),
+                DesertHareRenderer::new
+        );
         event.registerEntityRenderer(
                 ModEntityTypes.MUADDIB_MOUSE.get(),
                 MuaddibMouseRenderer::new

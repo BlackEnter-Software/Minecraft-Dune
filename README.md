@@ -6,11 +6,11 @@ Current development version: **0.5.13**
 
 The project currently contains:
 
-- the Muad'dib desert mouse test entity, model, texture, and animations;
+- the animated Desert Hare and the smaller exported Muad'dib desert mouse;
 - the selectable **Arrakis Dev** desert world preset;
 - native deterministic macro geology generated as part of the Arrakis chunk pipeline;
 - coherent 3D lithology with geological resistance roles and optional Create limestone;
-- deterministic branching massif-top cracks, slots and chasms with calcite mineralization;
+- deterministic through-going massif fissures, dead-end branches and variable calcite bands;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -71,13 +71,19 @@ The current development mod set contains Create and the profile requests `create
 for rare sedimentary lenses. Minecraft: Dune keeps Create optional by resolving the identifier
 through the block registry and falling back to `minecraft:sandstone` when it is absent.
 
-An independent absolute-coordinate fracture field creates bent, branching massif-top traces:
+An independent absolute-coordinate fracture field creates warped primary traces that cross
+the exposed massif, plus finite tapered branches that may terminate inside it:
 
 - approximately 1–12 blocks wide;
-- tens to hundreds of blocks long;
+- primary traces span the exposed formation; finite branches run tens to hundreds of blocks;
 - approximately 5–68 blocks deep at their strongest centers;
 - resistance-modulated so soft units open modestly more than basalt/blackstone;
-- occasionally mineralized with visible calcite wall and floor exposure.
+- variably mineralized with intermittent horizontal calcite bands on some fissure walls.
+
+Primary fissures do not originate in the middle of a plateau. Their analytic lines continue
+through the massif and are clipped only where exposed macro rock ends; internal dead ends are
+reserved for branches. Lithology contacts use coherent detail at multiple scales so adjacent
+rock units interlock instead of meeting along smooth oval or ruler-straight boundaries.
 
 This is still height-column fissure geometry. The 0.5.14 escarpment pass will own true
 undercuts, overhangs/negative-angle faces, differential erosion and final talus deposition.
@@ -337,12 +343,18 @@ Batch capture:
 /dune screenshot batch cancel
 ```
 
-## Test the Muad'dib entity
+## Test the desert entities
 
 ```mcfunction
+/summon minecraftdune:desert_hare
+/give @s minecraftdune:desert_hare_spawn_egg
 /summon minecraftdune:muaddib_mouse
 /give @s minecraftdune:muaddib_mouse_spawn_egg
 ```
+
+`desert_hare` is the renamed original entity and retains its idle, hop, sniff, and head-wiggle
+animations and Rabbit-based behavior. `muaddib_mouse` uses the separate 32×32 Blockbench Java
+export and texture from `blockbench/java/`.
 
 ## Build the distributable mod
 
@@ -364,6 +376,5 @@ build/libs/minecraftdune-0.5.13.jar
 
 ## Version history
 
-See [`PATCH_NOTES-0.5.13.md`](PATCH_NOTES-0.5.13.md) for this release,
-[`PATCH_NOTES-0.5.12.md`](PATCH_NOTES-0.5.12.md) for the fault-floor correction, and
-[`PATCH_NOTES.md`](PATCH_NOTES.md) for preserved project history.
+See the consolidated [`PATCH_NOTES.md`](PATCH_NOTES.md) for this release and the complete
+preserved project history.

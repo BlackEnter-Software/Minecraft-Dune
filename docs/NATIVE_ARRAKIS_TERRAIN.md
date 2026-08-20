@@ -53,9 +53,10 @@ For each X/Z column:
 
 1. `FlatLevelSource` creates the base bedrock/deepslate/stone/sandstone/sand layers;
 2. `MacroGeologyField` evaluates the serialized geological profile;
-3. `LithologyField` evaluates coherent 3D units, intrusions, dikes/sheets and veins;
-4. `MassifFractureField` evaluates the separate branching local fissure network and lowers
-   the rock top where a crack/slot/chasm is active;
+3. `LithologyField` evaluates coherent 3D units, intrusions, horizontal sheets and mineral
+   bands with multi-scale contact roughness;
+4. `MassifFractureField` evaluates continuous primary fissures and finite dead-end branches,
+   then lowers the rock top where a crack/slot/chasm is active;
 5. native lithology replaces the base sand/sandstone down to hard crust and continues to the
    sampled fissure-adjusted rock top;
 6. `NativeTransverseDuneField` evaluates the serialized native-dune profile;
@@ -71,7 +72,7 @@ For each X/Z column:
 - no post-generation `ServerLevel#setBlock` cliff construction;
 - no finite iterative dune simulation per chunk;
 - no iterative fracture propagation or post-generation fissure edits;
-- absolute-coordinate 3D lithology and finite-segment fracture distance tests;
+- absolute-coordinate 3D lithology plus analytic primary-line and finite-branch distance tests;
 - exact early return inside the 0–800 basin;
 - far-erg early return after the full open-erg boundary.
 

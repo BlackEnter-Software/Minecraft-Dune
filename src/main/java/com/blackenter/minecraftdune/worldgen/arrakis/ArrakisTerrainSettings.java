@@ -65,8 +65,8 @@ public record ArrakisTerrainSettings(
     public static final FractureSettings DEFAULT_FRACTURES =
             new FractureSettings(
                     true,
-                    260.0,
-                    0.48,
+                    520.0,
+                    0.72,
                     72.0,
                     230.0,
                     0.72,
@@ -467,7 +467,11 @@ public record ArrakisTerrainSettings(
                 ).apply(instance, TalusSettings::new));
     }
 
-    /** Massif-top fissures, separate from the kilometre-scale regional fault network. */
+    /**
+     * Massif-top fissures, separate from the kilometre-scale regional fault network.
+     * `cellSize` is retained as a backwards-compatible JSON name but now represents the
+     * spacing of continuous primary traces and their branch-node lattice.
+     */
     public record FractureSettings(
             boolean enabled,
             double cellSize,
@@ -490,9 +494,9 @@ public record ArrakisTerrainSettings(
                 RecordCodecBuilder.create(instance -> instance.group(
                         Codec.BOOL.optionalFieldOf("enabled", true)
                                 .forGetter(FractureSettings::enabled),
-                        Codec.DOUBLE.optionalFieldOf("cell_size", 260.0)
+                        Codec.DOUBLE.optionalFieldOf("cell_size", 520.0)
                                 .forGetter(FractureSettings::cellSize),
-                        Codec.DOUBLE.optionalFieldOf("density", 0.48)
+                        Codec.DOUBLE.optionalFieldOf("density", 0.72)
                                 .forGetter(FractureSettings::density),
                         Codec.DOUBLE.optionalFieldOf("minimum_length", 72.0)
                                 .forGetter(FractureSettings::minimumLength),

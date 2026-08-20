@@ -17,6 +17,7 @@ src/main/java/com/blackenter/minecraftdune/
 │  └─ prototype/
 │     └─ DuneSimulation.java
 ├─ entity/
+│  ├─ DesertHareEntity.java
 │  └─ MuaddibMouseEntity.java
 ├─ registry/
 │  ├─ ModEntityTypes.java
@@ -24,8 +25,11 @@ src/main/java/com/blackenter/minecraftdune/
 └─ client/
    ├─ ClientModEvents.java
    ├─ model/
+   │  ├─ DesertHareAnimations.java
+   │  ├─ DesertHareModel.java
    │  └─ MuaddibMouseModel.java
    └─ renderer/
+      ├─ DesertHareRenderer.java
       └─ MuaddibMouseRenderer.java
 ```
 

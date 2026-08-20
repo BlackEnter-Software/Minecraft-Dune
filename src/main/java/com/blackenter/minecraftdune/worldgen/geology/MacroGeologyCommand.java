@@ -346,8 +346,8 @@ public final class MacroGeologyCommand {
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
-                        "Fissures: enabled=%s, cells=%.0f, density=%.2f, "
-                                + "length=%.0f..%.0f, width=%.1f..%.1f, depth=%.0f..%.0f, "
+                        "Fissures: enabled=%s, trace_spacing=%.0f, active_lines=%.2f, "
+                                + "branch_length=%.0f..%.0f, width=%.1f..%.1f, depth=%.0f..%.0f, "
                                 + "branch=%.2f, mineralized=%.2f.",
                         settings.fractures().enabled(),
                         settings.fractures().cellSize(),

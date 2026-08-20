@@ -15,11 +15,12 @@ public final class LithologyField {
     private static final long BAND_SALT = 0x0AA718DB4E39C625L;
     private static final long INTRUSION_SALT = 0x43E975A10CBD82F6L;
     private static final long RARE_BODY_SALT = 0x75BD094FC30A16E8L;
-    private static final long DIKE_ANGLE_SALT = 0x19A6E42D73BF580CL;
-    private static final long DIKE_WARP_SALT = 0x54C0B78E129DA36FL;
     private static final long SHEET_SALT = 0x61D38FA2940CE75BL;
-    private static final long CALCITE_ANGLE_SALT = 0x36F2C1598AB74D0EL;
-    private static final double TWO_PI = Math.PI * 2.0;
+    private static final long SHEET_WARP_SALT = 0x54C0B78E129DA36FL;
+    private static final long CALCITE_BAND_SALT = 0x36F2C1598AB74D0EL;
+    private static final long CALCITE_GATE_SALT = 0x19A6E42D73BF580CL;
+    private static final long CONTACT_DETAIL_SALT = 0x4EA8D216B07C953FL;
+    private static final long CONTACT_MICRO_SALT = 0x72C1F4093DA65B8EL;
 
     private LithologyField() {
     }
@@ -62,10 +63,10 @@ public final class LithologyField {
         SANDSTONE("sandstone", ResistanceClass.SOFT, "soft sedimentary unit"),
         TUFF("tuff", ResistanceClass.SOFT, "soft altered volcanic unit"),
         LIMESTONE("limestone", ResistanceClass.SOFT, "rare future cavern host"),
-        CALCITE("calcite", ResistanceClass.MEDIUM, "mineralized vein/fill"),
+        CALCITE("calcite", ResistanceClass.MEDIUM, "horizontal mineral band/fracture exposure"),
         ANDESITE("andesite", ResistanceClass.HARD, "hard intrusive body"),
         DIORITE("diorite", ResistanceClass.HARD, "hard intrusive body"),
-        BASALT("basalt", ResistanceClass.VERY_HARD, "very-hard dike/sheet"),
+        BASALT("basalt", ResistanceClass.VERY_HARD, "very-hard resistant sheet"),
         BLACKSTONE("blackstone", ResistanceClass.VERY_HARD, "rare ancient resistant body"),
         GRAVEL("gravel", ResistanceClass.LOOSE, "loose talus/collapse material");
 
@@ -108,9 +109,10 @@ public final class LithologyField {
         private final double worldZ;
         private final ArrakisTerrainSettings.LithologySettings settings;
         private final double strataWarp;
-        private final double dikeDistance;
+        private final double sheetWarp;
         private final double sheetGate;
-        private final double calciteCoordinate;
+        private final double calciteGate;
+        private final double calciteBandOffset;
 
         private Column(
                 long worldSeed,
@@ -130,27 +132,27 @@ public final class LithologyField {
                     worldZ / strataWarpScale
             );
 
-            double dikeAngle = GeologyNoise.unit(worldSeed, DIKE_ANGLE_SALT) * TWO_PI;
-            double dikeProjection = worldX * Math.cos(dikeAngle)
-                    + worldZ * Math.sin(dikeAngle);
-            double dikeWarp = settings.dikeSpacing() * 0.22 * GeologyNoise.value2(
-                    worldSeed ^ DIKE_WARP_SALT,
-                    worldX / Math.max(1.0, settings.dikeSpacing() * 2.4),
-                    worldZ / Math.max(1.0, settings.dikeSpacing() * 2.4)
-            );
-            dikeDistance = GeologyNoise.foldedDistance(
-                    dikeProjection + dikeWarp,
-                    settings.dikeSpacing()
+            // Initial 0.5.13 testing showed that infinite vertical dike/vein planes read as
+            // ruler-straight survey lines across broad massif tops. Keep the volcanic role,
+            // but express it as laterally discontinuous horizontal resistant sheets until a
+            // future volumetric/erosion pass can give vertical intrusions believable contacts.
+            sheetWarp = settings.dikeHalfWidth() * 3.2 * GeologyNoise.value2(
+                    worldSeed ^ SHEET_WARP_SALT,
+                    worldX / Math.max(1.0, settings.unitHorizontalScale() * 0.72),
+                    worldZ / Math.max(1.0, settings.unitHorizontalScale() * 0.72)
             );
             sheetGate = GeologyNoise.value2(
                     worldSeed ^ SHEET_SALT,
                     worldX / Math.max(1.0, settings.unitHorizontalScale()),
                     worldZ / Math.max(1.0, settings.unitHorizontalScale())
             );
-
-            double calciteAngle = GeologyNoise.unit(worldSeed, CALCITE_ANGLE_SALT) * TWO_PI;
-            calciteCoordinate = worldX * Math.cos(calciteAngle)
-                    + worldZ * Math.sin(calciteAngle);
+            calciteGate = GeologyNoise.value2(
+                    worldSeed ^ CALCITE_GATE_SALT,
+                    worldX / Math.max(24.0, settings.unitHorizontalScale() * 0.55),
+                    worldZ / Math.max(24.0, settings.unitHorizontalScale() * 0.55)
+            );
+            calciteBandOffset = GeologyNoise.unit(worldSeed, CALCITE_BAND_SALT)
+                    * Math.max(1.0, settings.calciteVeinSpacing());
         }
 
         public Sample sample(double worldY) {
@@ -160,6 +162,27 @@ public final class LithologyField {
             double rareScale = Math.max(1.0, settings.rareBodyScale());
             double strataThickness = Math.max(2.0, settings.strataThickness());
             double warpedY = worldY + strataWarp;
+
+            // Boundary-only detail: these coherent 3D fields perturb material selectors and
+            // contact elevation, not individual block choice. The 30–35 block detail and
+            // ~10 block micro scales break the giant smooth ovals seen in the first 0.5.13
+            // screenshots without reverting to decorative per-block speckle.
+            double contactHorizontalScale = Math.max(18.0, horizontalScale * 0.13);
+            double contactVerticalScale = Math.max(8.0, verticalScale * 0.38);
+            double contactDetail = GeologyNoise.value3(
+                    worldSeed ^ CONTACT_DETAIL_SALT,
+                    worldX / contactHorizontalScale,
+                    warpedY / contactVerticalScale,
+                    worldZ / contactHorizontalScale
+            );
+            double contactMicro = GeologyNoise.value3(
+                    worldSeed ^ CONTACT_MICRO_SALT,
+                    worldX / Math.max(7.0, horizontalScale * 0.045),
+                    warpedY / Math.max(4.0, verticalScale * 0.16),
+                    worldZ / Math.max(7.0, horizontalScale * 0.045)
+            );
+            double contactNoise = contactDetail * 0.30 + contactMicro * 0.11;
+            double roughContactY = warpedY + contactDetail * 5.0 + contactMicro * 2.0;
 
             double hostNoise = GeologyNoise.value3(
                     worldSeed ^ HOST_SALT,
@@ -172,30 +195,23 @@ public final class LithologyField {
                     worldSeed ^ BAND_SALT,
                     band * 0x9E3779B97F4A7C15L
             );
-            double unitSignal = hostNoise * 0.68 + bandBias * 0.32;
+            double unitSignal = hostNoise * 0.64 + bandBias * 0.30 + contactNoise;
 
             double rareNoise = GeologyNoise.value3(
                     worldSeed ^ RARE_BODY_SALT,
                     worldX / rareScale,
                     warpedY / (verticalScale * 1.35),
                     worldZ / rareScale
-            );
+            ) + contactNoise * 0.72;
             boolean limestoneHost = rareNoise <= -settings.limestoneThreshold();
 
-            double dikeWidth = Math.max(0.0, settings.dikeHalfWidth())
-                    * (0.82 + 0.18 * Math.sin(worldY * 0.11 + strataWarp * 0.07));
-            if (dikeDistance <= dikeWidth) {
-                return material(Material.BASALT, false, true, false);
-            }
-
-            double sheetDistance = GeologyNoise.foldedDistance(warpedY, strataThickness);
-            double sheetBand = GeologyNoise.signed(
-                    worldSeed ^ SHEET_SALT,
-                    band * 0xD1B54A32D192ED03L
+            double sheetDistance = GeologyNoise.foldedDistance(
+                    roughContactY + sheetWarp,
+                    settings.dikeSpacing()
             );
-            if (sheetBand > 0.72
-                    && sheetGate > 0.05
-                    && sheetDistance <= settings.dikeHalfWidth() * 0.70) {
+            double localSheetWidth = Math.max(0.0, settings.dikeHalfWidth())
+                    * GeologyNoise.smoothStep(-0.20, 0.55, sheetGate + contactDetail * 0.35);
+            if (localSheetWidth > 0.35 && sheetDistance <= localSheetWidth) {
                 return material(Material.BASALT, false, true, false);
             }
 
@@ -208,7 +224,7 @@ public final class LithologyField {
                     worldX / intrusionScale,
                     warpedY / (verticalScale * 1.18),
                     worldZ / intrusionScale
-            );
+            ) + contactNoise * 0.66;
             if (intrusionNoise >= settings.intrusionThreshold()) {
                 Material intrusion = unitSignal >= 0.0
                         ? Material.ANDESITE
@@ -228,10 +244,16 @@ public final class LithologyField {
             }
 
             double calciteDistance = GeologyNoise.foldedDistance(
-                    calciteCoordinate + warpedY * 0.31,
+                    roughContactY + calciteBandOffset,
                     settings.calciteVeinSpacing()
             );
-            if (calciteDistance <= settings.calciteVeinHalfWidth()) {
+            double calciteLens = GeologyNoise.smoothStep(
+                    0.12,
+                    0.62,
+                    calciteGate + contactDetail * 0.32
+            );
+            if (calciteLens > 0.0
+                    && calciteDistance <= settings.calciteVeinHalfWidth() * calciteLens) {
                 return new Sample(
                         Material.CALCITE,
                         Material.CALCITE.resistance(),

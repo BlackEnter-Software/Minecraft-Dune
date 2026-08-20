@@ -2,6 +2,24 @@
 
 ## Minecraft: Dune 0.5.13 — Lithology & Fracture Framework
 
+### Desert Hare and Muad'dib entity split
+
+- Renamed the original hare-like Muad'dib test entity and its complete runtime/resource stack
+  to `desert_hare` / Desert Hare.
+- Preserved the Desert Hare's Rabbit-based behavior, sand preference, breeding, idle state,
+  hop cycle, ground-sniff action, head-wiggle action, model geometry, texture, and original
+  spawn-egg colors.
+- Added a separate Muad'dib entity under the freed `muaddib_mouse` identifier using the
+  32×32 Java model and texture exported to `blockbench/java/`.
+- Added a lightweight synchronized hop, head tracking, and idle tail motion to the exported
+  Muad'dib hierarchy; the source Blockbench project currently has no authored keyframes.
+- Registered separate entity types, attributes, renderers, model layers, translations, item
+  models, creative-tab entries, and spawn eggs. Each spawn egg now points directly to its
+  corresponding entity type.
+- The existing `muaddib_mouse` registry ID is intentionally reused by the new Muad'dib. Saved
+  mobs or eggs carrying that old ID therefore resolve as Muad'dib; Desert Hare uses the new
+  `desert_hare` and `desert_hare_spawn_egg` IDs.
+
 ### Native lithology
 
 - Added optional serialized `terrain.lithology` settings with backwards-decoding defaults.
@@ -10,10 +28,12 @@
   - soft: sandstone, tuff, limestone;
   - medium: background stone and calcite-bearing host;
   - hard: andesite and diorite intrusions;
-  - very hard: basalt dikes/sheets and rare blackstone bodies;
+  - very hard: basalt sheets and rare blackstone bodies;
   - loose: gravel talus/collapse material, never intact bedrock.
 - Added warped strata, broad units/lenses, hard intrusions, rare limestone/blackstone bodies,
-  basalt dikes/sheets, and thin calcite veins without per-block decorative speckle.
+  resistant basalt sheets, and calcite bands without per-block decorative speckle.
+- Added coherent detail and micro-detail to material selection and contact elevation so
+  adjacent units form rough, interlocking boundaries instead of smooth ovals or planes.
 - Added registry-based material identifiers. `create:limestone` is used when available in the
   current mod set and falls back to `minecraft:sandstone` without a compile-time Create
   dependency.
@@ -22,16 +42,19 @@
 
 - Added optional serialized `terrain.fractures` settings with backwards-decoding defaults.
 - Added an absolute-coordinate local fracture network separate from regional faults.
-- Active cells contribute finite bent trunks and probabilistic tapered branches, producing
-  deterministic nonuniform traces tens to hundreds of blocks long across chunk boundaries.
+- Continuous warped primary trace families cross the exposed massif instead of beginning at
+  finite seed points in the middle. Probabilistic tapered side branches may end internally.
+- Retained the serialized `cell_size` name for compatibility but redefined it as primary-line
+  and branch-node spacing; supplied defaults are now `520` spacing and `0.72` active lines.
 - Default target geometry is approximately 1–12 blocks wide and 5–68 blocks deep, ranging
   from shallow cracks to slots and deeper chasm hazards.
 - Fractures favor substantial exposed massif/faulted-margin rock and are suppressed on low
   foreland stones.
 - Soft/hard resistance modestly changes width/depth now and exposes a stable model for the
   full 0.5.14 differential-erosion pass.
-- Some fracture networks are mineralized. Their floors and wall shells expose calcite as a
-  visual old-fluid-movement signal.
+- Mineralization presence and abundance now vary by fissure and coherently along each trace.
+  Calcite appears in intermittent horizontal wall bands instead of outlining entire crack
+  walls and floors.
 - Fissure floors retain at least one native-rock block above the Y64 base, and all visible
   rock remains connected through the former sand/sandstone layers to hard crust.
 
@@ -44,6 +67,7 @@
   are inputs for the later 0.5.15 dry/mineralized/collapse cavern and extremely rare sealed
   water-cavern pass.
 - Did not add 0.5.14 undercuts, overhangs, negative-angle cliffs, or full escarpment erosion.
+- Deferred general massif-top dents and other surface deformation to that later shaping pass.
 
 ### Diagnostics and documentation
 
@@ -60,7 +84,7 @@
 
 - Preserved all current 0.5.12 user tuning outside additive lithology/fracture fields.
 - Preserved the 0.5.12 absolute fault-floor behavior and `rocky_floor_height`.
-- Preserved native dune settings, layered sand, cameras/screenshots, Muad'dib, the frozen
+- Preserved native dune settings, layered sand, cameras/screenshots, desert entities, the frozen
   finite `DuneSimulation` laboratory, NeoForge 21.1.248, and runClient ZGC/JVM settings.
 - Generation remains direct-to-`ChunkAccess`, deterministic from world seed + profile +
   absolute coordinates, with no `ServerLevel#setBlock` terrain post-pass.

@@ -16,10 +16,10 @@ The profile now includes two optional, backwards-decodable objects:
 
 ```json
 "lithology": {
-  "...": "3D units, strata, intrusions, rare bodies, dikes, veins, materials and talus"
+  "...": "3D units, strata, intrusions, rare bodies, sheets, mineral bands, materials and talus"
 },
 "fractures": {
-  "...": "local branching massif-top fissure geometry and mineralization"
+  "...": "through-going massif fissures, finite branches and variable mineralization"
 }
 ```
 

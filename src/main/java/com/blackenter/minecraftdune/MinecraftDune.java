@@ -1,5 +1,6 @@
 package com.blackenter.minecraftdune;
 
+import com.blackenter.minecraftdune.entity.DesertHareEntity;
 import com.blackenter.minecraftdune.entity.MuaddibMouseEntity;
 import com.blackenter.minecraftdune.registry.ModBlocks;
 import com.blackenter.minecraftdune.registry.ModChunkGenerators;
@@ -30,12 +31,15 @@ public final class MinecraftDune {
     }
 
     private void registerEntityAttributes(EntityAttributeCreationEvent event) {
-        AttributeSupplier attributes = MuaddibMouseEntity.createAttributes().build();
-        event.put(ModEntityTypes.MUADDIB_MOUSE.get(), attributes);
+        AttributeSupplier desertHareAttributes = DesertHareEntity.createAttributes().build();
+        AttributeSupplier muaddibAttributes = MuaddibMouseEntity.createAttributes().build();
+        event.put(ModEntityTypes.DESERT_HARE.get(), desertHareAttributes);
+        event.put(ModEntityTypes.MUADDIB_MOUSE.get(), muaddibAttributes);
     }
 
     private void addCreativeTabContents(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.SPAWN_EGGS) {
+            event.accept(ModItems.DESERT_HARE_SPAWN_EGG);
             event.accept(ModItems.MUADDIB_MOUSE_SPAWN_EGG);
         }
         if (event.getTabKey() == CreativeModeTabs.NATURAL_BLOCKS) {

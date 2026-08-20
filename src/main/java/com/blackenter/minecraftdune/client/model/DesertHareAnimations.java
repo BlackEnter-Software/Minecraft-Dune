@@ -8,7 +8,7 @@ import net.minecraft.client.animation.KeyframeAnimations;
 /**
  * Runtime keyframe animations matching the editable Blockbench actions.
  */
-public final class MuaddibMouseAnimations {
+public final class DesertHareAnimations {
     public static final AnimationDefinition IDLE =
             AnimationDefinition.Builder.withLength(2.0F).looping()
                     .addAnimation("body", new AnimationChannel(
@@ -252,6 +252,6 @@ public final class MuaddibMouseAnimations {
                     ))
                     .build();
 
-    private MuaddibMouseAnimations() {
+    private DesertHareAnimations() {
     }
 }

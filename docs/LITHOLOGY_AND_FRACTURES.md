@@ -5,8 +5,8 @@
 0.5.13 gives native Arrakis rock geological identity and adds a separate massif-top fissure
 network. It is deliberately a framework release:
 
-- it does generate coherent rock units, intrusive bodies, basalt structures, calcite veins,
-  and top-down cracks/slots/chasms;
+- it does generate coherent rock units, intrusive bodies, resistant basalt sheets, horizontal
+  calcite bands, and top-down cracks/slots/chasms;
 - it defines resistance classes and loose talus material hooks;
 - it does not yet create 0.5.14 differential erosion, undercuts, negative-angle cliffs, or
   final large talus cones;
@@ -25,10 +25,10 @@ at chunk boundaries and suitable for Distant Horizons pregeneration.
 | sandstone | `minecraft:sandstone` | soft | soft sedimentary unit |
 | tuff | `minecraft:tuff` | soft | altered/weak volcanic unit |
 | limestone | `create:limestone` | soft | rare future cavern-host lens |
-| calcite | `minecraft:calcite` | medium | veins and mineralized fracture fill |
+| calcite | `minecraft:calcite` | medium | horizontal bands and mineralized fracture exposure |
 | andesite | `minecraft:andesite` | hard | intrusive/structural body |
 | diorite | `minecraft:diorite` | hard | intrusive/structural body |
-| basalt | `minecraft:basalt` | very hard | dikes and resistant sheets |
+| basalt | `minecraft:basalt` | very hard | resistant horizontal sheets |
 | blackstone | `minecraft:blackstone` | very hard | rare ancient resistant body |
 | talus | `minecraft:gravel` | loose | future scree/collapse material, not bedrock |
 
@@ -62,7 +62,7 @@ entry is not present.
   slower-changing with elevation.
 
 `strata_thickness`
-: Nominal thickness of stratigraphic bands. It also spaces candidate resistant basalt sheets.
+: Nominal thickness of background stratigraphic bands.
 
 `strata_warp_scale`
 : Horizontal scale of folding/warping applied to the stratigraphic elevation. Larger values
@@ -90,21 +90,33 @@ entry is not present.
 : Positive threshold for ancient blackstone bodies. Blackstone is selected where rare-body
   noise is at or above this value. Raising it makes blackstone rarer.
 
-### Dike, sheet, and vein controls
+### Sheet and mineral-band controls
 
 `dike_spacing`
-: Nominal separation of warped, near-vertical basalt dikes.
+: Legacy serialized name retained for backwards compatibility. It now controls the nominal
+  vertical separation of laterally discontinuous, warped horizontal basalt sheets. The first
+  0.5.13 visual test showed that world-spanning vertical planes read as artificial ruler lines.
 
 `dike_half_width`
-: Half-width of a basalt dike. It also provides the base thickness for rare basalt sheets.
-  A value of `2.5` therefore permits a dike approximately five blocks wide before local warp.
+: Approximate half-thickness of those basalt sheets. Local gates and coherent contact noise
+  break sheets into bodies and roughen their contacts.
 
 `calcite_vein_spacing`
-: Nominal separation of thin oblique calcite vein planes through ordinary host rock.
+: Legacy serialized name retained for backwards compatibility. It now controls the vertical
+  separation of horizontal calcite bands and lenses through ordinary host rock.
 
 `calcite_vein_half_width`
-: Half-width of those natural calcite veins. Mineralized fissures use the separate
-  `fractures.calcite_wall_thickness` control.
+: Approximate half-thickness of those natural calcite bands. Mineralized fissures use the
+  separate `fractures.calcite_wall_thickness` control.
+
+### Contact roughness
+
+Material selection combines the broad unit, rare-body, and intrusion fields with coherent
+detail and micro-detail fields. The added scales displace both vertical contacts and unit
+selectors, producing irregular interlocking boundaries instead of smooth ellipses or planes.
+They remain coherent geological bodies rather than per-block decorative speckle. These
+contact-detail scales are intentionally derived from the serialized unit scales, so no new
+required JSON fields were added by the initial visual-tuning refinement.
 
 ### `materials`
 
@@ -115,9 +127,9 @@ Every material value is a namespaced block identifier resolved through the regis
 - `tuff` — soft altered unit;
 - `limestone` — preferred optional limestone block;
 - `limestone_fallback` — block used when the preferred limestone is unavailable;
-- `calcite` — veins and mineralized fissure exposure;
+- `calcite` — horizontal bands and mineralized fissure exposure;
 - `andesite` / `diorite` — hard intrusive bodies;
-- `basalt` — very-hard dikes/sheets;
+- `basalt` — very-hard resistant sheets;
 - `blackstone` — rare very-hard ancient bodies;
 - `talus` — loose scree/collapse material, normally gravel.
 
@@ -144,25 +156,29 @@ large final talus cones are emitted in 0.5.13.
 
 ## `fractures` JSON parameters
 
-The fissure field is separate from `faults`. Regional faults are kilometre-scale passages;
-fractures are local massif-top hazards built from finite bent trunks and branches.
+The fissure field is separate from `faults`. Regional faults are kilometre-scale passages.
+Local fractures use continuous warped primary trace families that cross an exposed massif,
+with finite side branches that may terminate as dead ends.
 
 `enabled`
 : Master switch for fissure carving. Lithology still generates when this is false.
 
 `cell_size`
-: Size of the deterministic spatial cells that can seed a local network. This controls
-  distribution, not a visible grid; segments may cross cell and chunk boundaries.
+: Legacy field name retained for profile compatibility. It now controls the approximate
+  spacing of candidate primary traces and branch nodes. It does not create a visible grid.
+  The supplied refinement default is `520` blocks.
 
 `density`
-: Probability from `0..1` that a candidate cell contributes a fracture network.
+: Probability from `0..1` that a candidate continuous primary line is active. The supplied
+  refinement default is `0.72`.
 
 `minimum_length` / `maximum_length`
-: Length range for main fracture trunks. Branches are shorter fractions of their trunk.
+: Length range for finite branches. Primary traces are continuous and are clipped naturally
+  by the exposed rock formation rather than by an arbitrary midpoint or endpoint.
 
 `branch_chance`
-: Probability that an active trunk develops a side branch. Some successful trunks may also
-  receive a shorter second branch on the opposite side.
+: Probability that a deterministic node along an active primary trace develops one tapered
+  side branch. A branch can end inside the massif; a primary fissure cannot begin there.
 
 `minimum_width` / `maximum_width`
 : Full target fissure-width range before local taper and modest resistance modulation.
@@ -181,11 +197,14 @@ fractures are local massif-top hazards built from finite bent trunks and branche
   only a reduced contribution.
 
 `mineralization_chance`
-: Probability that a fracture network carries calcite mineralization metadata and visible
-  wall/floor exposure.
+: Probability that a primary or branch carries calcite mineralization. Successful fissures
+  receive different base abundances, which also vary coherently along the trace. Some fissures
+  therefore show almost no calcite while mineral-rich ones expose more frequent bands.
 
 `calcite_wall_thickness`
-: Approximate thickness of the calcite exposure halo along a mineralized fissure wall.
+: Maximum approximate thickness of intermittent calcite exposure in a mineralized fissure
+  wall. Exposure is restricted to horizontal bands; it no longer outlines the complete wall
+  or floor of every mineralized crack.
 
 `resistance_width_influence`
 : Blend from unmodified width (`0`) toward the surface lithology's soft/hard width factor
@@ -196,9 +215,14 @@ fractures are local massif-top hazards built from finite bent trunks and branche
 
 ## Generated fissure geometry
 
-The generator lowers the solid rock top inside the procedural fracture trace. This creates
-shallow cracks, narrow slots and deeper open chasms with vertical walls in the existing
-height-column architecture. It does not create roofs, caves, overhangs or undercuts.
+The generator lowers the solid rock top inside the procedural fracture trace. Continuous
+primary lines enter and leave wherever the macro massif surface exists, so a main fissure
+does not visibly originate in the middle of a broad plateau. Finite tapered branches are the
+intentional dead ends. The result includes shallow cracks, narrow slots and deeper open
+chasms with vertical walls in the existing height-column architecture.
+
+This release still does not add general summit dents, roofs, caves, overhangs, undercuts or
+other 0.5.14 erosion shapes.
 
 The floor is clamped to at least one native-rock block above the Y64 base surface. Every
 visible rock column is still rewritten down through the former sand/sandstone layers until it
