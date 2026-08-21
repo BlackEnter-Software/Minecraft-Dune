@@ -17,12 +17,13 @@ public record ArrakisTerrainSettings(
         FaultSettings faults,
         LithologySettings lithology,
         FractureSettings fractures,
+        ErosionSettings erosion,
         SandPassSettings sandPasses,
         BrokenRockSettings brokenRock,
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 513;
+    public static final int CURRENT_PROFILE_VERSION = 514;
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -82,6 +83,29 @@ public record ArrakisTerrainSettings(
                     0.22
             );
 
+    /**
+     * Missing erosion data stays disabled so a serialized 0.5.13 generator does not change
+     * morphology at the border of newly generated chunks. The 0.5.14 source preset stores
+     * the same parameters explicitly with {@code enabled=true}.
+     */
+    public static final ErosionSettings DEFAULT_EROSION =
+            new ErosionSettings(
+                    false,
+                    18.0,
+                    18.0,
+                    0.32,
+                    0.84,
+                    0.42,
+                    0.58,
+                    1.35,
+                    0.58,
+                    0.28,
+                    0.72,
+                    6,
+                    0.24,
+                    0.72
+            );
+
     public static final ArrakisTerrainSettings DEFAULT = new ArrakisTerrainSettings(
             CURRENT_PROFILE_VERSION,
             new BasinSettings(800.0, 970.0),
@@ -131,6 +155,7 @@ public record ArrakisTerrainSettings(
             ),
             DEFAULT_LITHOLOGY,
             DEFAULT_FRACTURES,
+            DEFAULT_EROSION,
             new SandPassSettings(
                     1000.0,
                     1320.0,
@@ -198,6 +223,11 @@ public record ArrakisTerrainSettings(
                                     DEFAULT_FRACTURES
                             )
                             .forGetter(ArrakisTerrainSettings::fractures),
+                    ErosionSettings.CODEC.optionalFieldOf(
+                                    "erosion",
+                                    DEFAULT_EROSION
+                            )
+                            .forGetter(ArrakisTerrainSettings::erosion),
                     SandPassSettings.CODEC.fieldOf("sand_passes")
                             .forGetter(ArrakisTerrainSettings::sandPasses),
                     BrokenRockSettings.CODEC.fieldOf("broken_rock")
@@ -525,6 +555,60 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.optionalFieldOf("resistance_depth_influence", 0.22)
                                 .forGetter(FractureSettings::resistanceDepthInfluence)
                 ).apply(instance, FractureSettings::new));
+    }
+
+    /**
+     * Coarse, deterministic cliff morphology controls. Medium rock is the resistance
+     * baseline; the three multipliers describe relative retreat for the other intact classes.
+     * The active wind direction is shared with {@link NativeDuneSettings#windAngleDegrees()}.
+     */
+    public record ErosionSettings(
+            boolean enabled,
+            double minimumRelief,
+            double faceProbeDistance,
+            double escarpmentStartStrength,
+            double verticalFaceBias,
+            double windExposureStrength,
+            double fractureErosionStrength,
+            double softRockMultiplier,
+            double hardRockMultiplier,
+            double veryHardRockMultiplier,
+            double undercutStrength,
+            int maxUndercutBlocks,
+            double undercutFrequency,
+            double brokenRockScale
+    ) {
+        public static final Codec<ErosionSettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.BOOL.optionalFieldOf("enabled", false)
+                                .forGetter(ErosionSettings::enabled),
+                        Codec.DOUBLE.optionalFieldOf("minimum_relief", 18.0)
+                                .forGetter(ErosionSettings::minimumRelief),
+                        Codec.DOUBLE.optionalFieldOf("face_probe_distance", 18.0)
+                                .forGetter(ErosionSettings::faceProbeDistance),
+                        Codec.DOUBLE.optionalFieldOf("escarpment_start_strength", 0.32)
+                                .forGetter(ErosionSettings::escarpmentStartStrength),
+                        Codec.DOUBLE.optionalFieldOf("vertical_face_bias", 0.84)
+                                .forGetter(ErosionSettings::verticalFaceBias),
+                        Codec.DOUBLE.optionalFieldOf("wind_exposure_strength", 0.42)
+                                .forGetter(ErosionSettings::windExposureStrength),
+                        Codec.DOUBLE.optionalFieldOf("fracture_erosion_strength", 0.58)
+                                .forGetter(ErosionSettings::fractureErosionStrength),
+                        Codec.DOUBLE.optionalFieldOf("soft_rock_multiplier", 1.35)
+                                .forGetter(ErosionSettings::softRockMultiplier),
+                        Codec.DOUBLE.optionalFieldOf("hard_rock_multiplier", 0.58)
+                                .forGetter(ErosionSettings::hardRockMultiplier),
+                        Codec.DOUBLE.optionalFieldOf("very_hard_rock_multiplier", 0.28)
+                                .forGetter(ErosionSettings::veryHardRockMultiplier),
+                        Codec.DOUBLE.optionalFieldOf("undercut_strength", 0.72)
+                                .forGetter(ErosionSettings::undercutStrength),
+                        Codec.INT.optionalFieldOf("max_undercut_blocks", 6)
+                                .forGetter(ErosionSettings::maxUndercutBlocks),
+                        Codec.DOUBLE.optionalFieldOf("undercut_frequency", 0.24)
+                                .forGetter(ErosionSettings::undercutFrequency),
+                        Codec.DOUBLE.optionalFieldOf("broken_rock_scale", 0.72)
+                                .forGetter(ErosionSettings::brokenRockScale)
+                ).apply(instance, ErosionSettings::new));
     }
 
     public record SandPassSettings(

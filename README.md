@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.13**
+Current development version: **0.5.14**
 
 The project currently contains:
 
@@ -11,6 +11,7 @@ The project currently contains:
 - native deterministic macro geology generated as part of the Arrakis chunk pipeline;
 - coherent 3D lithology with geological resistance roles and optional Create limestone;
 - deterministic through-going massif fissures, dead-end branches and variable calcite bands;
+- lithology-aware 3D escarpments, bounded undercuts and localized gravel/source-clast talus;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -39,12 +40,14 @@ other development/test mods can be installed manually.
 
 ## Arrakis Dev world
 
-**Create a new Arrakis Dev world for clean 0.5.13 lithology/fracture testing.**
+**Create a new Arrakis Dev world for clean 0.5.14 escarpment/erosion testing.**
 
 The `minecraftdune:arrakis_dev` generator codec stores its serialized `terrain` profile.
-0.5.13 adds optional `lithology` and `fractures` sections, so older generator data remains
-decodable with defaults. Existing chunks are never rewritten; create a new world (or
-regenerate closed-world region files) for clean visual comparisons.
+Version 0.5.14 adds an optional `erosion` section after the existing `lithology` and
+`fractures` sections. A serialized 0.5.13 profile that omits erosion decodes with that pass
+disabled, so it does not silently change new chunks at an old world border. Existing chunks
+are never rewritten; create a new world (or regenerate closed-world region files) for clean
+visual comparisons.
 
 The native generator retains the same base stratigraphy:
 
@@ -64,7 +67,7 @@ A finalization gate also covers autonomous patrol, event, structure, and spawner
 Commands, spawn eggs, buckets, dispensers, and breeding remain usable. Lakes, structures,
 caves, and biome features stay disabled. The Nether and End retain normal vanilla generation.
 
-## Lithology and massif fissures — 0.5.13
+## Lithology, massif fissures, and escarpments — 0.5.14
 
 Native rock now reads as coherent geological units rather than uniform stone or per-block
 speckle. Stone, sandstone, tuff, calcite, andesite, diorite, basalt and blackstone have
@@ -89,28 +92,49 @@ through the massif and are clipped only where exposed macro rock ends; internal 
 reserved for branches. Lithology contacts use coherent detail at multiple scales so adjacent
 rock units interlock instead of meeting along smooth oval or ruler-straight boundaries.
 
-This is still height-column fissure geometry. The 0.5.14 escarpment pass will own true
-undercuts, overhangs/negative-angle faces, differential erosion and final talus deposition.
-The 0.5.15 cave pass will consume rare limestone hosts and fractures; no caves or water are
-generated yet.
+After the top-down fissure carve, `EscarpmentErosionField` estimates a local formation edge
+with four coarse macro probes and evaluates surviving rock independently at each Y. Eligible
+massif and larger Broken Rock edges can now produce:
 
-See [Lithology and fracture framework](docs/LITHOLOGY_AND_FRACTURES.md) and the full
+- long steep or near-vertical plateau terminations;
+- soft limestone/tuff/sandstone recesses below harder units;
+- projecting andesite/diorite ribs and very-resistant basalt/blackstone sheets;
+- uncommon, support-gated rock-air-rock undercuts with at most six blocks of differential
+  boundary offset around the selected face in the supplied profile;
+- extra retreat near fissures and on exposed wind-facing faces. Overlapping traces modestly
+  strengthen/deepen their intersection, while fracture-driven face erosion fades below the
+  fissure's design depth;
+- localized low-side talus aprons with gravel matrix and coherent clasts from the adjacent
+  source unit. Talus starts above full dune blocks and suppresses an overlapping fractional
+  dune layer, so gravel is never supported only by partial sand.
+
+The operator only removes rock from the macro/fissure envelope, preserves the hard-crust
+connection and shallow one- or two-block outcrops, and rejects strong regional-fault and
+sand-pass carving. It does not create common water or full caves. The 0.5.15 cave pass will
+consume rare limestone hosts and fractures.
+
+See [Lithology and fracture framework](docs/LITHOLOGY_AND_FRACTURES.md),
+[Escarpment and differential erosion](docs/ESCARPMENT_EROSION.md), and the full
 [terrain profile reference](docs/ARRAKIS_TERRAIN_PROFILE.md).
 
 ## Historical terrain-profile tuning — 0.5.10
+
+The values in this section are retained as the 0.5.10 tuning record; they are not the active
+0.5.14 world-preset values. See `arrakis_dev.json`, the Arrakis Dev readme, or the terrain-profile
+reference for current tuning.
 
 Version 0.5.10 keeps the fast native chunk-generation architecture and tunes the 0.5.9
 province model from in-world testing. The principal terrain parameters now live in the
 world preset JSON and are serialized with the chunk generator instead of existing only as
 Java constants.
 
-The working first-region sequence is now:
+The 0.5.10 working first-region sequence was:
 
 | Approximate range | Province | Development intent |
 |---:|---|---|
 | `0–800` | Central Basin | Strict flat pure sand reserved for Arrakeen. |
 | `800–~1150` | Inner Rock Foreland | More numerous 2–9 block micro-rocks plus occasional 4–28 block knobs. |
-| `~1000–3020` | Shield Wall / Main Massif | Majestic large rock scale retained; steepness/overhang work remains later. |
+| `~1000–3020` | Shield Wall / Main Massif | Large-scale envelope retained. |
 | `~2450–3660` | Faulted Margin | Same useful width, but centerlines now meander much more strongly. |
 | `~2920–5650` | Broken Rock Desert | Longer-lived outliers that become smaller/noisier with distance. |
 | `~4450–6500` | Sand–Rock Transition | Sparse low remnants mixed with increasingly active sand. |
@@ -138,9 +162,10 @@ simply disappearing.
 
 ### Native transverse dunes
 
-0.5.9 adds `NativeTransverseDuneField`, a continuous analytic world-coordinate dune field.
+0.5.9 added `NativeTransverseDuneField`, a continuous analytic world-coordinate dune field.
 It does **not** run the finite 64 × 64 iterative `DuneSimulation` during chunk generation.
-Instead, it carries the calibrated transverse morphology into a chunk-safe form:
+The 0.5.10 native profile carried the calibrated transverse morphology into a chunk-safe form
+with these then-active values:
 
 ```text
 maximum height       = 30 blocks
@@ -164,10 +189,11 @@ sixteenth-layer representation.
 The 24-degree wind is intentionally still a global development direction. Regional wind,
 terrain shelter and sand-supply fields remain later work.
 
-### Serialized terrain profile
+## Current serialized terrain profile and geology tools
 
 The active world preset contains a `terrain` JSON object. It stores basin, foreland, massif,
-fault, lithology, fracture, sand-pass, broken-rock, outer-transition, and native-dune values.
+fault, lithology, fracture, erosion, sand-pass, broken-rock, outer-transition, and native-dune
+values.
 `ArrakisChunkGenerator.CODEC` serializes the same object into the world's generator data.
 
 This makes terrain tuning explicit and prevents diagnostic values from being scattered across
@@ -195,9 +221,11 @@ The bare command now works too:
 /dune geology profile
 ```
 
-Diagnostics include province weights, rock height, small-formation mask, fault mask,
-fault sand-floor mask, sand-pass mask, boundary warp, dune suitability and native local
-dune height.
+Diagnostics include province weights, surviving rock height, exposed lithology/resistance,
+fissure and intersection state, escarpment strength/local relief, bounded retreat, coarse wind
+and fracture erosion, undercut potential, talus suitability/depth, fault/sand-pass masks and
+native dune height. X/Z samples report the surface/face candidate; a true per-Y undercut may
+occur below that exposed surface.
 
 Pregeneration remains native FULL-chunk generation:
 
@@ -225,8 +253,8 @@ See [`docs/MACRO_GEOLOGY.md`](docs/MACRO_GEOLOGY.md),
 
 The calibrated 0.5.6 transverse laboratory remains the **v1 baseline**. Version 0.5.10 does
 not change its simulation math or defaults; the native far-erg field is a separate analytic
-implementation. The laboratory remains at 350-block spacing while the planetary field is
-now 525 blocks.
+implementation. The laboratory remains at 350-block spacing; the active 0.5.14 planetary
+profile uses 512-block spacing.
 
 ```mcfunction
 /dune dunes settings reset
@@ -371,7 +399,7 @@ velocity, which produces approximately twice Rabbit's normal jump apex under Min
 The compiled JAR is written to:
 
 ```text
-build/libs/minecraftdune-0.5.13.jar
+build/libs/minecraftdune-0.5.14.jar
 ```
 
 ## Package and namespace

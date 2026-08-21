@@ -3,6 +3,7 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 import com.blackenter.minecraftdune.registry.ModBlocks;
 import com.blackenter.minecraftdune.world.level.block.DuneSandLayerBlock;
 import com.blackenter.minecraftdune.worldgen.dune.NativeTransverseDuneField;
+import com.blackenter.minecraftdune.worldgen.geology.EscarpmentErosionField;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyBlockPalette;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
 import com.blackenter.minecraftdune.worldgen.geology.MacroGeologyField;
@@ -34,7 +35,8 @@ import java.util.concurrent.CompletableFuture;
  * Native Arrakis Dev terrain generator.
  *
  * <p>The normal flat Arrakis base remains unchanged. Macro relief, 3D lithology, massif-top
- * fissures and native dunes are written directly into ChunkAccess during generation.</p>
+ * fissures, per-Y escarpment occupancy, supported talus and native dunes are written directly
+ * into ChunkAccess during generation.</p>
  */
 public final class ArrakisChunkGenerator extends FlatLevelSource {
     public static final MapCodec<ArrakisChunkGenerator> CODEC =
@@ -182,13 +184,22 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                     maximumY
             );
             for (int y = firstRockY; y <= lastRockY; y++) {
-                column.setBlock(
-                        y,
-                        lithologyPalette.state(terrain.materialAt(y))
-                );
+                LithologyField.Sample material = terrain.materialSampleAt(y);
+                if (terrain.erosion().occupies(y, material)) {
+                    column.setBlock(
+                            y,
+                            lithologyPalette.state(material.material())
+                    );
+                }
             }
         }
 
+        writeTalusColumn(
+                terrain,
+                minimumY,
+                maximumY,
+                column::setBlock
+        );
         writeDuneColumn(
                 terrain,
                 minimumY,
@@ -238,15 +249,27 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                             maximumY
                     );
                     for (int y = firstRockY; y <= lastRockY; y++) {
-                        position.set(worldX, y, worldZ);
-                        chunk.setBlockState(
-                                position,
-                                lithologyPalette.state(terrain.materialAt(y)),
-                                false
-                        );
+                        LithologyField.Sample material = terrain.materialSampleAt(y);
+                        if (terrain.erosion().occupies(y, material)) {
+                            position.set(worldX, y, worldZ);
+                            chunk.setBlockState(
+                                    position,
+                                    lithologyPalette.state(material.material()),
+                                    false
+                            );
+                        }
                     }
                 }
 
+                writeTalusColumn(
+                        terrain,
+                        minimumY,
+                        maximumY,
+                        (y, state) -> {
+                            position.set(worldX, y, worldZ);
+                            chunk.setBlockState(position, state, false);
+                        }
+                );
                 writeDuneColumn(
                         terrain,
                         minimumY,
@@ -317,14 +340,28 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                         originalRockTopY - (MacroGeologyField.BASE_SURFACE_Y + 1)
                 )
         );
-        int rockTopY = originalRockTopY - carveDepth;
+        int fissureRockTopY = originalRockTopY - carveDepth;
+        EscarpmentErosionField.Column erosion = EscarpmentErosionField.sample(
+                worldSeed,
+                worldX + 0.5,
+                worldZ + 0.5,
+                originalRockTopY,
+                fissureRockTopY,
+                geology,
+                lithology,
+                fracture,
+                terrainSettings
+        );
+        int rockTopY = erosion.highestRockY(lithology, fracture);
 
         return new TerrainColumn(
                 rockTopY,
                 originalRockTopY,
+                fissureRockTopY,
                 dune.surfaceUnits(),
                 lithology,
-                fracture
+                fracture,
+                erosion
         );
     }
 
@@ -404,6 +441,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         int partialY = terrain.dunePartialY();
         if (partialLayers > 0
                 && partialY > terrain.rockTopY()
+                && !terrain.talusOccupiesY(partialY)
                 && partialY >= minimumY
                 && partialY <= maximumY) {
             BlockState partialSand = ModBlocks.SAND_LAYER.get()
@@ -416,6 +454,34 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         }
     }
 
+    private void writeTalusColumn(
+            TerrainColumn terrain,
+            int minimumY,
+            int maximumY,
+            BlockWriter writer
+    ) {
+        int thickness = terrain.erosion().talusThickness();
+        if (thickness <= 0) {
+            return;
+        }
+
+        int firstTalusY = Math.max(
+                minimumY,
+                terrain.talusBaseY()
+        );
+        int lastTalusY = Math.min(
+                maximumY,
+                firstTalusY + thickness - 1
+        );
+        for (int y = firstTalusY; y <= lastTalusY; y++) {
+            LithologyField.Material material = terrain.erosion().talusMaterialAt(
+                    y,
+                    terrain.lithology()
+            );
+            writer.set(y, lithologyPalette.state(material));
+        }
+    }
+
     @FunctionalInterface
     private interface BlockWriter {
         void set(int y, BlockState state);
@@ -424,15 +490,25 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
     private record TerrainColumn(
             int rockTopY,
             int originalRockTopY,
+            int fissureRockTopY,
             int duneSurfaceUnits,
             LithologyField.Column lithology,
-            MassifFractureField.Sample fracture
+            MassifFractureField.Sample fracture,
+            EscarpmentErosionField.Column erosion
     ) {
-        LithologyField.Material materialAt(int y) {
-            if (fracture.calciteExposure(y, originalRockTopY, rockTopY)) {
-                return LithologyField.Material.CALCITE;
+        LithologyField.Sample materialSampleAt(int y) {
+            LithologyField.Sample sample = lithology.sample(y);
+            if (fracture.calciteExposure(y, originalRockTopY, fissureRockTopY)) {
+                return new LithologyField.Sample(
+                        LithologyField.Material.CALCITE,
+                        LithologyField.ResistanceClass.MEDIUM,
+                        sample.limestoneHost(),
+                        false,
+                        false,
+                        true
+                );
             }
-            return lithology.sample(y).material();
+            return sample;
         }
 
         boolean hasNativeRock() {
@@ -461,6 +537,14 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         }
 
         int highestOccupiedY() {
+            int duneTopY = highestDuneY();
+            int talusTopY = erosion.talusThickness() > 0
+                    ? talusBaseY() + erosion.talusThickness() - 1
+                    : MacroGeologyField.BASE_SURFACE_Y;
+            return Math.max(Math.max(rockTopY, talusTopY), duneTopY);
+        }
+
+        int highestDuneY() {
             int duneTopY = MacroGeologyField.BASE_SURFACE_Y;
             if (duneSurfaceUnits > 0) {
                 duneTopY = duneFullTopY();
@@ -468,7 +552,20 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                     duneTopY++;
                 }
             }
-            return Math.max(rockTopY, duneTopY);
+            return duneTopY;
+        }
+
+        int talusBaseY() {
+            return Math.max(
+                    Math.max(FIRST_NATIVE_Y, rockTopY + 1),
+                    duneFullTopY() + 1
+            );
+        }
+
+        boolean talusOccupiesY(int y) {
+            return erosion.talusThickness() > 0
+                    && y >= talusBaseY()
+                    && y < talusBaseY() + erosion.talusThickness();
         }
     }
 }

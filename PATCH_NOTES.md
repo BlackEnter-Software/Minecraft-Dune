@@ -1,5 +1,111 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14 — Escarpment & Differential Erosion
+
+### Three-dimensional escarpment morphology
+
+- Added `EscarpmentErosionField`, a deterministic removal-only morphology stage between the
+  0.5.13 lithology/fracture fields and final talus/dune placement.
+- Replaced eligible parts of smooth massif and large Broken Rock aprons with signed-edge,
+  near-vertical faces without merely sharpening the macro height exponent.
+- Added independent per-Y rock occupancy inside each existing rock envelope. A column can now
+  contain bounded `rock / air / rock` geometry for shelves and negative-angle faces.
+- Restricted candidates by local relief, source height, formation-edge strength and massif /
+  faulted-margin / scaled Broken Rock permission. Small outer remnants retain simpler shapes.
+- Kept erosion removal-only: it cannot add rock above the macro/fissure envelope, bridge a
+  regional fault or sand pass, or grow detached floating sheets.
+- Preserved the lowest native-rock layers and the existing downward rewrite into stone,
+  deepslate or bedrock, so every surviving visible formation remains hard-crust connected.
+- Preserved shallow one- and two-block native-rock outcrops instead of allowing the occupancy
+  pass to erase them.
+
+### Differential lithology and supported undercuts
+
+- Applied erosion to the logical material at every Y instead of repainting morphology with
+  unrelated surface noise.
+- Kept medium stone/calcite host at the `1.0` retreat baseline; supplied relative retreat is
+  `1.35` for soft sandstone/tuff/limestone, `0.58` for hard andesite/diorite, and `0.28` for
+  very-hard basalt/blackstone.
+- Hard units can form projecting benches, intrusive ribs and caprock. Very-hard sheets/bodies
+  can stand sharply proud while adjacent soft units recess.
+- Added coherent undercut patches only where the surface and two supporting layers provide a
+  sufficiently resistant cap. The supplied profile caps differential/material boundary offset
+  around the selected escarpment face at 6 blocks; the runtime safety clamp is 16. Steepening
+  the broader smooth macro apron is not measured by that offset.
+- Added bounded 3D face detail so contacts do not resolve as ruler-flat vertical planes.
+
+### Fracture and wind interaction
+
+- Added a bounded erosion halo around active local fissures and extra susceptibility at
+  fracture intersections; resistant basalt/blackstone slots remain narrower than soft margins.
+- Extended the fracture accumulator with a second-overlap/intersection signal. Intersections
+  modestly increase fissure strength/depth while retaining the existing foundation floor clamp.
+- Used that same intersection signal for stronger local cliff retreat and talus suitability.
+- Attenuated fracture-driven face erosion below each fissure's design depth, preventing shallow
+  cracks from weakening an entire cliff down to the crust.
+- Added coarse wind exposure from the estimated outward face normal, local relief, the existing
+  24-degree development wind and deterministic low-frequency shelter.
+- Kept regional faults independent. Strong fault carving bypasses escarpment occupancy, so the
+  0.5.12 absolute rocky/sandy floor model remains authoritative.
+
+### Localized talus and scree
+
+- Activated the existing serialized `lithology.talus` framework with gravel as the principal
+  loose matrix, a 7-block maximum local thickness and an 18-block apron falloff.
+- Combined escarpment strength, low-side face distance, coherent patch noise, wind exposure,
+  fracture proximity and fissure outlets so talus forms localized aprons below scarps instead
+  of blanketing plateau tops.
+- Added coherent minority clasts from the adjacent source lithology. Tuff, limestone/calcite,
+  stone/andesite and other nearby units therefore influence debris composition without
+  decorative per-block speckle.
+- Retained `minimum_fracture_strength` as a backwards-compatible JSON name; in 0.5.14 it also
+  serves as the combined talus-suitability threshold, set to `0.44` in the supplied profile.
+- Started talus above surviving rock and the highest full dune block. When gravel shares a Y
+  with the optional fractional dune layer, the partial layer is omitted; full dune blocks remain
+  below as support, so scree is not left floating on partial sand.
+
+### Serialized profile and compatibility
+
+- Added optional serialized `terrain.erosion` settings for candidate relief/probing, edge and
+  vertical-face strength, wind/fracture exposure, resistance multipliers, bounded undercuts and
+  reduced-scale Broken Rock application.
+- A saved 0.5.13 generator that omits `erosion` decodes with the pass disabled. The 0.5.14
+  source preset explicitly enables it, preventing an automatic morphology seam in older saves.
+- Bumped the source terrain profile from `513` to `514` and the project version from `0.5.13`
+  to `0.5.14`.
+- Preserved all basin, foreland, massif, fault, sand-pass, Broken Rock, outer-transition,
+  lithology/material, fracture and native-dune tuning except the intentional activation/tuning
+  of the existing talus controls.
+
+### Diagnostics, validation, and documentation
+
+- Extended `/dune geology`, `/dune geology info` and `/dune geology sample <x> <z>` with
+  surviving rock Y, exposed lithology/resistance, fissure intersection strength, escarpment
+  activation/strength, local relief, maximum differential boundary offset (reported as maximum
+  retreat), coarse wind exposure, fracture erosion, undercut potential and talus
+  suitability/thickness.
+- Extended `/dune geology profile` with the active erosion controls and resolved talus switch,
+  depth and spread. X/Z diagnostics intentionally summarize the surface/face candidate; actual
+  per-Y occupancy may contain an undercut below that surface.
+- Added `validateArrakisTerrain`, a dependency-free deterministic smoke check covering profile
+  compatibility, resistance order, pure-basin/open-erg exclusion, native dunes, bounded and
+  explicitly located undercuts, fracture/no-fracture comparisons, supported localized talus,
+  chunk-boundary seams, reversed evaluation order, 0.5.12 fault floors and hard-crust
+  connection.
+- Added `docs/ESCARPMENT_EROSION.md` with the generation order, support rules, complete JSON
+  parameter table, performance model, diagnostic limitations and deferred systems.
+
+### Preserved and deferred systems
+
+- Generation remains deterministic from world seed + serialized profile + absolute coordinates,
+  seamless across chunks, and direct to `ChunkAccess`; there is no iterative simulation,
+  lighting update or post-generation `ServerLevel#setBlock` terrain pass.
+- Preserved layered native dunes, Arrakis fauna, camera/screenshot tooling, the frozen finite
+  `DuneSimulation` laboratory, NeoForge 21.1.248 and the current runClient ZGC/JVM settings.
+- Deferred full caves/collapse chambers, extremely rare sealed water caverns, regional wind and
+  dynamic sand transport, physical collapse, final texture art and a complete mesa/butte
+  lifecycle. Limestone hosts and mineralized fractures remain available for 0.5.15.
+
 ## Minecraft: Dune 0.5.13 — Lithology & Fracture Framework
 
 ### Desert Hare and Muad'dib entity split

@@ -43,6 +43,7 @@ public final class MassifFractureField {
             Double.POSITIVE_INFINITY,
             0.0,
             0.0,
+            0.0,
             false,
             0.0,
             0.0,
@@ -526,6 +527,7 @@ public final class MassifFractureField {
             double distance,
             double halfWidth,
             double mineralization,
+            double intersectionStrength,
             boolean mineralized,
             double activation,
             double calciteWallThickness,
@@ -555,7 +557,7 @@ public final class MassifFractureField {
             return bandDistance <= bandThickness;
         }
 
-        /** Hook for the deliberately deferred 0.5.14 scree/talus placement pass. */
+        /** Fracture-outlet contribution consumed by the 0.5.14 scree/talus pass. */
         public boolean talusCandidate(ArrakisTerrainSettings.TalusSettings settings) {
             return settings.localScreeEnabled()
                     && strength >= settings.minimumFractureStrength();
@@ -569,6 +571,8 @@ public final class MassifFractureField {
         private double halfWidth;
         private double distance = Double.POSITIVE_INFINITY;
         private double mineralization;
+        private double strongestCarve;
+        private double secondCarve;
         private boolean mineralized;
         private double wallThickness;
         private double mineralBandSpacing;
@@ -587,6 +591,13 @@ public final class MassifFractureField {
                 double candidateMineralBandSpacing,
                 double candidateMineralBandOffset
         ) {
+            if (candidateStrength > strongestCarve) {
+                secondCarve = strongestCarve;
+                strongestCarve = candidateStrength;
+            } else if (candidateStrength > secondCarve) {
+                secondCarve = candidateStrength;
+            }
+
             // Any actual carve outranks a nearby mineralized halo. This preserves the
             // strongest fissure at intersections while still allowing calcite wall metadata
             // to exist just outside a fissure where carve strength is zero.
@@ -613,14 +624,22 @@ public final class MassifFractureField {
             if (bestScore <= 0.0) {
                 return NONE;
             }
+            double intersection = Math.min(strongestCarve, secondCarve);
+            double combinedStrength = GeologyNoise.clamp(
+                    strength + intersection * 0.20,
+                    0.0,
+                    1.0
+            );
+            double intersectionDepth = 1.0 + intersection * 0.20;
             return new Sample(
-                    strength,
-                    designDepth * strength,
+                    combinedStrength,
+                    designDepth * combinedStrength * intersectionDepth,
                     designDepth,
                     width,
                     distance,
                     halfWidth,
                     mineralization,
+                    intersection,
                     mineralized,
                     activation,
                     wallThickness > 0.0 ? wallThickness : configuredWallThickness,

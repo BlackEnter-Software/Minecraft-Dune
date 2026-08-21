@@ -1,100 +1,120 @@
-Minecraft-Dune 0.5.13 — Lithology & Fracture Framework
+Minecraft-Dune 0.5.14 — Escarpment & Differential Erosion
 
 Local source-of-truth baseline
 ------------------------------
 Repository: BlackEnter-Software/Minecraft-Dune
 Branch: main
-Observed baseline commit: a811751 (0.5.12-Fault-Depth-Consistency-Overlay)
-Observed project version: 0.5.12
+Observed baseline commit: 38c10ed (Muad'dib fixes)
+Observed project version: 0.5.13
 Observed baseline worktree: clean
 
-All existing `arrakis_dev.json` basin, foreland, massif, fault, sand-pass, broken-rock,
-outer-transition, and native-dune tuning was preserved. Version 0.5.13 changes only the
-profile version and adds lithology/fracture settings.
+All existing `arrakis_dev.json` basin, foreland, massif, regional-fault, sand-pass,
+Broken Rock, outer-transition, lithology/material, fracture and native-dune tuning was
+preserved. Version 0.5.14 changes the profile version, adds the optional erosion group, and
+intentionally enables/tunes the existing talus controls for the first active scree pass.
 
 Core changed/new files
 ----------------------
+build.gradle
 gradle.properties
 PATCH_NOTES.md
-VALIDATION-0.5.13.txt
+VALIDATION-0.5.14.txt
 OVERLAY_MANIFEST.txt
 README.md
 README-Arrakis-Dev.txt
 docs/ARRAKIS_TERRAIN_PROFILE.md
+docs/ESCARPMENT_EROSION.md
 docs/LITHOLOGY_AND_FRACTURES.md
 docs/MACRO_GEOLOGY.md
 docs/NATIVE_ARRAKIS_TERRAIN.md
 docs/PROJECT_STRUCTURE.md
-docs/BLOCKBENCH_WORKFLOW.md
-src/main/java/com/blackenter/minecraftdune/MinecraftDune.java
-src/main/java/com/blackenter/minecraftdune/entity/DesertHareEntity.java
-src/main/java/com/blackenter/minecraftdune/entity/MuaddibMouseEntity.java
-src/main/java/com/blackenter/minecraftdune/client/model/DesertHareAnimations.java
-src/main/java/com/blackenter/minecraftdune/client/model/DesertHareModel.java
-src/main/java/com/blackenter/minecraftdune/client/model/MuaddibMouseModel.java
-src/main/java/com/blackenter/minecraftdune/client/renderer/DesertHareRenderer.java
-src/main/java/com/blackenter/minecraftdune/client/renderer/MuaddibMouseRenderer.java
 src/main/java/com/blackenter/minecraftdune/worldgen/arrakis/ArrakisChunkGenerator.java
 src/main/java/com/blackenter/minecraftdune/worldgen/arrakis/ArrakisTerrainSettings.java
-src/main/java/com/blackenter/minecraftdune/worldgen/geology/GeologyNoise.java
-src/main/java/com/blackenter/minecraftdune/worldgen/geology/LithologyBlockPalette.java
-src/main/java/com/blackenter/minecraftdune/worldgen/geology/LithologyField.java
+src/main/java/com/blackenter/minecraftdune/worldgen/geology/EscarpmentErosionField.java
 src/main/java/com/blackenter/minecraftdune/worldgen/geology/MacroGeologyCommand.java
 src/main/java/com/blackenter/minecraftdune/worldgen/geology/MassifFractureField.java
-src/main/resources/data/minecraft/tags/block/rabbits_spawnable_on.json
-src/main/resources/data/minecraftdune/worldgen/biome/arrakis_desert.json
 src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
+src/test/java/com/blackenter/minecraftdune/worldgen/geology/EscarpmentErosionValidation.java
+
+Escarpment implementation
+-------------------------
+`EscarpmentErosionField` is deterministic, analytic and removal-only. Four fixed coarse macro
+probes estimate local relief, the face normal and a signed formation-edge distance. Candidate
+columns then evaluate occupancy independently at every Y inside the existing fissure-adjusted
+rock envelope.
+
+Soft units retreat farther than the medium baseline; andesite/diorite and basalt/blackstone
+survive progressively farther forward. Coherent undercuts require a resistant supported cap,
+use at most 6 blocks of differential/material boundary offset around the selected face in the
+source profile (16 hard runtime limit), and cannot remove the foundation layers. That offset
+does not measure the broader smooth macro apron replaced by the steep face. Strong faults and
+sand passes bypass the field, and shallow one- or two-block outcrops remain preserved.
+
+The existing fissure system now exposes intersection strength from overlapping traces.
+Intersections modestly strengthen/deepen the fissure. Fracture proximity/intersections and
+coarse exposure to the fixed 24-degree wind increase retreat without turning every fissure into
+a canyon; the fracture contribution attenuates below the fissure's design depth.
+
+Talus
+-----
+Existing `lithology.talus` settings are now active. Low-side, deterministic patch gating
+creates localized cliff/fissure-outlet aprons up to 7 blocks thick over an 18-block falloff.
+The supplied combined-suitability threshold is 0.44. Gravel is the principal matrix; coherent
+minority clasts come from the adjacent source unit. Talus begins above surviving rock and all
+full dune blocks. An overlapping fractional dune layer is omitted, leaving full-block support
+instead of unsupported gravel.
+
+Backward compatibility
+----------------------
+`terrain.erosion` and all of its subfields decode through optional defaults. Missing erosion
+data defaults to `enabled=false`, so a serialized 0.5.13 generator retains old morphology in
+new chunks. The 0.5.14 source preset explicitly stores `enabled=true` and profile version 514.
+Existing generated chunks are never rewritten.
 
 Intentionally unchanged
 -----------------------
 MacroGeologyField.java
-  0.5.12 macro relief, regional faults, absolute fault floors, and user tuning are unchanged.
+  Province radii, macro relief, regional faults and 0.5.12 absolute fault floors are unchanged.
+
+LithologyField.java / LithologyBlockPalette.java
+  0.5.13 bodies, contact tuning, resistance roles and optional Create limestone resolution are
+  unchanged; erosion consumes their existing output.
 
 NativeTransverseDuneField.java / DuneSimulation.java
   Native dune mathematics and the frozen finite laboratory are unchanged.
 
-Layered sand / camera and screenshot code and assets
+Layered sand, entities/fauna, camera/screenshot code and assets
   Unrelated systems are unchanged.
 
-build.gradle
-  NeoForge 21.1.248 and the existing runClient ZGC/JVM settings are unchanged.
+runClient configuration
+  NeoForge 21.1.248 and the existing ZGC/JVM arguments are unchanged.
 
 Deferred
 --------
-0.5.14: full differential erosion, true escarpments, undercuts/negative-angle faces,
-        and final talus deposition.
-0.5.15: dry/mineralized/collapse caves and extremely rare sealed water caverns.
+0.5.15: dry/mineralized/collapse caverns and extremely rare sealed water caverns.
+Later: full regional wind/shelter/sand supply, dynamic sand transport, physical collapse,
+       final rock texture art, full mesa/butte lifecycle and ecology.
 
 Validation
 ----------
+  .\gradlew.bat validateArrakisTerrain
+  Arrakis erosion validation passed: candidates=2102, undercut_columns=11, explicit_undercut_candidates=14, talus_columns=12, fracture_comparisons=45, seam_columns=768, order_columns=12288, deterministic_hash=e2bba660addfd6dd, max_retreat=6.00.
+
   .\gradlew.bat clean build
-  BUILD SUCCESSFUL
+  BUILD SUCCESSFUL in 4s
 
-Initial screenshot refinement
------------------------------
-Primary fissures now cross the exposed massif and only their finite side branches may form
-internal dead ends. Basalt and calcite use horizontal sheets/bands, fissure mineralization is
-variable and intermittent, and coherent contact detail breaks up smooth material boundaries.
+  Gradle `test`, `validateArrakisTerrain`, `check` and `build` all passed.
+  Artifact: build\libs\minecraftdune-0.5.14.jar
 
-Entity split
-------------
-The original animated entity is now `desert_hare`; the freed `muaddib_mouse` identifier uses
-the new Blockbench Java export and texture. Both entity types have separately wired spawn eggs.
-
-Muad'dib movement and Arrakis fauna refinement
-----------------------------------------------
-The Muad'dib model is rotated 180 degrees to agree with travel, uses 3x Rabbit base movement
-speed, and reaches approximately 2x Rabbit's jump apex. New worlds use the featureless
-`minecraftdune:arrakis_desert` biome with only Muad'dib and Desert Hare in its spawn table.
-Arrakis-generator placement and finalization gates also reject vanilla natural, patrol, event,
-structure and spawner paths in existing saves while deliberate spawn tools remain available.
-The release and generator-profile versions remain 0.5.13 and 513.
-
-The optional GameTest-server smoke attempt was blocked before Minecraft startup by the
-client-only Sodium jar in the shared `run/mods` directory (`org.lwjgl.Version` unavailable
-on the headless server). The mod folder was left untouched.
+The validator covers profile decoding/backward fallback, resistance order, repeated-sample,
+chunk-seam and reversed-order determinism, pure-basin/open-erg exclusions, native dunes,
+bounded/explicit undercuts, fracture comparisons, supported localized talus, 0.5.12 fault
+floors and hard-crust connection.
 
 Useful diagnostics in a fresh Arrakis Dev world:
   /dune geology profile
   /dune geology info
   /dune geology sample <x> <z>
+
+The coordinate erosion line summarizes the X/Z surface/face candidate. Actual per-Y occupancy
+may contain a recess below the reported exposed surface.

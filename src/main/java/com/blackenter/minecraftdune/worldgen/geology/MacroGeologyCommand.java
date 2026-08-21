@@ -113,37 +113,39 @@ public final class MacroGeologyCommand {
         long worldSeed = source.getLevel().getSeed();
         ArrakisTerrainSettings settings =
                 activeTerrainSettings(source);
+        double sampleX = Math.floor(x) + 0.5;
+        double sampleZ = Math.floor(z) + 0.5;
 
         MacroGeologyField.Sample sample =
                 MacroGeologyField.sample(
                         worldSeed,
-                        x,
-                        z,
+                        sampleX,
+                        sampleZ,
                         settings
                 );
         NativeTransverseDuneField.Sample dune =
                 NativeTransverseDuneField.sample(
                         worldSeed,
-                        x,
-                        z,
+                        sampleX,
+                        sampleZ,
                         sample.duneSuitability(),
                         settings.nativeDunes()
                 );
         int originalRockTopY = (int) Math.floor(sample.baseElevation() + 0.5);
         LithologyField.Column lithologyColumn = LithologyField.column(
                 worldSeed,
-                x,
-                z,
+                sampleX,
+                sampleZ,
                 settings.lithology()
         );
-        LithologyField.Sample lithology = lithologyColumn.sample(originalRockTopY);
+        LithologyField.Sample originalLithology = lithologyColumn.sample(originalRockTopY);
         MassifFractureField.Sample fracture = MassifFractureField.sample(
                 worldSeed,
-                x,
-                z,
+                sampleX,
+                sampleZ,
                 originalRockTopY,
                 sample,
-                lithology.resistance(),
+                originalLithology.resistance(),
                 settings.fractures()
         );
         int fractureRockTopY = originalRockTopY - Math.min(
@@ -153,6 +155,36 @@ public final class MacroGeologyCommand {
                         originalRockTopY - (MacroGeologyField.BASE_SURFACE_Y + 1)
                 )
         );
+        EscarpmentErosionField.Column erosion = EscarpmentErosionField.sample(
+                worldSeed,
+                sampleX,
+                sampleZ,
+                originalRockTopY,
+                fractureRockTopY,
+                sample,
+                lithologyColumn,
+                fracture,
+                settings
+        );
+        int survivingRockTopY = erosion.highestRockY(lithologyColumn, fracture);
+        int exposedY = Math.max(
+                MacroGeologyField.BASE_SURFACE_Y + 1,
+                survivingRockTopY
+        );
+        boolean nativeRockExposed = survivingRockTopY
+                > MacroGeologyField.BASE_SURFACE_Y;
+        LithologyField.Sample exposedLithology = lithologyColumn.sample(exposedY);
+        if (fracture.calciteExposure(exposedY, originalRockTopY, fractureRockTopY)) {
+            exposedLithology = new LithologyField.Sample(
+                    LithologyField.Material.CALCITE,
+                    LithologyField.ResistanceClass.MEDIUM,
+                    exposedLithology.limestoneHost(),
+                    false,
+                    false,
+                    true
+            );
+        }
+        LithologyField.Sample lithology = exposedLithology;
         LithologyBlockPalette palette = new LithologyBlockPalette(
                 settings.lithology().materials()
         );
@@ -162,14 +194,14 @@ public final class MacroGeologyCommand {
                         Locale.ROOT,
                         "Arrakis terrain @ X=%.1f Z=%.1f: radius=%.1f, "
                                 + "effective_radius=%.1f, province=%s, "
-                                + "macro_rock_Y=%.1f, fissure_rock_Y=%d.",
-                        x,
-                        z,
+                                + "macro_rock_Y=%.1f, surviving_rock_Y=%d.",
+                        sampleX,
+                        sampleZ,
                         sample.radiusBlocks(),
                         sample.effectiveRadiusBlocks(),
                         sample.dominantProvince().commandName(),
                         sample.baseElevation(),
-                        fractureRockTopY
+                        survivingRockTopY
                 )),
                 false
         );
@@ -177,11 +209,14 @@ public final class MacroGeologyCommand {
         source.sendSuccess(
                 () -> Component.literal(String.format(
                         Locale.ROOT,
-                        "Lithology: %s (%s, block=%s), limestone_host=%s, "
-                                + "intrusive=%s, basalt_structure=%s, calcite_vein=%s.",
+                        "Lithology sample at Y%d: %s (%s, block=%s), native_exposed=%s, "
+                                + "limestone_host=%s, intrusive=%s, basalt_structure=%s, "
+                                + "calcite_vein=%s.",
+                        exposedY,
                         lithology.material().commandName(),
                         lithology.resistance().commandName(),
                         palette.resolvedId(lithology.material()),
+                        nativeRockExposed,
                         lithology.limestoneHost(),
                         lithology.intrusive(),
                         lithology.basaltStructure(),
@@ -194,13 +229,32 @@ public final class MacroGeologyCommand {
                 () -> Component.literal(String.format(
                         Locale.ROOT,
                         "Massif fissure: strength=%.2f, width=%.1f, carve_depth=%.1f, "
-                                + "activation=%.2f, calcite_indicator=%.2f, mineralized=%s.",
+                                + "intersection=%.2f, calcite_indicator=%.2f, mineralized=%s.",
                         fracture.strength(),
                         fracture.width(),
                         fracture.carveDepth(),
-                        fracture.activation(),
+                        fracture.intersectionStrength(),
                         fracture.mineralization(),
                         fracture.mineralized()
+                )),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
+                        "Escarpment surface candidate: active=%s, strength=%.2f, relief=%.1f, "
+                                + "retreat<=%.1f, wind=%.2f, fracture_erosion=%.2f, "
+                                + "undercut=%.2f, talus=%.2f/%d blocks.",
+                        erosion.candidate(),
+                        erosion.escarpmentStrength(),
+                        erosion.localRelief(),
+                        erosion.maximumRetreat(),
+                        erosion.windExposure(),
+                        erosion.fractureErosion(),
+                        erosion.undercutPotential(),
+                        erosion.talusSuitability(),
+                        erosion.talusThickness()
                 )),
                 false
         );
@@ -364,6 +418,39 @@ public final class MacroGeologyCommand {
                 false
         );
 
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
+                        "Erosion: enabled=%s, min_relief=%.0f, face_probe=%.0f, edge=%.2f, "
+                                + "vertical=%.2f, wind=%.2f, fracture=%.2f, "
+                                + "undercut=%.2f/%d blocks @ %.2f frequency.",
+                        settings.erosion().enabled(),
+                        settings.erosion().minimumRelief(),
+                        settings.erosion().faceProbeDistance(),
+                        settings.erosion().escarpmentStartStrength(),
+                        settings.erosion().verticalFaceBias(),
+                        settings.erosion().windExposureStrength(),
+                        settings.erosion().fractureErosionStrength(),
+                        settings.erosion().undercutStrength(),
+                        settings.erosion().maxUndercutBlocks(),
+                        settings.erosion().undercutFrequency()
+                )),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
+                        "Erosion resistance multipliers: soft=%.2f, medium=1.00, "
+                                + "hard=%.2f, very_hard=%.2f; Broken Rock scale=%.2f.",
+                        settings.erosion().softRockMultiplier(),
+                        settings.erosion().hardRockMultiplier(),
+                        settings.erosion().veryHardRockMultiplier(),
+                        settings.erosion().brokenRockScale()
+                )),
+                false
+        );
+
         LithologyBlockPalette profilePalette = new LithologyBlockPalette(
                 settings.lithology().materials()
         );
@@ -371,12 +458,14 @@ public final class MacroGeologyCommand {
                 () -> Component.literal(String.format(
                         Locale.ROOT,
                         "Material resolution: limestone=%s (configured %s; fallback %s), "
-                                + "talus=%s; local_scree=%s (0.5.14 hook).",
+                                + "talus=%s; local_scree=%s, depth=%d, spread=%.0f.",
                         profilePalette.resolvedId(LithologyField.Material.LIMESTONE),
                         settings.lithology().materials().limestone(),
                         settings.lithology().materials().limestoneFallback(),
                         profilePalette.resolvedId(LithologyField.Material.GRAVEL),
-                        settings.lithology().talus().localScreeEnabled()
+                        settings.lithology().talus().localScreeEnabled(),
+                        settings.lithology().talus().maximumThickness(),
+                        settings.lithology().talus().spread()
                 )),
                 false
         );
@@ -421,8 +510,8 @@ public final class MacroGeologyCommand {
             CommandContext<CommandSourceStack> context
     ) {
         context.getSource().sendFailure(Component.literal(
-                "Macro geology, lithology, fissures and native dunes are chunk terrain in "
-                        + "0.5.13 and cannot "
+                "Macro geology, lithology, fissures, erosion/talus and native dunes are chunk "
+                        + "terrain in 0.5.14 and cannot "
                         + "be cleared independently. Use a fresh Arrakis Dev world, or "
                         + "delete/regenerate affected region files while the world is closed."
         ));

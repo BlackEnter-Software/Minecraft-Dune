@@ -33,7 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 513,
+          "profile_version": 514,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0
@@ -108,10 +108,10 @@
               "talus": "minecraft:gravel"
             },
             "talus": {
-              "local_scree_enabled": false,
-              "minimum_fracture_strength": 0.78,
-              "maximum_thickness": 3,
-              "spread": 5.0
+              "local_scree_enabled": true,
+              "minimum_fracture_strength": 0.44,
+              "maximum_thickness": 7,
+              "spread": 18.0
             }
           },
           "fractures": {
@@ -131,6 +131,22 @@
             "calcite_wall_thickness": 1.5,
             "resistance_width_influence": 0.3,
             "resistance_depth_influence": 0.22
+          },
+          "erosion": {
+            "enabled": true,
+            "minimum_relief": 18.0,
+            "face_probe_distance": 18.0,
+            "escarpment_start_strength": 0.32,
+            "vertical_face_bias": 0.84,
+            "wind_exposure_strength": 0.42,
+            "fracture_erosion_strength": 0.58,
+            "soft_rock_multiplier": 1.35,
+            "hard_rock_multiplier": 0.58,
+            "very_hard_rock_multiplier": 0.28,
+            "undercut_strength": 0.72,
+            "max_undercut_blocks": 6,
+            "undercut_frequency": 0.24,
+            "broken_rock_scale": 0.72
           },
           "sand_passes": {
             "start_radius": 1500.0,

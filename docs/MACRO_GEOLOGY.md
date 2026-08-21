@@ -1,14 +1,15 @@
-# Macro geology — 0.5.13 active framework
+# Macro geology — 0.5.14 active framework
 
 ## Scope
 
-The 0.5.10 province tuning remains the macro surface-height baseline. Version 0.5.13 adds
-coherent lithology and through-going local primary fractures with finite branches, without
-changing the tuned province radii, fault geometry, fault-floor correction, sand passes,
-broken-rock values, or native dunes.
+The 0.5.10 province tuning remains the macro surface-height envelope. Version 0.5.13 added
+coherent lithology and through-going local fractures; 0.5.14 now consumes those fields in a
+removal-only 3D escarpment operator. The tuned province radii, regional fault geometry,
+0.5.12 fault-floor correction, sand passes and native dunes remain intact.
 
-See [LITHOLOGY_AND_FRACTURES.md](LITHOLOGY_AND_FRACTURES.md) for the active 0.5.13 material,
-resistance, fissure, optional Create limestone, talus and future cavern framework.
+See [LITHOLOGY_AND_FRACTURES.md](LITHOLOGY_AND_FRACTURES.md) for material, resistance, fissure,
+optional Create limestone and future cavern groundwork. See
+[ESCARPMENT_EROSION.md](ESCARPMENT_EROSION.md) for the active erosion and talus layer.
 
 The main changes are:
 
@@ -17,9 +18,12 @@ The main changes are:
 - longer Broken Rock Desert with progressive size/density decay;
 - stronger fault-line meander without widening the faults;
 - intermittent fully sandy fault floors;
-- native transverse dune spacing increases from 350 to 525 blocks.
+- native transverse dunes between and beyond rock;
+- lithology-aware steep faces, resistant benches, bounded undercuts and localized talus on
+  eligible massif / large Broken Rock edges.
 
-Detailed sandstone erosion and true escarpment geometry remain separate future work.
+The macro field still supplies one upper rock envelope per X/Z column. Three-dimensional
+rock-air-rock geometry is owned by `EscarpmentErosionField` inside that envelope.
 
 ## Serialized settings
 
@@ -35,7 +39,7 @@ under:
 "generator": {
   "type": "minecraftdune:arrakis_dev",
   "settings": { "...": "flat Arrakis base" },
-  "terrain": { "...": "0.5.10 profile" }
+  "terrain": { "...": "serialized Arrakis profile" }
 }
 ```
 
@@ -51,15 +55,16 @@ Arrakis Dev world for clean cross-version comparisons.
 
 The current profile is approximately:
 
-| Range | Province | 0.5.10 intent |
+| Serialized radial range | Overlapping field | Current role |
 |---:|---|---|
-| 0–800 | Central Basin | Exact flat sand reservation. |
-| 800–~1150 | Inner Rock Foreland | Medium knobs plus denser 2–9 block micro-rock. |
-| ~1000–3020 | Shield Wall / Main Massif | Keep the successful large 0.5.9 scale. |
-| ~2450–3660 | Faulted Margin | Same fault width; substantially stronger lateral meander. |
-| ~2920–5650 | Broken Rock Desert | Large remnants near the massif, smaller/noisier remnants outward. |
-| ~4450–6500 | Sand–Rock Transition | Sparse low rock mixed with increasing dune activity. |
-| ~5850+ | Open Erg | Native dunes increasingly dominant; full suitability near 6700. |
+| 0–1500 | Central Basin | Exact flat sand reservation. |
+| 1500–3050 | Inner Rock Foreland | Basin transition completes at 2000; formations grow toward the massif. |
+| 3000–4500 | Shield Wall / Main Massif | Full by 3150; outer fade begins at 4000. |
+| 1400–5850 | Regional fault network | Full from 2000; fades after 4500. |
+| 4000–6650 | Broken Rock Desert | Full contribution near 5500; remnants shrink/fade after 6000. |
+| 6000–9000 | Sand–Rock Transition | Sparse low rock mixed with increasing dune activity. |
+| 8500–9000 | Open Erg transition | Open erg begins at 8500 and reaches full suitability at 9000. |
+| 9000+ | Open Erg | Native transverse dunes at full outer-desert suitability. |
 
 The boundaries remain continuous warped fields, not Minecraft biome boundaries.
 
@@ -71,11 +76,13 @@ smaller noise scale.
 The profile currently uses:
 
 ```text
-large scale          = 145 blocks
-detail scale         = 62 blocks
-micro scale          = 30 blocks
-large height         = 4–28 blocks
-micro height         = approximately 1.5–9 blocks
+large scale          = 200 blocks
+detail scale         = 50 blocks
+micro scale          = 40 blocks
+large thresholds     = 0.08–0.40
+micro thresholds     = 0.45–0.52
+large height         = 5–35 blocks
+micro maximum height = 4 blocks
 ```
 
 The micro threshold is deliberately higher than the first experimental 0.5.10 value so the
@@ -144,25 +151,35 @@ rare micro-remnants
 sand-rock transition
 ```
 
-The current rock envelope fades between roughly effective radius 5200 and 5650. A separate
-low-remnant transition continues toward roughly 6500.
+The Broken Rock field begins at radius 4000, reaches full contribution near 5500, and fades
+between 6000 and 6650. A separate low-remnant outer transition spans 6000–9000; the open-erg
+gate starts at 8500 and is complete at 9000.
 
 ## Massif / mesa steepness
 
-0.5.10 deliberately does **not** attempt the true mesa/escarpment geometry yet.
-
-The target for that future pass is resistant ultra-hard remnant rock after long-term coronal
-wind erosion. The intended morphology can therefore include:
+0.5.14 implements the first true escarpment layer on top of the preserved macro envelope. The
+target is resistant ultra-hard remnant rock after long-term coronal-wind erosion. Eligible
+massif and sufficiently large Broken Rock faces can therefore include:
 
 - long near-vertical escarpments;
 - locally unclimbable walls;
 - caprock-supported shelves;
 - undercut sections;
 - locally negative-angle / overhanging faces where softer lower material has been removed;
-- talus only where collapse products have accumulated.
+- localized talus where collapse products plausibly accumulate.
 
-Those properties require a 3D rock/erosion operator rather than simply making the current
-height-field smoothstep sharper.
+These properties come from per-Y occupancy and differential material retreat rather than a
+sharper height-field exponent. The operator is removal-only, caps differential/material offset
+around its selected face, requires supported resistant caps for undercuts, retains the
+foundation layers and shallow one- or two-block outcrops, and excludes strong
+regional-fault/sand-pass carving. The cap does not measure the full smooth macro apron replaced
+when a candidate becomes a steep face. Overlapping fissures modestly deepen/strengthen their
+intersection, but fracture-driven face retreat fades below their design depth. Smaller Broken
+Rock remnants keep simpler morphology.
+
+Localized talus is low-side gated. It starts above surviving rock and any full native-dune
+blocks; if it overlaps the optional fractional dune layer, that partial layer is omitted so the
+gravel remains supported.
 
 ## Diagnostics
 
@@ -173,10 +190,14 @@ height-field smoothstep sharper.
 /dune geology profile
 ```
 
-`sample` reports computed terrain state at a coordinate. `profile` reports the main
-serialized settings currently loaded by the world's generator.
+`sample` reports computed terrain state at a coordinate. It now includes surviving surface Y,
+exposed lithology/resistance, fissure intersection strength, escarpment strength/local relief,
+bounded differential offset, coarse wind/fracture erosion, undercut potential and talus
+suitability/depth. `profile` reports the serialized settings currently loaded by the world's
+generator.
 
-Sample diagnostics now include `fault_sand` in addition to the existing fault carve mask.
+Because the coordinate form accepts X/Z rather than Y, the erosion line describes the
+surface/face candidate. Per-Y occupancy may still form an undercut below that reported surface.
 
 ## Pregeneration
 

@@ -1,17 +1,16 @@
-# Lithology and fracture framework — 0.5.13
+# Lithology and fracture framework — 0.5.13 foundation / 0.5.14 consumer
 
 ## Scope
 
-0.5.13 gives native Arrakis rock geological identity and adds a separate massif-top fissure
-network. It is deliberately a framework release:
+0.5.13 gave native Arrakis rock geological identity and added a separate massif-top fissure
+network. Version 0.5.14 now consumes that framework:
 
 - it does generate coherent rock units, intrusive bodies, resistant basalt sheets, horizontal
   calcite bands, and top-down cracks/slots/chasms;
 - it defines resistance classes and loose talus material hooks;
-- it does not yet create 0.5.14 differential erosion, undercuts, negative-angle cliffs, or
-  final large talus cones;
-- it does not yet create 0.5.15 caves or water. Limestone is only marked as a future cavern
-  host in this release.
+- 0.5.14 uses them for differential retreat, supported undercuts, resistant benches/ribs and
+  localized cliff-base talus;
+- it still does not create 0.5.15 caves or water. Limestone remains a future cavern host.
 
 All fields use the world seed, serialized terrain profile, and absolute coordinates. There
 is no per-chunk simulation and no `ServerLevel#setBlock` post-pass, so results are seamless
@@ -19,7 +18,7 @@ at chunk boundaries and suitable for Distant Horizons pregeneration.
 
 ## Geological roles and resistance
 
-| Logical material | Default block | Resistance | 0.5.13 role |
+| Logical material | Default block | Resistance | Geological role |
 |---|---|---|---|
 | stone | `minecraft:stone` | medium | background structural host |
 | sandstone | `minecraft:sandstone` | soft | soft sedimentary unit |
@@ -30,11 +29,11 @@ at chunk boundaries and suitable for Distant Horizons pregeneration.
 | diorite | `minecraft:diorite` | hard | intrusive/structural body |
 | basalt | `minecraft:basalt` | very hard | resistant horizontal sheets |
 | blackstone | `minecraft:blackstone` | very hard | rare ancient resistant body |
-| talus | `minecraft:gravel` | loose | future scree/collapse material, not bedrock |
+| talus | `minecraft:gravel` | loose | active scree/collapse matrix, never intact bedrock |
 
-Resistance modestly changes fissure width and depth in 0.5.13. The larger purpose is to give
-0.5.14 a stable input: soft units can recede, hard intrusions can brace faces, and basalt or
-blackstone can survive as extremely resistant ribs/caps after long coronal-wind erosion.
+Resistance modestly changes fissure width and depth. In 0.5.14 it also controls per-Y face
+retreat: soft units recede, hard intrusions brace faces, and basalt or blackstone can survive
+as extremely resistant ribs/caps after long coronal-wind erosion.
 
 ## Optional Create limestone
 
@@ -134,25 +133,32 @@ Every material value is a namespaced block identifier resolved through the regis
 - `talus` — loose scree/collapse material, normally gravel.
 
 Changing an identifier changes representation, not the logical geological role or resistance
-class. Resistance is intentionally code-owned in 0.5.13 so future erosion has a stable model.
+class. Resistance remains code-owned; 0.5.14 maps those stable classes to serialized relative
+retreat multipliers.
 
 ### `talus`
 
 `local_scree_enabled`
-: Reserved switch for modest local scree placement. It is `false` in 0.5.13 because final
-  deposition belongs with 0.5.14 slope/escarpment analysis.
+: Master switch for localized cliff-base and fissure-outlet scree. It is `true` in the supplied
+  0.5.14 source profile; older profiles that omit erosion remain unaffected.
 
 `minimum_fracture_strength`
-: Future minimum fissure strength for a local talus candidate.
+: Legacy compatibility name for the minimum combined talus-suitability threshold, and still
+  the minimum fissure strength for the outlet boost. It is `0.44` in the supplied 0.5.14
+  profile. Higher values make deposits rarer.
 
 `maximum_thickness`
-: Future cap on a local scree deposit's vertical thickness.
+: Cap, in blocks, on a local scree deposit's vertical thickness, runtime-clamped to `0..32`.
+  A value of `0` emits no talus.
 
 `spread`
-: Future approximate horizontal spread around a fissure mouth or cliff base.
+: Approximate horizontal falloff, in blocks, around an eligible cliff base or fissure mouth.
 
-These values are serialized now, and fissure samples expose a `talusCandidate` hook, but no
-large final talus cones are emitted in 0.5.13.
+The 0.5.14 erosion field combines these values with cliff strength, low-side elevation,
+deterministic patch noise, wind exposure and fracture proximity. Gravel is the principal matrix
+and coherent source-unit clasts form a minority of the apron. Talus begins above surviving rock
+and any full dune-sand blocks; an overlapping fractional dune layer is omitted so gravel always
+has full-block support. See [ESCARPMENT_EROSION.md](ESCARPMENT_EROSION.md).
 
 ## `fractures` JSON parameters
 
@@ -211,7 +217,8 @@ with finite side branches that may terminate as dead ends.
   (`1`). The 0.5.13 default is intentionally modest.
 
 `resistance_depth_influence`
-: Equivalent blend for fissure depth. This is not the full differential-erosion pass.
+: Equivalent blend for fissure depth. The separate 0.5.14 erosion pass applies its own
+  per-Y retreat multipliers around exposed faces.
 
 ## Generated fissure geometry
 
@@ -221,12 +228,20 @@ does not visibly originate in the middle of a broad plateau. Finite tapered bran
 intentional dead ends. The result includes shallow cracks, narrow slots and deeper open
 chasms with vertical walls in the existing height-column architecture.
 
-This release still does not add general summit dents, roofs, caves, overhangs, undercuts or
-other 0.5.14 erosion shapes.
+The fissure carve itself remains a top-down height adjustment. The 0.5.14 erosion field runs
+afterward and can open the trace through an escarpment or form bounded rock-air-rock undercuts;
+it still does not create general caves or summit-denudation simulation.
+
+Where traces overlap, the strongest and second-strongest carves produce a bounded intersection
+signal that modestly strengthens and deepens the fissure. Cliff-face fracture susceptibility is
+vertically attenuated below the fissure's design depth, so a shallow crack does not weaken the
+entire massif wall down to the crust.
 
 The floor is clamped to at least one native-rock block above the Y64 base surface. Every
 visible rock column is still rewritten down through the former sand/sandstone layers until it
 meets the hard flat-world crust, so formations and fissure floors remain foundation-connected.
+The first two native-rock blocks above Y64 bypass erosion occupancy, preserving shallow
+one- and two-block outcrops.
 
 ## Diagnostics
 
@@ -236,16 +251,17 @@ meets the hard flat-world crust, so formations and fissure floors remain foundat
 /dune geology profile
 ```
 
-Coordinate diagnostics report logical/resolved lithology, resistance, limestone-host status,
-intrusion/basalt/calcite flags, fissure strength/width/depth, activation and mineralization.
-The profile command reports the active lithology and fracture scales and confirms which
-limestone/talus block identifiers actually resolved in the current mod set.
+Coordinate diagnostics report exposed logical/resolved lithology, resistance, limestone-host
+status, intrusion/basalt/calcite flags, fissure strength/width/depth/intersection and the active
+surface escarpment candidate. The profile command reports lithology, fracture and erosion
+settings and confirms which limestone/talus block identifiers resolved in the current mod set.
 
-## Future consumers
+## Current and future consumers
 
-0.5.14 should consume `ResistanceClass`, material roles, fracture samples and talus settings
-to build true differential erosion, near-vertical unclimbable faces, selective undercuts,
-locally negative-angle cliffs, and coherent scree.
+0.5.14 consumes `ResistanceClass`, material roles, fracture samples and talus settings to build
+differential erosion, near-vertical faces, selective bounded undercuts, locally negative-angle
+cliffs and coherent scree. The full algorithm and JSON guide are in
+[ESCARPMENT_EROSION.md](ESCARPMENT_EROSION.md).
 
 0.5.15 should use `limestoneHost`, fracture connectivity and mineralization to place dry,
 mineralized and collapse caverns. Sealed water caverns should be extremely rare and limited

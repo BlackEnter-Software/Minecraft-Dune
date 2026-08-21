@@ -1,4 +1,4 @@
-# Arrakis terrain profile — parameter reference (0.5.13)
+# Arrakis terrain profile — parameter reference (0.5.14)
 
 The native Arrakis generator reads its terrain parameters from:
 
@@ -10,9 +10,42 @@ The `terrain` object is serialized into the world's chunk-generator data. For cl
 comparisons after changing world-generation parameters, create a new Arrakis Dev world or
 regenerate the affected region files while the world is closed.
 
+## 0.5.14 erosion section
+
+The source profile adds a third optional, backwards-decodable geological object:
+
+```json
+"erosion": {
+  "enabled": true,
+  "minimum_relief": 18.0,
+  "face_probe_distance": 18.0,
+  "escarpment_start_strength": 0.32,
+  "vertical_face_bias": 0.84,
+  "wind_exposure_strength": 0.42,
+  "fracture_erosion_strength": 0.58,
+  "soft_rock_multiplier": 1.35,
+  "hard_rock_multiplier": 0.58,
+  "very_hard_rock_multiplier": 0.28,
+  "undercut_strength": 0.72,
+  "max_undercut_blocks": 6,
+  "undercut_frequency": 0.24,
+  "broken_rock_scale": 0.72
+}
+```
+
+A serialized 0.5.13 profile that omits `erosion` decodes with the pass disabled. The 0.5.14
+source preset enables it explicitly, avoiding silent morphology changes at the unexplored edge
+of an older world. The existing `lithology.talus` group is reused for cliff-base scree and is
+enabled in the supplied 0.5.14 profile.
+
+`profile_version` is `514` for the source 0.5.14 profile. See
+[Escarpment and differential erosion](ESCARPMENT_EROSION.md) for the complete parameter table,
+units, useful ranges, increase/decrease semantics, three-dimensional occupancy rules,
+fracture/wind interactions and talus behavior.
+
 ## 0.5.13 lithology and fracture sections
 
-The profile now includes two optional, backwards-decodable objects:
+Version 0.5.13 introduced two optional, backwards-decodable objects:
 
 ```json
 "lithology": {
@@ -24,11 +57,13 @@ The profile now includes two optional, backwards-decodable objects:
 ```
 
 Older serialized profiles that omit either object receive the 0.5.13 defaults. Existing
-generated chunks are not rewritten. The complete explanation of every new JSON field,
-material role, resistance class, optional Create fallback, diagnostic, and future erosion /
-cavern hook is in [Lithology and fracture framework](LITHOLOGY_AND_FRACTURES.md).
+generated chunks are not rewritten. The complete explanation of every lithology/fracture JSON
+field, material role, resistance class, optional Create fallback, diagnostic, active erosion
+input and future cavern hook is in
+[Lithology and fracture framework](LITHOLOGY_AND_FRACTURES.md).
 
-`profile_version` is `513` for the source 0.5.13 profile.
+The 0.5.13 source profile used `profile_version=513`; that value remains valid in existing
+serialized worlds.
 
 ## 0.5.12 fault-floor correction
 
@@ -230,8 +265,9 @@ Higher values create more holes and separation.
 ### `shape_low` / `shape_high`
 Maps massif mask strength into vertical relief.
 
-A narrower interval generally produces a more abrupt height response; this is **not yet**
-the final escarpment-steepness/overhang system.
+A narrower interval generally produces a more abrupt macro height response. In 0.5.14 the
+separate `erosion` object can replace eligible parts of that smooth apron with a 3D escarpment;
+the massif thresholds remain the large-scale rock envelope.
 
 ---
 
@@ -526,19 +562,33 @@ columns retain the normal sand/sandstone layers.
 
 ---
 
-## Current proposed next geological step
+## `erosion` — 0.5.14
 
-After the JSON/profile tuning is stable, the next major morphology step should be a true
-**3D escarpment and erosion pass**, rather than another height-field adjustment.
+`erosion` operates after macro geology, lithology and fissures but before talus and dunes. It
+uses a signed rock-edge distance plus per-Y occupancy, allowing a column to contain surviving
+rock above and below an eroded recess. It is removal-only and preserves the foundation layers,
+faults and sand passes. The first one or two native-rock blocks above Y64 are also retained so
+shallow outcrops survive. Fracture susceptibility fades below each fissure's design depth;
+overlapping traces produce a bounded intersection signal that only modestly strengthens and
+deepens the fissure and its nearby cliff response.
 
-Target behavior:
+The main controls are grouped by role:
 
-- near-vertical, locally unclimbable hard-rock walls;
-- resistant caprock / strata;
-- preferential removal of softer layers;
-- undercut shelves;
-- locally negative-angle / overhanging faces;
-- collapse scars and talus where unsupported rock fails.
+- candidate geometry: `minimum_relief`, `face_probe_distance`,
+  `escarpment_start_strength`, `vertical_face_bias`;
+- exposure: `wind_exposure_strength`, `fracture_erosion_strength`;
+- material response: `soft_rock_multiplier`, `hard_rock_multiplier`,
+  `very_hard_rock_multiplier`, with medium rock fixed at `1.0`;
+- bounded negative-angle geometry: `undercut_strength`, `max_undercut_blocks`,
+  `undercut_frequency`;
+- detached-remnant application: `broken_rock_scale`.
 
-That 3D pass should happen before regional wind-shadow / sand-transport coupling, because
-the final cliff geometry should be what the wind system sees.
+The existing `lithology.talus` object supplies the switch, suitability threshold (`0.44` in the
+source profile), maximum thickness, horizontal spread and gravel-based palette for localized
+low-side cliff aprons. Final composition places talus above surviving rock and all full dune
+blocks, then omits an optional fractional dune layer if it would overlap the scree. This keeps
+the gravel fully supported. The full field-by-field guide is in
+[ESCARPMENT_EROSION.md](ESCARPMENT_EROSION.md).
+
+Regional wind shadow/sand transport, physical collapse, full caverns and sealed water remain
+later systems. The completed cliff geometry is deliberately available as their future input.
