@@ -33,7 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 514,
+          "profile_version": 5141,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0
@@ -103,9 +103,14 @@
               "calcite": "minecraft:calcite",
               "andesite": "minecraft:andesite",
               "diorite": "minecraft:diorite",
+              "granite": "minecraft:granite",
               "basalt": "minecraft:basalt",
               "blackstone": "minecraft:blackstone",
-              "talus": "minecraft:gravel"
+              "deepslate": "minecraft:deepslate",
+              "talus": "minecraft:gravel",
+              "granite_fraction": 0.28,
+              "deepslate_top_y": 72.0,
+              "deepslate_warp_strength": 8.0
             },
             "talus": {
               "local_scree_enabled": true,
@@ -146,7 +151,18 @@
             "undercut_strength": 0.72,
             "max_undercut_blocks": 6,
             "undercut_frequency": 0.24,
-            "broken_rock_scale": 0.72
+            "broken_rock_scale": 0.72,
+            "surface": {
+              "enabled": true,
+              "strength": 0.34,
+              "scale": 18.0,
+              "detail_scale": 6.0,
+              "max_retreat_blocks": 4,
+              "fissure_multiplier": 1.55,
+              "small_rock_strength": 0.42,
+              "broken_rock_strength": 0.58,
+              "lithology_relief_strength": 0.65
+            }
           },
           "sand_passes": {
             "start_radius": 1500.0,

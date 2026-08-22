@@ -1,5 +1,50 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.1 - Erosion Coverage & Rock Surface Morphology
+
+### Continuous exposed-rock erosion
+
+- Added `RockSurfaceErosionField`, a cheap deterministic removal-only pass that complements
+  the rare/large 0.5.14 escarpment events.
+- Ordinary massif faces now receive low-amplitude coherent recession instead of reverting to
+  long mathematically smooth walls between major erosion features.
+- The pass also affects foreland boulders and Broken Rock remnants at independently tunable
+  strengths, breaking their silhouettes without scaling the large cavern/undercut system down
+  onto every small rock.
+- Surface erosion remains bounded to a small configured retreat and is suppressed inside strong
+  regional-fault cores and sand passes.
+- Material resistance is evaluated per Y. Soft units recess farther while hard/very-hard units
+  survive as small ribs, benches and ledges, so lithology changes physical silhouette rather
+  than only block color.
+
+### Fissure-wall weathering
+
+- Local massif fissures receive a separate erosion multiplier around their existing walls.
+- Existing fissure depth remains authoritative; 0.5.14.1 primarily widens and roughens exposed
+  fissure walls instead of deepening every crack toward the crust.
+- Soft units can widen beyond the designed fissure edge while resistant units remain narrower.
+- Fracture intersections retain an additional bounded boost.
+
+### Granite and deepslate
+
+- Added vanilla granite as a coherent HARD plutonic intrusion alongside andesite/diorite.
+- Added `granite_fraction` to tune granite's share of already-qualified intrusive bodies.
+- Added vanilla deepslate as HARD ancient basement lithology.
+- Added `deepslate_top_y` and `deepslate_warp_strength` so deep cuts expose a coherent warped
+  basement instead of random dark surface speckle.
+- Added serialized `granite` and `deepslate` block identifiers.
+
+### Serialized surface tuning
+
+- Added optional `erosion.surface` settings:
+  `enabled`, `strength`, `scale`, `detail_scale`, `max_retreat_blocks`,
+  `fissure_multiplier`, `small_rock_strength`, `broken_rock_strength`, and
+  `lithology_relief_strength`.
+- Missing `erosion.surface` data decodes disabled for serialized 0.5.14 worlds.
+- The 0.5.14.1 source preset explicitly enables the pass and bumps terrain profile to `5141`.
+- Project version bumped to `0.5.14.1`.
+- Full cavern/water generation remains deferred.
+
 ## Minecraft: Dune 0.5.14 — Escarpment & Differential Erosion
 
 ### Three-dimensional escarpment morphology

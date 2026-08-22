@@ -23,7 +23,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 514;
+    public static final int CURRENT_PROFILE_VERSION = 5141;
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -35,9 +35,14 @@ public record ArrakisTerrainSettings(
                     "minecraft:calcite",
                     "minecraft:andesite",
                     "minecraft:diorite",
+                    "minecraft:granite",
                     "minecraft:basalt",
                     "minecraft:blackstone",
-                    "minecraft:gravel"
+                    "minecraft:deepslate",
+                    "minecraft:gravel",
+                    0.28,
+                    72.0,
+                    8.0
             );
 
     public static final TalusSettings DEFAULT_TALUS =
@@ -84,6 +89,23 @@ public record ArrakisTerrainSettings(
             );
 
     /**
+     * Surface erosion is opt-in for serialized 0.5.14 profiles. The 0.5.14.1 source preset
+     * enables it explicitly so existing 0.5.14 worlds do not silently change morphology.
+     */
+    public static final SurfaceErosionSettings DEFAULT_SURFACE_EROSION =
+            new SurfaceErosionSettings(
+                    false,
+                    0.34,
+                    18.0,
+                    6.0,
+                    4,
+                    1.55,
+                    0.42,
+                    0.58,
+                    0.65
+            );
+
+    /**
      * Missing erosion data stays disabled so a serialized 0.5.13 generator does not change
      * morphology at the border of newly generated chunks. The 0.5.14 source preset stores
      * the same parameters explicitly with {@code enabled=true}.
@@ -103,7 +125,8 @@ public record ArrakisTerrainSettings(
                     0.72,
                     6,
                     0.24,
-                    0.72
+                    0.72,
+                    DEFAULT_SURFACE_EROSION
             );
 
     public static final ArrakisTerrainSettings DEFAULT = new ArrakisTerrainSettings(
@@ -443,9 +466,14 @@ public record ArrakisTerrainSettings(
             String calcite,
             String andesite,
             String diorite,
+            String granite,
             String basalt,
             String blackstone,
-            String talus
+            String deepslate,
+            String talus,
+            double graniteFraction,
+            double deepslateTopY,
+            double deepslateWarpStrength
     ) {
         public static final Codec<MaterialPaletteSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -468,12 +496,22 @@ public record ArrakisTerrainSettings(
                                 .forGetter(MaterialPaletteSettings::andesite),
                         Codec.STRING.optionalFieldOf("diorite", "minecraft:diorite")
                                 .forGetter(MaterialPaletteSettings::diorite),
+                        Codec.STRING.optionalFieldOf("granite", "minecraft:granite")
+                                .forGetter(MaterialPaletteSettings::granite),
                         Codec.STRING.optionalFieldOf("basalt", "minecraft:basalt")
                                 .forGetter(MaterialPaletteSettings::basalt),
                         Codec.STRING.optionalFieldOf("blackstone", "minecraft:blackstone")
                                 .forGetter(MaterialPaletteSettings::blackstone),
+                        Codec.STRING.optionalFieldOf("deepslate", "minecraft:deepslate")
+                                .forGetter(MaterialPaletteSettings::deepslate),
                         Codec.STRING.optionalFieldOf("talus", "minecraft:gravel")
-                                .forGetter(MaterialPaletteSettings::talus)
+                                .forGetter(MaterialPaletteSettings::talus),
+                        Codec.DOUBLE.optionalFieldOf("granite_fraction", 0.28)
+                                .forGetter(MaterialPaletteSettings::graniteFraction),
+                        Codec.DOUBLE.optionalFieldOf("deepslate_top_y", 72.0)
+                                .forGetter(MaterialPaletteSettings::deepslateTopY),
+                        Codec.DOUBLE.optionalFieldOf("deepslate_warp_strength", 8.0)
+                                .forGetter(MaterialPaletteSettings::deepslateWarpStrength)
                 ).apply(instance, MaterialPaletteSettings::new));
     }
 
@@ -576,7 +614,8 @@ public record ArrakisTerrainSettings(
             double undercutStrength,
             int maxUndercutBlocks,
             double undercutFrequency,
-            double brokenRockScale
+            double brokenRockScale,
+            SurfaceErosionSettings surface
     ) {
         public static final Codec<ErosionSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -607,8 +646,51 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.optionalFieldOf("undercut_frequency", 0.24)
                                 .forGetter(ErosionSettings::undercutFrequency),
                         Codec.DOUBLE.optionalFieldOf("broken_rock_scale", 0.72)
-                                .forGetter(ErosionSettings::brokenRockScale)
+                                .forGetter(ErosionSettings::brokenRockScale),
+                        SurfaceErosionSettings.CODEC.optionalFieldOf(
+                                        "surface",
+                                        DEFAULT_SURFACE_EROSION
+                                )
+                                .forGetter(ErosionSettings::surface)
                 ).apply(instance, ErosionSettings::new));
+    }
+
+    /**
+     * Low-amplitude erosion for ordinary exposed rock. Major 0.5.14 escarpments remain a
+     * separate field; this group controls the missing continuous surface/edge treatment.
+     */
+    public record SurfaceErosionSettings(
+            boolean enabled,
+            double strength,
+            double scale,
+            double detailScale,
+            int maxRetreatBlocks,
+            double fissureMultiplier,
+            double smallRockStrength,
+            double brokenRockStrength,
+            double lithologyReliefStrength
+    ) {
+        public static final Codec<SurfaceErosionSettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.BOOL.optionalFieldOf("enabled", false)
+                                .forGetter(SurfaceErosionSettings::enabled),
+                        Codec.DOUBLE.optionalFieldOf("strength", 0.34)
+                                .forGetter(SurfaceErosionSettings::strength),
+                        Codec.DOUBLE.optionalFieldOf("scale", 18.0)
+                                .forGetter(SurfaceErosionSettings::scale),
+                        Codec.DOUBLE.optionalFieldOf("detail_scale", 6.0)
+                                .forGetter(SurfaceErosionSettings::detailScale),
+                        Codec.INT.optionalFieldOf("max_retreat_blocks", 4)
+                                .forGetter(SurfaceErosionSettings::maxRetreatBlocks),
+                        Codec.DOUBLE.optionalFieldOf("fissure_multiplier", 1.55)
+                                .forGetter(SurfaceErosionSettings::fissureMultiplier),
+                        Codec.DOUBLE.optionalFieldOf("small_rock_strength", 0.42)
+                                .forGetter(SurfaceErosionSettings::smallRockStrength),
+                        Codec.DOUBLE.optionalFieldOf("broken_rock_strength", 0.58)
+                                .forGetter(SurfaceErosionSettings::brokenRockStrength),
+                        Codec.DOUBLE.optionalFieldOf("lithology_relief_strength", 0.65)
+                                .forGetter(SurfaceErosionSettings::lithologyReliefStrength)
+                ).apply(instance, SurfaceErosionSettings::new));
     }
 
     public record SandPassSettings(

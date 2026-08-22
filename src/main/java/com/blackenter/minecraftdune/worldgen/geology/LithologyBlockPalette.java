@@ -16,8 +16,10 @@ public final class LithologyBlockPalette {
     private final Block calcite;
     private final Block andesite;
     private final Block diorite;
+    private final Block granite;
     private final Block basalt;
     private final Block blackstone;
+    private final Block deepslate;
     private final Block talus;
 
     public LithologyBlockPalette(ArrakisTerrainSettings.MaterialPaletteSettings settings) {
@@ -29,8 +31,10 @@ public final class LithologyBlockPalette {
         calcite = resolve(settings.calcite(), Blocks.CALCITE);
         andesite = resolve(settings.andesite(), Blocks.ANDESITE);
         diorite = resolve(settings.diorite(), Blocks.DIORITE);
+        granite = resolve(settings.granite(), Blocks.GRANITE);
         basalt = resolve(settings.basalt(), Blocks.BASALT);
         blackstone = resolve(settings.blackstone(), Blocks.BLACKSTONE);
+        deepslate = resolve(settings.deepslate(), Blocks.DEEPSLATE);
         talus = resolve(settings.talus(), Blocks.GRAVEL);
     }
 
@@ -51,8 +55,10 @@ public final class LithologyBlockPalette {
             case CALCITE -> calcite;
             case ANDESITE -> andesite;
             case DIORITE -> diorite;
+            case GRANITE -> granite;
             case BASALT -> basalt;
             case BLACKSTONE -> blackstone;
+            case DEEPSLATE -> deepslate;
             case GRAVEL -> talus;
         };
     }

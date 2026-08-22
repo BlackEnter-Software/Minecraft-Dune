@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 514, "active profile_version must be 514");
+        require(settings.profileVersion() == 5141, "active profile_version must be 5141");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject oldProfile = profile.json().deepCopy();

@@ -8,6 +8,7 @@ import com.blackenter.minecraftdune.worldgen.geology.LithologyBlockPalette;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
 import com.blackenter.minecraftdune.worldgen.geology.MacroGeologyField;
 import com.blackenter.minecraftdune.worldgen.geology.MassifFractureField;
+import com.blackenter.minecraftdune.worldgen.geology.RockSurfaceErosionField;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
@@ -185,7 +186,8 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             );
             for (int y = firstRockY; y <= lastRockY; y++) {
                 LithologyField.Sample material = terrain.materialSampleAt(y);
-                if (terrain.erosion().occupies(y, material)) {
+                if (terrain.erosion().occupies(y, material)
+                        && terrain.surfaceErosion().occupies(y, material)) {
                     column.setBlock(
                             y,
                             lithologyPalette.state(material.material())
@@ -250,7 +252,8 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                     );
                     for (int y = firstRockY; y <= lastRockY; y++) {
                         LithologyField.Sample material = terrain.materialSampleAt(y);
-                        if (terrain.erosion().occupies(y, material)) {
+                        if (terrain.erosion().occupies(y, material)
+                                && terrain.surfaceErosion().occupies(y, material)) {
                             position.set(worldX, y, worldZ);
                             chunk.setBlockState(
                                     position,
@@ -352,7 +355,21 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 fracture,
                 terrainSettings
         );
-        int rockTopY = erosion.highestRockY(lithology, fracture);
+        RockSurfaceErosionField.Column surfaceErosion = RockSurfaceErosionField.sample(
+                worldSeed,
+                worldX + 0.5,
+                worldZ + 0.5,
+                originalRockTopY,
+                fissureRockTopY,
+                geology,
+                fracture,
+                terrainSettings
+        );
+        int rockTopY = surfaceErosion.highestRockY(
+                lithology,
+                fracture,
+                erosion
+        );
 
         return new TerrainColumn(
                 rockTopY,
@@ -361,7 +378,8 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 dune.surfaceUnits(),
                 lithology,
                 fracture,
-                erosion
+                erosion,
+                surfaceErosion
         );
     }
 
@@ -494,7 +512,8 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             int duneSurfaceUnits,
             LithologyField.Column lithology,
             MassifFractureField.Sample fracture,
-            EscarpmentErosionField.Column erosion
+            EscarpmentErosionField.Column erosion,
+            RockSurfaceErosionField.Column surfaceErosion
     ) {
         LithologyField.Sample materialSampleAt(int y) {
             LithologyField.Sample sample = lithology.sample(y);

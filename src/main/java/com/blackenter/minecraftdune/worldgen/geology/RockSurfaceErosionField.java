@@ -1,0 +1,372 @@
+package com.blackenter.minecraftdune.worldgen.geology;
+
+import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
+
+/**
+ * Low-amplitude, deterministic erosion applied to exposed rock that is not necessarily part of
+ * a major 0.5.14 escarpment event.
+ *
+ * <p>The field is deliberately cheaper and smaller in amplitude than
+ * {@link EscarpmentErosionField}. It roughens ordinary massif faces, widens local fissures
+ * according to lithology, breaks the silhouettes of foreland/Broken Rock remnants, and lets
+ * resistant units stand proud. It is removal-only and never creates rock.</p>
+ */
+public final class RockSurfaceErosionField {
+    private static final long COARSE_SALT = 0x6F53A149D827CBE1L;
+    private static final long DETAIL_SALT = 0x3C91E0AF5B6274D8L;
+    private static final long VERTICAL_SALT = 0x7249D3B851AEC06FL;
+    private static final long FRACTURE_SALT = 0x1B68F4C297D50AE3L;
+
+    private RockSurfaceErosionField() {
+    }
+
+    public static Column sample(
+            long worldSeed,
+            double worldX,
+            double worldZ,
+            int originalRockTopY,
+            int fissureRockTopY,
+            MacroGeologyField.Sample geology,
+            MassifFractureField.Sample fracture,
+            ArrakisTerrainSettings settings
+    ) {
+        ArrakisTerrainSettings.ErosionSettings erosion = settings.erosion();
+        ArrakisTerrainSettings.SurfaceErosionSettings surface = erosion.surface();
+
+        int rockHeight = originalRockTopY - MacroGeologyField.BASE_SURFACE_Y;
+        if (!erosion.enabled()
+                || !surface.enabled()
+                || rockHeight <= 2
+                || geology.sandCorridorMask() > 0.35
+                || geology.faultCarveMask() > 0.86) {
+            return Column.inactive(
+                    worldSeed,
+                    worldX,
+                    worldZ,
+                    originalRockTopY,
+                    fissureRockTopY,
+                    erosion,
+                    surface
+            );
+        }
+
+        double massifPermission = Math.max(
+                geology.massifWeight(),
+                geology.faultedMarginWeight() * 0.72
+        );
+        double forelandPermission = geology.innerForelandWeight()
+                * Math.max(0.0, surface.smallRockStrength());
+        double brokenPermission = Math.max(
+                geology.brokenRockWeight(),
+                geology.sandRockTransitionWeight() * 0.42
+        ) * Math.max(0.0, surface.brokenRockStrength());
+
+        double provinceStrength = GeologyNoise.clamp(
+                Math.max(
+                        massifPermission,
+                        Math.max(forelandPermission, brokenPermission)
+                ),
+                0.0,
+                1.25
+        );
+        if (provinceStrength <= 0.015) {
+            return Column.inactive(
+                    worldSeed,
+                    worldX,
+                    worldZ,
+                    originalRockTopY,
+                    fissureRockTopY,
+                    erosion,
+                    surface
+            );
+        }
+
+        double formationMask = GeologyNoise.clamp(
+                geology.rockFormationMask(),
+                0.0,
+                1.0
+        );
+
+        // A mask-space edge gate is intentionally analytic and neighborhood-free. It catches
+        // the ordinary sides of foreland/Broken Rock bodies that are too small to justify the
+        // four-probe major escarpment field.
+        double edgeGate = GeologyNoise.smoothStep(
+                0.015,
+                0.18,
+                formationMask
+        ) * (
+                1.0 - GeologyNoise.smoothStep(
+                        0.78,
+                        0.995,
+                        formationMask
+                )
+        );
+
+        int configuredRetreat = Math.max(
+                0,
+                Math.min(8, surface.maxRetreatBlocks())
+        );
+        int maximumRetreat = Math.min(
+                configuredRetreat,
+                Math.max(0, rockHeight - 1)
+        );
+        if (maximumRetreat <= 0) {
+            return Column.inactive(
+                    worldSeed,
+                    worldX,
+                    worldZ,
+                    originalRockTopY,
+                    fissureRockTopY,
+                    erosion,
+                    surface
+            );
+        }
+
+        double coarseScale = Math.max(6.0, surface.scale());
+        double detailScale = Math.max(2.0, surface.detailScale());
+        double coarse = 0.5 + 0.5 * GeologyNoise.value2(
+                worldSeed ^ COARSE_SALT,
+                worldX / coarseScale,
+                worldZ / coarseScale
+        );
+        double detail = 0.5 + 0.5 * GeologyNoise.value2(
+                worldSeed ^ DETAIL_SALT,
+                worldX / detailScale,
+                worldZ / detailScale
+        );
+        double pattern = GeologyNoise.clamp(
+                coarse * 0.72 + detail * 0.28,
+                0.0,
+                1.0
+        );
+
+        double fractureProximity = 0.0;
+        if (fracture.activation() > 0.0 && Double.isFinite(fracture.distance())) {
+            double halo = Math.max(
+                    4.0,
+                    maximumRetreat * 2.0 + 3.0
+            );
+            fractureProximity = 1.0 - GeologyNoise.smoothStep(
+                    fracture.halfWidth(),
+                    fracture.halfWidth() + halo,
+                    fracture.distance()
+            );
+        }
+        double fractureStrength = GeologyNoise.clamp(
+                fractureProximity
+                        * fracture.activation()
+                        * Math.max(0.0, surface.fissureMultiplier())
+                        + fracture.intersectionStrength() * 0.28,
+                0.0,
+                2.0
+        );
+
+        double baseStrength = GeologyNoise.clamp(
+                Math.max(0.0, surface.strength()) * provinceStrength,
+                0.0,
+                1.5
+        );
+        double topStrength = GeologyNoise.clamp(
+                baseStrength
+                        * (0.18 + pattern * 0.82)
+                        * (0.72 + edgeGate * 0.28),
+                0.0,
+                1.5
+        );
+        double edgeStrength = GeologyNoise.clamp(
+                baseStrength
+                        * edgeGate
+                        * (0.52 + pattern * 0.48),
+                0.0,
+                1.5
+        );
+
+        double fractureBottomY = originalRockTopY - Math.max(
+                4.0,
+                fracture.designDepth()
+                        * (1.0 + fracture.intersectionStrength() * 0.25)
+        );
+
+        return new Column(
+                true,
+                worldSeed,
+                worldX,
+                worldZ,
+                originalRockTopY,
+                fissureRockTopY,
+                formationMask,
+                edgeGate,
+                provinceStrength,
+                topStrength,
+                edgeStrength,
+                fractureStrength,
+                fractureBottomY,
+                maximumRetreat,
+                coarseScale,
+                detailScale,
+                erosion,
+                surface,
+                fracture
+        );
+    }
+
+    public record Column(
+            boolean active,
+            long worldSeed,
+            double worldX,
+            double worldZ,
+            int originalRockTopY,
+            int fissureRockTopY,
+            double formationMask,
+            double edgeGate,
+            double provinceStrength,
+            double topStrength,
+            double edgeStrength,
+            double fractureStrength,
+            double fractureBottomY,
+            int maximumRetreat,
+            double coarseScale,
+            double detailScale,
+            ArrakisTerrainSettings.ErosionSettings erosion,
+            ArrakisTerrainSettings.SurfaceErosionSettings settings,
+            MassifFractureField.Sample fracture
+    ) {
+        static Column inactive(
+                long worldSeed,
+                double worldX,
+                double worldZ,
+                int originalRockTopY,
+                int fissureRockTopY,
+                ArrakisTerrainSettings.ErosionSettings erosion,
+                ArrakisTerrainSettings.SurfaceErosionSettings settings
+        ) {
+            return new Column(
+                    false,
+                    worldSeed,
+                    worldX,
+                    worldZ,
+                    originalRockTopY,
+                    fissureRockTopY,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    originalRockTopY,
+                    0,
+                    Math.max(6.0, settings.scale()),
+                    Math.max(2.0, settings.detailScale()),
+                    erosion,
+                    settings,
+                    MassifFractureField.NONE
+            );
+        }
+
+        public boolean occupies(int worldY, LithologyField.Sample lithology) {
+            if (worldY > fissureRockTopY) {
+                return false;
+            }
+            if (!active || worldY <= MacroGeologyField.BASE_SURFACE_Y + 2) {
+                return true;
+            }
+
+            double retreatMultiplier = EscarpmentErosionField.retreatMultiplier(
+                    lithology.resistance(),
+                    erosion
+            );
+            double lithologyRelief = GeologyNoise.clamp(
+                    1.0 + (
+                            retreatMultiplier - 1.0
+                    ) * GeologyNoise.clamp(
+                            settings.lithologyReliefStrength(),
+                            0.0,
+                            1.5
+                    ),
+                    0.20,
+                    2.0
+            );
+
+            int depthBelowSurface = fissureRockTopY - worldY;
+            if (depthBelowSurface >= 0 && depthBelowSurface <= maximumRetreat + 1) {
+                double topRetreat = maximumRetreat
+                        * topStrength
+                        * lithologyRelief;
+                if (depthBelowSurface < topRetreat) {
+                    return false;
+                }
+            }
+
+            // Widen fissure walls rather than deepening their existing floor. This preserves
+            // the 0.5.13 fissure depth clamp while allowing soft units to weather into broader
+            // slots and very hard units to stay narrow.
+            if (fractureStrength > 0.0
+                    && fracture.activation() > 0.0
+                    && Double.isFinite(fracture.distance())
+                    && fracture.distance() > fracture.halfWidth()
+                    && worldY >= fractureBottomY - 2.0) {
+                double verticalPattern = 0.5 + 0.5 * GeologyNoise.value3(
+                        worldSeed ^ FRACTURE_SALT,
+                        worldX / Math.max(6.0, coarseScale * 0.75),
+                        worldY / Math.max(5.0, coarseScale * 0.62),
+                        worldZ / Math.max(6.0, coarseScale * 0.75)
+                );
+                double extraWidth = maximumRetreat
+                        * fractureStrength
+                        * lithologyRelief
+                        * (0.42 + verticalPattern * 0.58);
+                if (fracture.distance() <= fracture.halfWidth() + extraWidth) {
+                    return false;
+                }
+            }
+
+            // Shift the outer material boundary in mask space. Because lithologyRelief is
+            // evaluated per Y, hard beds/ribs remain proud while soft beds recess. The effect
+            // is intentionally shallow and only exists on the analytic outer edge.
+            if (edgeStrength > 0.01) {
+                double verticalPattern = 0.5 + 0.5 * GeologyNoise.value3(
+                        worldSeed ^ VERTICAL_SALT,
+                        worldX / coarseScale,
+                        worldY / Math.max(5.0, coarseScale * 0.82),
+                        worldZ / coarseScale
+                );
+                double threshold = 0.018
+                        + 0.17
+                        * edgeStrength
+                        * lithologyRelief
+                        * (0.52 + verticalPattern * 0.48);
+                if (formationMask < threshold) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public int highestRockY(
+                LithologyField.Column lithology,
+                MassifFractureField.Sample fracture,
+                EscarpmentErosionField.Column escarpment
+        ) {
+            for (int y = fissureRockTopY;
+                    y >= MacroGeologyField.BASE_SURFACE_Y + 1;
+                    y--) {
+                LithologyField.Sample material = lithology.sample(y);
+                if (fracture.calciteExposure(y, originalRockTopY, fissureRockTopY)) {
+                    material = new LithologyField.Sample(
+                            LithologyField.Material.CALCITE,
+                            LithologyField.ResistanceClass.MEDIUM,
+                            material.limestoneHost(),
+                            false,
+                            false,
+                            true
+                    );
+                }
+                if (escarpment.occupies(y, material) && occupies(y, material)) {
+                    return y;
+                }
+            }
+            return MacroGeologyField.BASE_SURFACE_Y;
+        }
+    }
+}

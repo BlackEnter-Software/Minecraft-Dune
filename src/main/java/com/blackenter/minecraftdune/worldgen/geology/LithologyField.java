@@ -14,6 +14,8 @@ public final class LithologyField {
     private static final long HOST_SALT = 0x67FC51B328DA904EL;
     private static final long BAND_SALT = 0x0AA718DB4E39C625L;
     private static final long INTRUSION_SALT = 0x43E975A10CBD82F6L;
+    private static final long GRANITE_SELECTOR_SALT = 0x58C16E4B29A7D03FL;
+    private static final long BASEMENT_WARP_SALT = 0x1A4FD72C83E659B0L;
     private static final long RARE_BODY_SALT = 0x75BD094FC30A16E8L;
     private static final long SHEET_SALT = 0x61D38FA2940CE75BL;
     private static final long SHEET_WARP_SALT = 0x54C0B78E129DA36FL;
@@ -66,8 +68,10 @@ public final class LithologyField {
         CALCITE("calcite", ResistanceClass.MEDIUM, "horizontal mineral band/fracture exposure"),
         ANDESITE("andesite", ResistanceClass.HARD, "hard intrusive body"),
         DIORITE("diorite", ResistanceClass.HARD, "hard intrusive body"),
+        GRANITE("granite", ResistanceClass.HARD, "coherent hard plutonic intrusion"),
         BASALT("basalt", ResistanceClass.VERY_HARD, "very-hard resistant sheet"),
         BLACKSTONE("blackstone", ResistanceClass.VERY_HARD, "rare ancient resistant body"),
+        DEEPSLATE("deepslate", ResistanceClass.HARD, "hard ancient basement exposed by deep cuts"),
         GRAVEL("gravel", ResistanceClass.LOOSE, "loose talus/collapse material");
 
         private final String commandName;
@@ -219,6 +223,19 @@ public final class LithologyField {
                 return material(Material.BLACKSTONE, false, false, false);
             }
 
+            ArrakisTerrainSettings.MaterialPaletteSettings palette = settings.materials();
+            double basementWarp = palette.deepslateWarpStrength() * GeologyNoise.value2(
+                    worldSeed ^ BASEMENT_WARP_SALT,
+                    worldX / Math.max(48.0, horizontalScale * 1.15),
+                    worldZ / Math.max(48.0, horizontalScale * 1.15)
+            );
+            double basementTopY = palette.deepslateTopY()
+                    + basementWarp
+                    + strataWarp * 0.20;
+            if (worldY <= basementTopY) {
+                return material(Material.DEEPSLATE, false, false, false);
+            }
+
             double intrusionNoise = GeologyNoise.value3(
                     worldSeed ^ INTRUSION_SALT,
                     worldX / intrusionScale,
@@ -226,9 +243,24 @@ public final class LithologyField {
                     worldZ / intrusionScale
             ) + contactNoise * 0.66;
             if (intrusionNoise >= settings.intrusionThreshold()) {
-                Material intrusion = unitSignal >= 0.0
-                        ? Material.ANDESITE
-                        : Material.DIORITE;
+                double graniteSelector = 0.5 + 0.5 * GeologyNoise.value3(
+                        worldSeed ^ GRANITE_SELECTOR_SALT,
+                        worldX / Math.max(32.0, intrusionScale * 0.82),
+                        warpedY / Math.max(10.0, verticalScale * 1.45),
+                        worldZ / Math.max(32.0, intrusionScale * 0.82)
+                );
+                Material intrusion;
+                if (graniteSelector < GeologyNoise.clamp(
+                        palette.graniteFraction(),
+                        0.0,
+                        1.0
+                )) {
+                    intrusion = Material.GRANITE;
+                } else {
+                    intrusion = unitSignal >= 0.0
+                            ? Material.ANDESITE
+                            : Material.DIORITE;
+                }
                 return material(intrusion, false, false, false);
             }
 
@@ -277,7 +309,9 @@ public final class LithologyField {
                     material,
                     material.resistance(),
                     limestoneHost,
-                    material == Material.ANDESITE || material == Material.DIORITE,
+                    material == Material.ANDESITE
+                            || material == Material.DIORITE
+                            || material == Material.GRANITE,
                     basaltStructure,
                     calciteVein
             );

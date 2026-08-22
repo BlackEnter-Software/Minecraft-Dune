@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14**
+Current development version: **0.5.14.1**
 
 The project currently contains:
 
@@ -12,6 +12,7 @@ The project currently contains:
 - coherent 3D lithology with geological resistance roles and optional Create limestone;
 - deterministic through-going massif fissures, dead-end branches and variable calcite bands;
 - lithology-aware 3D escarpments, bounded undercuts and localized gravel/source-clast talus;
+- continuous low-amplitude surface erosion on ordinary massif faces, fissures and smaller rocks;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -70,9 +71,10 @@ caves, and biome features stay disabled. The Nether and End retain normal vanill
 ## Lithology, massif fissures, and escarpments — 0.5.14
 
 Native rock now reads as coherent geological units rather than uniform stone or per-block
-speckle. Stone, sandstone, tuff, calcite, andesite, diorite, basalt and blackstone have
-explicit roles and soft/medium/hard/very-hard resistance classes. Gravel is defined as loose
-talus/collapse material rather than intact bedrock.
+speckle. Stone, sandstone, tuff, calcite, andesite, diorite, granite, basalt, blackstone and
+deepslate have explicit roles and soft/medium/hard/very-hard resistance classes. Granite is a
+coherent hard plutonic intrusion; deepslate is hard ancient basement preferentially revealed
+by deep cuts. Gravel is defined as loose talus/collapse material rather than intact bedrock.
 
 The current development mod set contains Create and the profile requests `create:limestone`
 for rare sedimentary lenses. Minecraft: Dune keeps Create optional by resolving the identifier
