@@ -8,6 +8,7 @@ import com.blackenter.minecraftdune.worldgen.geology.LithologyBlockPalette;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
 import com.blackenter.minecraftdune.worldgen.geology.MacroGeologyField;
 import com.blackenter.minecraftdune.worldgen.geology.MassifFractureField;
+import com.blackenter.minecraftdune.worldgen.geology.RockFaceExposure;
 import com.blackenter.minecraftdune.worldgen.geology.RockSurfaceErosionField;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -344,6 +345,14 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 )
         );
         int fissureRockTopY = originalRockTopY - carveDepth;
+        RockFaceExposure.Sample face = RockFaceExposure.sample(
+                worldSeed,
+                worldX + 0.5,
+                worldZ + 0.5,
+                originalRockTopY,
+                geology,
+                terrainSettings
+        );
         EscarpmentErosionField.Column erosion = EscarpmentErosionField.sample(
                 worldSeed,
                 worldX + 0.5,
@@ -351,6 +360,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 originalRockTopY,
                 fissureRockTopY,
                 geology,
+                face,
                 lithology,
                 fracture,
                 terrainSettings
@@ -362,6 +372,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 originalRockTopY,
                 fissureRockTopY,
                 geology,
+                face,
                 fracture,
                 terrainSettings
         );

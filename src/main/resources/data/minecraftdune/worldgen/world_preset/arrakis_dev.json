@@ -33,7 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 5141,
+          "profile_version": 5142,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0

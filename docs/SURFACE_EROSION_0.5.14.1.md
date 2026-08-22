@@ -1,9 +1,10 @@
-# Rock Surface Erosion — 0.5.14.1
+# Exposed Cliff Face Erosion — 0.5.14.2
 
-0.5.14.1 is a refinement of the 0.5.14 escarpment/lithology release. The large 3D
-escarpment, undercut and talus system remains unchanged. This pass adds the missing
-low-amplitude erosion that should be visible on ordinary exposed rock between those major
-events.
+0.5.14.2 corrects the geometric limitation discovered while testing the 0.5.14.1 surface
+pass. A formation mask identifies a geological body; it does not prove whether a column is
+beside open air. The surface pass now derives exposure from actual neighboring terrain
+heights and applies low-amplitude erosion through the complete exposed wall interval. The
+large 3D escarpment, undercut and talus system remains in place.
 
 ## Generation order
 
@@ -16,15 +17,38 @@ massif fissures
     ↓
 0.5.14 major escarpment / differential erosion
     ↓
-0.5.14.1 ordinary rock-surface erosion
+shared height-derived face exposure
+    ↓
+0.5.14.2 whole-face rock erosion
     ↓
 talus
     ↓
 native dunes
 ```
 
-`RockSurfaceErosionField` is deterministic, analytic and removal-only. It never places rock
-outside the existing macro/fissure envelope and uses no post-generation world edits.
+`RockFaceExposure` samples short-range and far-range cardinal terrain heights once per X/Z
+column. It reports relief, steepness, downhill normal, high/low elevations, exposed vertical
+interval, and a bounded estimate of distance behind the face. `RockSurfaceErosionField` then
+reuses that sample for every Y in the column. Both fields are deterministic, analytic and
+removal-only, never place rock outside the existing macro/fissure envelope, and use no
+post-generation world edits.
+
+## Why formation mask was insufficient
+
+A Shield Wall column can retain `rockFormationMask = 1.0` while its neighboring terrain is
+140 blocks lower. The former mask-space edge gate called that interior rock and suppressed
+side erosion. In 0.5.14.2, the same column is a strong exposed face because its measured
+height relief and steepness are high. Formation/province values now provide geological
+eligibility and reduced small-rock strength; neighboring heights provide physical exposure.
+
+## Whole-face recession
+
+The short probe ring is at most the configured ordinary retreat plus one block. It locates the
+physical edge and prevents the pass from reaching arbitrarily into solid rock. The existing
+`erosion.face_probe_distance` is the far ring and measures the full wall relief and normal.
+For candidate columns, coherent 3D noise defines a bounded recession demand across
+`face_low_y .. face_high_y`. Material resistance is evaluated independently at every Y, so
+soft beds recess while granite/deepslate ribs and basalt/blackstone ledges can stand proud.
 
 ## What it changes
 
@@ -58,7 +82,7 @@ The settings are nested under `terrain.erosion.surface`.
 
 ### `enabled`
 
-Turns the 0.5.14.1 surface pass on/off.
+Turns the ordinary exposed-face surface pass on/off.
 
 Old serialized 0.5.14 profiles that do not contain `surface` decode with this pass disabled,
 preventing an automatic world-border morphology change.
@@ -156,7 +180,7 @@ deeply enough to expose it.
 
 The existing fissure geometry remains authoritative for depth.
 
-0.5.14.1 evaluates a narrow halo outside each fissure's existing half-width. The extra width
+0.5.14.2 evaluates a narrow halo outside each fissure's existing half-width. The extra width
 is then scaled by:
 
 - surface strength;
@@ -184,21 +208,17 @@ rather than scaled-down smooth hills.
 
 ## Performance
 
-The surface pass avoids the four macro-neighbor probes used by the major escarpment system.
-
-Per X/Z column it precomputes:
-
-- province permission;
-- formation-mask edge gate;
-- coarse/detail 2D noise;
-- fissure proximity.
-
-Per-Y work is limited to rock-bearing columns and only performs additional 3D noise when a
-column is close to a fissure or an exposed formation edge.
+Per X/Z column, one shared face sample performs two fixed cardinal probe rings. The far ring
+replaces the former neighbor sampling inside `EscarpmentErosionField`; the short ring is the
+only additional height work and is bounded by `max_retreat_blocks + 1`. The resulting face
+geometry, province permission, 2D pattern and fissure proximity are stored in the terrain
+column. Per-Y work remains limited to rock-bearing columns and only evaluates 3D recession
+noise for exposed-face or fissure-wall candidates. There is no radius search, iterative
+simulation, registry lookup, chunk-local state or chunk-order dependency.
 
 ## Deferred
 
-Still deferred after 0.5.14.1:
+Still deferred after 0.5.14.2:
 
 - full dry/mineralized/collapse cavern generation;
 - extremely rare sealed water caverns;

@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.1**
+Current development version: **0.5.14.2**
 
 The project currently contains:
 
@@ -12,7 +12,7 @@ The project currently contains:
 - coherent 3D lithology with geological resistance roles and optional Create limestone;
 - deterministic through-going massif fissures, dead-end branches and variable calcite bands;
 - lithology-aware 3D escarpments, bounded undercuts and localized gravel/source-clast talus;
-- continuous low-amplitude surface erosion on ordinary massif faces, fissures and smaller rocks;
+- height-detected, lithology-aware erosion down ordinary massif faces, fissures and smaller rocks;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -94,9 +94,11 @@ through the massif and are clipped only where exposed macro rock ends; internal 
 reserved for branches. Lithology contacts use coherent detail at multiple scales so adjacent
 rock units interlock instead of meeting along smooth oval or ruler-straight boundaries.
 
-After the top-down fissure carve, `EscarpmentErosionField` estimates a local formation edge
-with four coarse macro probes and evaluates surviving rock independently at each Y. Eligible
-massif and larger Broken Rock edges can now produce:
+After the top-down fissure carve, `RockFaceExposure` compares actual short- and far-range
+neighboring terrain heights. Its relief, steepness, low/high Y and downhill normal are shared
+by the major `EscarpmentErosionField` and ordinary `RockSurfaceErosionField`. Formation mask
+remains geological context, not the cliff detector: a mask-1.0 Shield Wall beside a 100-block
+drop is still exposed. Eligible massif and larger Broken Rock faces can now produce:
 
 - long steep or near-vertical plateau terminations;
 - soft limestone/tuff/sandstone recesses below harder units;
@@ -109,6 +111,8 @@ massif and larger Broken Rock edges can now produce:
 - localized low-side talus aprons with gravel matrix and coherent clasts from the adjacent
   source unit. Talus starts above full dune blocks and suppresses an overlapping fractional
   dune layer, so gravel is never supported only by partial sand.
+- low-amplitude coherent recession through ordinary walls' full exposed vertical intervals,
+  including weathered fissure sides and reduced-strength foreland/Broken Rock silhouettes.
 
 The operator only removes rock from the macro/fissure envelope, preserves the hard-crust
 connection and shallow one- or two-block outcrops, and rejects strong regional-fault and

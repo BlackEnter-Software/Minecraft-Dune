@@ -1,4 +1,4 @@
-# Arrakis terrain profile — parameter reference (0.5.14)
+# Arrakis terrain profile — parameter reference (0.5.14.2)
 
 The native Arrakis generator reads its terrain parameters from:
 
@@ -38,7 +38,10 @@ source preset enables it explicitly, avoiding silent morphology changes at the u
 of an older world. The existing `lithology.talus` group is reused for cliff-base scree and is
 enabled in the supplied 0.5.14 profile.
 
-`profile_version` is `514` for the source 0.5.14 profile. See
+The current source preset uses `profile_version=5142`. Version 0.5.14.2 adds no JSON keys and
+preserves every 0.5.14.1 erosion value. Ordinary face detection now reuses
+`erosion.face_probe_distance` for its far height ring and
+`erosion.surface.max_retreat_blocks + 1` (bounded internally) for its short height ring. See
 [Escarpment and differential erosion](ESCARPMENT_EROSION.md) for the complete parameter table,
 units, useful ranges, increase/decrease semantics, three-dimensional occupancy rules,
 fracture/wind interactions and talus behavior.

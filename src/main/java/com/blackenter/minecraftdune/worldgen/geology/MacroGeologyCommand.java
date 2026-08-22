@@ -155,6 +155,14 @@ public final class MacroGeologyCommand {
                         originalRockTopY - (MacroGeologyField.BASE_SURFACE_Y + 1)
                 )
         );
+        RockFaceExposure.Sample face = RockFaceExposure.sample(
+                worldSeed,
+                sampleX,
+                sampleZ,
+                originalRockTopY,
+                sample,
+                settings
+        );
         EscarpmentErosionField.Column erosion = EscarpmentErosionField.sample(
                 worldSeed,
                 sampleX,
@@ -162,11 +170,27 @@ public final class MacroGeologyCommand {
                 originalRockTopY,
                 fractureRockTopY,
                 sample,
+                face,
                 lithologyColumn,
                 fracture,
                 settings
         );
-        int survivingRockTopY = erosion.highestRockY(lithologyColumn, fracture);
+        RockSurfaceErosionField.Column surfaceErosion = RockSurfaceErosionField.sample(
+                worldSeed,
+                sampleX,
+                sampleZ,
+                originalRockTopY,
+                fractureRockTopY,
+                sample,
+                face,
+                fracture,
+                settings
+        );
+        int survivingRockTopY = surfaceErosion.highestRockY(
+                lithologyColumn,
+                fracture,
+                erosion
+        );
         int exposedY = Math.max(
                 MacroGeologyField.BASE_SURFACE_Y + 1,
                 survivingRockTopY
@@ -236,6 +260,25 @@ public final class MacroGeologyCommand {
                         fracture.intersectionStrength(),
                         fracture.mineralization(),
                         fracture.mineralized()
+                )),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(String.format(
+                        Locale.ROOT,
+                        "Exposed face: active=%s, exposure=%.2f, relief=%.1f, "
+                                + "Y%d..Y%d, steepness=%.2f, normal=(%.2f, %.2f), "
+                                + "surface_strength=%.2f.",
+                        face.exposed(),
+                        face.exposure(),
+                        face.localRelief(),
+                        face.lowY(),
+                        face.highY(),
+                        face.steepness(),
+                        face.outwardNormalX(),
+                        face.outwardNormalZ(),
+                        surfaceErosion.faceErosionStrength()
                 )),
                 false
         );

@@ -1,4 +1,4 @@
-# Escarpment and differential erosion — 0.5.14
+# Escarpment and differential erosion — 0.5.14.2
 
 Version 0.5.14 adds a deterministic, lithology-aware three-dimensional erosion layer to the
 native Arrakis generator. Its purpose is to turn selected smooth massif and large Broken Rock
@@ -19,7 +19,9 @@ independent NativeTransverseDuneField height sample from macro suitability
         ↓
 LithologyField 3D units + MassifFractureField fissures
         ↓
-EscarpmentErosionField face candidate and per-Y rock occupancy
+RockFaceExposure shared height geometry
+        ↓
+EscarpmentErosionField major occupancy + RockSurfaceErosionField ordinary face recession
         ↓
 foundation-connected surviving rock
         ↓
@@ -37,20 +39,20 @@ evaluation.
 
 ## Escarpment candidates
 
-The field first rejects ordinary sand, low-relief rock and areas strongly carved by a regional
-fault or sand pass. It then samples macro elevation and rock masks at four points around the
-column. Those coarse probes provide:
+The shared face field first rejects non-rock provinces and protected regional-fault/sand-pass
+cores. It then samples actual macro elevation in fixed cardinal directions around the column.
+The short ring locates the exposed boundary; the far ring provides:
 
 - local relief;
 - an inward/outward face normal;
-- a signed distance from the selected rock-mask edge;
+- low/high face elevations, steepness and a bounded distance behind the physical edge;
 - permission from massif, faulted-margin or suitably large Broken Rock terrain.
 
-The signed edge distance replaces part of the former smooth height-field apron with a much
-steeper face. `vertical_face_bias` controls how strongly the candidate is pulled toward that
-face. `broken_rock_scale` applies the same system to detached remnants at reduced strength;
-small outer fragments normally fail the relief and source-height gates and retain their simpler
-shape.
+The formation mask remains useful for geological ownership, but is not treated as evidence of
+exposure. Actual neighboring height differences determine whether the face is active, including
+where the formation mask is approximately 1.0. `vertical_face_bias` controls the major
+escarpment response. `broken_rock_scale`, `surface.small_rock_strength` and
+`surface.broken_rock_strength` apply reduced versions to detached remnants.
 
 ## Three-dimensional occupancy and support
 

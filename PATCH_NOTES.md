@@ -1,5 +1,50 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.2 — Exposed Cliff Face Erosion
+
+### Height-derived face detection
+
+- Added the shared deterministic `RockFaceExposure` field. It measures short-range and
+  far-range cardinal terrain heights once per X/Z column and reports local relief, steepness,
+  outward normal, high/low elevations, vertical face interval and bounded distance behind the
+  physical edge.
+- Fixed the architectural cause of smooth Shield Wall faces: `rockFormationMask` is no longer
+  used as the ordinary cliff detector. A formation mask remains geological eligibility data;
+  actual neighboring height differences determine whether rock is physically exposed.
+- Reused the shared height sample in both major escarpment and ordinary surface erosion,
+  removing the duplicate neighbor probing formerly embedded in `EscarpmentErosionField`.
+- A 100+ block wall can now remain a strong erosion candidate even when its formation mask is
+  approximately `1.0`.
+
+### Whole-wall differential recession
+
+- Extended ordinary surface erosion from shallow top trimming to the complete measured
+  `face_low_y .. face_high_y` interval.
+- Added coherent low-amplitude 3D recession down exposed walls. Retreat is compared with the
+  column's short-probe distance behind the edge, keeping the pass removal-only, shallow and
+  bounded by `erosion.surface.max_retreat_blocks`.
+- Lithology now changes the vertical silhouette throughout a cliff: soft sandstone, tuff and
+  limestone retreat farther; medium stone/calcite stay near baseline; hard andesite, diorite,
+  granite and deepslate form smaller ribs; very-hard basalt and blackstone remain most resistant.
+- Inner Foreland, Broken Rock and transition remnants use the same physical exposure test at
+  their existing reduced `small_rock_strength` / `broken_rock_strength` permissions.
+
+### Fissures, faults and compatibility
+
+- Kept local fissure depth authoritative while applying coherent, resistance-aware widening
+  down the existing wall interval. The current `fissure_multiplier` and intersection signal
+  provide the extra bounded recession.
+- Preserved strong regional fault cores, 0.5.12 absolute fault floors and sand-pass corridors;
+  eligible exposed walls can weather without modifying their protected floors.
+- Preserved the 0.5.14.1 granite and deepslate bodies and all current serialized tuning.
+- Added concise `/dune geology` face diagnostics: exposure, relief, low/high Y, steepness,
+  outward normal and ordinary face-erosion strength.
+- Added deterministic validation for a mask-independent 140-block wall, full-height recession,
+  resistance ordering, fissure widening/depth bounds, fault-floor protection and chunk-order
+  independence.
+- No terrain JSON parameters were added. The source profile version is `5142`; project version
+  is `0.5.14.2`.
+
 ## Minecraft: Dune 0.5.14.1 - Erosion Coverage & Rock Surface Morphology
 
 ### Continuous exposed-rock erosion

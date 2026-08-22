@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 5141, "active profile_version must be 5141");
+        require(settings.profileVersion() == 5142, "active profile_version must be 5142");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject oldProfile = profile.json().deepCopy();
@@ -39,6 +39,7 @@ public final class EscarpmentErosionValidation {
         require(!backward.erosion().enabled(), "missing erosion group must decode disabled");
 
         validateResistanceOrder(settings);
+        validateExposedFaceGeometry(settings);
         validateBasinAndDunes(settings);
         SeamCounts seams = validateChunkBoundaryOrderIndependence(settings);
         ValidationCounts counts = validateEscarpments(settings);
@@ -132,6 +133,235 @@ public final class EscarpmentErosionValidation {
         );
         require(soft > medium && medium > hard && hard > veryHard,
                 "retreat must decrease monotonically with resistance");
+    }
+
+    private static void validateExposedFaceGeometry(ArrakisTerrainSettings settings) {
+        // A broad wall remains a cliff even when its owning formation mask would be 1.0. The
+        // helper intentionally receives only physical heights, so no mask can suppress it.
+        RockFaceExposure.Sample wall = RockFaceExposure.fromHeights(
+                220.0,
+                80.0,
+                220.0,
+                220.0,
+                220.0,
+                80.0,
+                220.0,
+                220.0,
+                220.0,
+                5.0,
+                18.0,
+                settings.erosion().minimumRelief()
+        );
+        require(wall.exposed() && wall.exposure() > 0.80,
+                "140-block synthetic massif wall was not strongly exposed");
+        require(wall.lowY() == 80 && wall.highY() == 220,
+                "synthetic wall vertical interval is incorrect");
+        require(wall.highSide() && wall.faceInset() < 0.01,
+                "synthetic wall boundary was not classified on the high side");
+
+        LithologyField.Sample soft = new LithologyField.Sample(
+                LithologyField.Material.TUFF,
+                LithologyField.ResistanceClass.SOFT,
+                false,
+                false,
+                false,
+                false
+        );
+        LithologyField.Sample veryHard = new LithologyField.Sample(
+                LithologyField.Material.BASALT,
+                LithologyField.ResistanceClass.VERY_HARD,
+                false,
+                false,
+                true,
+                false
+        );
+        ArrakisTerrainSettings.ErosionSettings erosion = settings.erosion();
+        ArrakisTerrainSettings.SurfaceErosionSettings surface = erosion.surface();
+        RockFaceExposure.Sample insetWall = new RockFaceExposure.Sample(
+                wall.exposed(),
+                wall.exposure(),
+                wall.localRelief(),
+                wall.nearRelief(),
+                wall.steepness(),
+                wall.outwardNormalX(),
+                wall.outwardNormalZ(),
+                wall.lowY(),
+                wall.highY(),
+                wall.signedFaceDistance(),
+                2.20,
+                wall.highSide(),
+                wall.nearProbeDistance(),
+                wall.farProbeDistance()
+        );
+        RockSurfaceErosionField.Column synthetic = new RockSurfaceErosionField.Column(
+                true,
+                SEEDS[0],
+                0.5,
+                0.5,
+                220,
+                220,
+                insetWall,
+                1.0,
+                0.0,
+                Math.max(0.52, surface.strength()),
+                0.0,
+                160.0,
+                Math.max(1, surface.maxRetreatBlocks()),
+                Math.max(6.0, surface.scale()),
+                Math.max(2.0, surface.detailScale()),
+                erosion,
+                surface,
+                MassifFractureField.NONE
+        );
+        int deepSoftRemoved = 0;
+        int deepVeryHardRemoved = 0;
+        int distinctBands = 0;
+        boolean previousRemoved = false;
+        for (int y = wall.lowY() + 5; y <= wall.highY() - 8; y++) {
+            boolean softRemoved = !synthetic.occupies(y, soft);
+            boolean veryHardRemoved = !synthetic.occupies(y, veryHard);
+            if (softRemoved) {
+                deepSoftRemoved++;
+            }
+            if (veryHardRemoved) {
+                deepVeryHardRemoved++;
+            }
+            if (softRemoved && !previousRemoved) {
+                distinctBands++;
+            }
+            previousRemoved = softRemoved;
+        }
+        require(deepSoftRemoved > 12,
+                "ordinary erosion did not operate down the full synthetic wall");
+        require(deepSoftRemoved > deepVeryHardRemoved,
+                "soft wall did not recede farther than very-hard wall");
+        require(distinctBands > 0, "synthetic face recession produced no coherent band");
+
+        int fissureComparisons = 0;
+        boolean fissureExtraRemoval = false;
+        SurfaceCoordinate wallRepresentative = null;
+        SurfaceCoordinate fissureRepresentative = null;
+        for (int angleIndex = 0;
+                angleIndex < 32
+                        && (wallRepresentative == null || !fissureExtraRemoval);
+                angleIndex++) {
+            double angle = angleIndex * Math.PI * 2.0 / 32.0;
+            for (int radius = 1100; radius <= 6800; radius += 3) {
+                double x = Math.floor(Math.cos(angle) * radius) + 0.5;
+                double z = Math.floor(Math.sin(angle) * radius) + 0.5;
+                Evaluation evaluation = evaluate(SEEDS[0], x, z, settings);
+                RockSurfaceErosionField.Column withFracture = evaluation.surfaceErosion();
+                if (wallRepresentative == null
+                        && withFracture.active()
+                        && evaluation.face().highSide()
+                        && evaluation.face().exposure() > 0.50
+                        && evaluation.face().localRelief() > 30.0) {
+                    int removed = 0;
+                    int firstY = Math.max(
+                            evaluation.face().lowY() + 5,
+                            MacroGeologyField.BASE_SURFACE_Y + 3
+                    );
+                    int lastY = Math.min(
+                            evaluation.face().highY() - 8,
+                            evaluation.fissureTopY()
+                    );
+                    for (int y = firstY; y <= lastY; y++) {
+                        if (!withFracture.occupies(y, productionMaterialAt(evaluation, y))) {
+                            removed++;
+                        }
+                    }
+                    if (removed > 2) {
+                        wallRepresentative = new SurfaceCoordinate(
+                                x,
+                                z,
+                                Math.min(319, Math.max(80, evaluation.face().highY() + 30)),
+                                evaluation.face().exposure(),
+                                evaluation.face().localRelief(),
+                                removed,
+                                withFracture.fractureStrength()
+                        );
+                    }
+                }
+                if (!withFracture.active()
+                        || withFracture.fractureStrength() <= 0.05
+                        || evaluation.fracture().distance()
+                        <= evaluation.fracture().halfWidth()) {
+                    continue;
+                }
+                RockSurfaceErosionField.Column withoutFracture =
+                        RockSurfaceErosionField.sample(
+                                SEEDS[0],
+                                x,
+                                z,
+                                evaluation.originalTopY(),
+                                evaluation.fissureTopY(),
+                                evaluation.geology(),
+                                evaluation.face(),
+                                MassifFractureField.NONE,
+                                settings
+                        );
+                int withRemoved = 0;
+                int withoutRemoved = 0;
+                int bottom = Math.max(
+                        MacroGeologyField.BASE_SURFACE_Y + 3,
+                        (int) Math.floor(withFracture.fractureBottomY() - 2.0)
+                );
+                for (int y = bottom; y <= evaluation.fissureTopY(); y++) {
+                    if (!withFracture.occupies(y, soft)) {
+                        withRemoved++;
+                    }
+                    if (!withoutFracture.occupies(y, soft)) {
+                        withoutRemoved++;
+                    }
+                }
+                if (withFracture.fractureBottomY()
+                        >= MacroGeologyField.BASE_SURFACE_Y + 7.0) {
+                    int below = (int) Math.floor(withFracture.fractureBottomY() - 4.0);
+                    require(withFracture.occupies(below, soft)
+                                    == withoutFracture.occupies(below, soft),
+                            "fissure surface pass deepened below its authoritative depth");
+                }
+                fissureComparisons++;
+                boolean extraRemoval = withRemoved > withoutRemoved;
+                fissureExtraRemoval |= extraRemoval;
+                if (extraRemoval && fissureRepresentative == null) {
+                    fissureRepresentative = new SurfaceCoordinate(
+                            x,
+                            z,
+                            Math.min(319, Math.max(80, evaluation.originalTopY() + 28)),
+                            evaluation.face().exposure(),
+                            evaluation.face().localRelief(),
+                            withRemoved - withoutRemoved,
+                            withFracture.fractureStrength()
+                    );
+                }
+            }
+        }
+        require(fissureComparisons > 0, "no surface fissure wall was compared");
+        require(fissureExtraRemoval, "fissure multiplier produced no extra wall recession");
+        require(wallRepresentative != null, "no seed-0 whole-face screenshot site found");
+        require(fissureRepresentative != null, "no seed-0 fissure screenshot site found");
+        System.out.printf(
+                Locale.ROOT,
+                "Recommended 0.5.14.2 wall screenshot: seed=0, x=%.1f, z=%.1f, y=%d, "
+                        + "exposure=%.3f, relief=%.1f, deep_removed=%d.%n",
+                wallRepresentative.x(),
+                wallRepresentative.z(),
+                wallRepresentative.suggestedY(),
+                wallRepresentative.exposure(),
+                wallRepresentative.relief(),
+                wallRepresentative.removedBlocks()
+        );
+        System.out.printf(
+                Locale.ROOT,
+                "Recommended 0.5.14.2 fissure screenshot: seed=0, x=%.1f, z=%.1f, y=%d, "
+                        + "fracture=%.3f, extra_removed=%d.%n",
+                fissureRepresentative.x(),
+                fissureRepresentative.z(),
+                fissureRepresentative.suggestedY(),
+                fissureRepresentative.fractureStrength(),
+                fissureRepresentative.removedBlocks()
+        );
     }
 
     private static void validateBasinAndDunes(ArrakisTerrainSettings settings) {
@@ -547,6 +777,7 @@ public final class EscarpmentErosionValidation {
                                         first.originalTopY(),
                                         first.fissureTopY(),
                                         first.geology(),
+                                        first.face(),
                                         first.lithology(),
                                         MassifFractureField.NONE,
                                         settings
@@ -627,8 +858,11 @@ public final class EscarpmentErosionValidation {
                         * (1.0 - geology.faultSandFloorMask());
                 require(geology.addedRockHeight() <= expected + 0.75,
                         "0.5.12 absolute fault floor was raised");
-                require(!evaluate(SEEDS[0], x, z, settings).erosion().candidate(),
-                        "erosion attempted to bridge a full fault core");
+                Evaluation evaluation = evaluate(SEEDS[0], x, z, settings);
+                require(!evaluation.erosion().candidate(),
+                        "major erosion attempted to bridge a full fault core");
+                require(!evaluation.surfaceErosion().active(),
+                        "surface erosion attempted to alter a full fault core");
                 fullFaultCores++;
             }
         }
@@ -671,6 +905,14 @@ public final class EscarpmentErosionValidation {
                 Math.max(0, originalTopY - (MacroGeologyField.BASE_SURFACE_Y + 1))
         );
         int fissureTopY = originalTopY - carveDepth;
+        RockFaceExposure.Sample face = RockFaceExposure.sample(
+                seed,
+                x,
+                z,
+                originalTopY,
+                geology,
+                settings
+        );
         EscarpmentErosionField.Column erosion = EscarpmentErosionField.sample(
                 seed,
                 x,
@@ -678,7 +920,19 @@ public final class EscarpmentErosionValidation {
                 originalTopY,
                 fissureTopY,
                 geology,
+                face,
                 lithology,
+                fracture,
+                settings
+        );
+        RockSurfaceErosionField.Column surfaceErosion = RockSurfaceErosionField.sample(
+                seed,
+                x,
+                z,
+                originalTopY,
+                fissureTopY,
+                geology,
+                face,
                 fracture,
                 settings
         );
@@ -687,7 +941,9 @@ public final class EscarpmentErosionValidation {
                 dune,
                 lithology,
                 fracture,
+                face,
                 erosion,
+                surfaceErosion,
                 originalTopY,
                 fissureTopY
         );
@@ -699,6 +955,8 @@ public final class EscarpmentErosionValidation {
         hash = mix(hash, evaluation.originalTopY());
         hash = mix(hash, evaluation.fissureTopY());
         hash = mix(hash, evaluation.dune().surfaceUnits());
+        hash = mix(hash, Double.doubleToLongBits(evaluation.face().exposure()));
+        hash = mix(hash, Double.doubleToLongBits(evaluation.face().localRelief()));
         hash = mix(hash, erosion.candidate() ? 1L : 0L);
         hash = mix(hash, Double.doubleToLongBits(erosion.escarpmentStrength()));
         hash = mix(hash, Double.doubleToLongBits(erosion.signedFaceDistance()));
@@ -714,9 +972,11 @@ public final class EscarpmentErosionValidation {
     private static long columnSignature(Evaluation evaluation) {
         long hash = evaluationHash(evaluation);
         EscarpmentErosionField.Column erosion = evaluation.erosion();
-        int highest = erosion.highestRockY(
+        RockSurfaceErosionField.Column surfaceErosion = evaluation.surfaceErosion();
+        int highest = surfaceErosion.highestRockY(
                 evaluation.lithology(),
-                evaluation.fracture()
+                evaluation.fracture(),
+                erosion
         );
         hash = mix(hash, highest);
 
@@ -731,6 +991,7 @@ public final class EscarpmentErosionValidation {
             hash = mix(hash, material.limestoneHost() ? 1L : 0L);
             hash = mix(hash, material.calciteVein() ? 1L : 0L);
             hash = mix(hash, erosion.occupies(y, material) ? 1L : 0L);
+            hash = mix(hash, surfaceErosion.occupies(y, material) ? 1L : 0L);
         }
 
         for (int index = 0; index < erosion.talusThickness(); index++) {
@@ -788,6 +1049,17 @@ public final class EscarpmentErosionValidation {
     private record SeamCounts(int seamColumns, int orderColumns) {
     }
 
+    private record SurfaceCoordinate(
+            double x,
+            double z,
+            int suggestedY,
+            double exposure,
+            double relief,
+            int removedBlocks,
+            double fractureStrength
+    ) {
+    }
+
     private record CandidateCoordinate(
             long seed,
             double x,
@@ -820,7 +1092,9 @@ public final class EscarpmentErosionValidation {
             NativeTransverseDuneField.Sample dune,
             LithologyField.Column lithology,
             MassifFractureField.Sample fracture,
+            RockFaceExposure.Sample face,
             EscarpmentErosionField.Column erosion,
+            RockSurfaceErosionField.Column surfaceErosion,
             int originalTopY,
             int fissureTopY
     ) {

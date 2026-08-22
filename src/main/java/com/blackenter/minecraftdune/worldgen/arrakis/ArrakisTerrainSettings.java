@@ -23,7 +23,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 5141;
+    public static final int CURRENT_PROFILE_VERSION = 5142;
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -89,7 +89,7 @@ public record ArrakisTerrainSettings(
             );
 
     /**
-     * Surface erosion is opt-in for serialized 0.5.14 profiles. The 0.5.14.1 source preset
+     * Surface erosion is opt-in for serialized 0.5.14 profiles. The current source preset
      * enables it explicitly so existing 0.5.14 worlds do not silently change morphology.
      */
     public static final SurfaceErosionSettings DEFAULT_SURFACE_EROSION =

@@ -6,9 +6,9 @@ import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
  * Deterministic 3D cliff occupancy for the 0.5.14 escarpment pass.
  *
  * <p>The field is removal-only: it never creates rock above the macro/fissure envelope. A
- * locally estimated signed formation-edge distance replaces the former smooth apron with a
- * steep face. Per-Y lithology then moves that face inward by different amounts, allowing hard
- * benches and bounded rock-air-rock undercuts without bridging faults or sand corridors.</p>
+ * shared height-derived face description replaces the former smooth apron with a steep face.
+ * Per-Y lithology then moves that face inward by different amounts, allowing hard benches and
+ * bounded rock-air-rock undercuts without bridging faults or sand corridors.</p>
  */
 public final class EscarpmentErosionField {
     private static final long FACE_DETAIL_SALT = 0x4F92C7A63D18B5E1L;
@@ -26,6 +26,7 @@ public final class EscarpmentErosionField {
             int originalRockTopY,
             int fissureRockTopY,
             MacroGeologyField.Sample geology,
+            RockFaceExposure.Sample face,
             LithologyField.Column lithology,
             MassifFractureField.Sample fracture,
             ArrakisTerrainSettings settings
@@ -34,24 +35,6 @@ public final class EscarpmentErosionField {
         if (!erosion.enabled()
                 || geology.sandCorridorMask() > 0.08
                 || geology.faultCarveMask() > 0.20) {
-            return Column.inactive(
-                    worldSeed,
-                    worldX,
-                    worldZ,
-                    originalRockTopY,
-                    fissureRockTopY,
-                    erosion
-            );
-        }
-
-        double edgeThreshold = GeologyNoise.clamp(
-                erosion.escarpmentStartStrength(),
-                0.05,
-                0.90
-        );
-        double formationMask = geology.rockFormationMask();
-        if (formationMask < edgeThreshold - 0.30
-                || formationMask > edgeThreshold + 0.54) {
             return Column.inactive(
                     worldSeed,
                     worldX,
@@ -81,33 +64,10 @@ public final class EscarpmentErosionField {
             );
         }
 
-        double probe = GeologyNoise.clamp(erosion.faceProbeDistance(), 6.0, 48.0);
-        MacroGeologyField.Sample west = MacroGeologyField.sample(
-                worldSeed, worldX - probe, worldZ, settings
-        );
-        MacroGeologyField.Sample east = MacroGeologyField.sample(
-                worldSeed, worldX + probe, worldZ, settings
-        );
-        MacroGeologyField.Sample north = MacroGeologyField.sample(
-                worldSeed, worldX, worldZ - probe, settings
-        );
-        MacroGeologyField.Sample south = MacroGeologyField.sample(
-                worldSeed, worldX, worldZ + probe, settings
-        );
-
-        double westTop = west.baseElevation();
-        double eastTop = east.baseElevation();
-        double northTop = north.baseElevation();
-        double southTop = south.baseElevation();
-        double minimumTop = Math.min(
-                geology.baseElevation(),
-                Math.min(Math.min(westTop, eastTop), Math.min(northTop, southTop))
-        );
-        double maximumTop = Math.max(
-                geology.baseElevation(),
-                Math.max(Math.max(westTop, eastTop), Math.max(northTop, southTop))
-        );
-        double localRelief = maximumTop - minimumTop;
+        double probe = face.farProbeDistance();
+        double minimumTop = face.lowY();
+        double maximumTop = face.highY();
+        double localRelief = face.localRelief();
         double minimumRelief = Math.max(4.0, erosion.minimumRelief());
         double reliefGate = GeologyNoise.smoothStep(
                 minimumRelief,
@@ -119,7 +79,7 @@ public final class EscarpmentErosionField {
                 minimumRelief + 18.0,
                 maximumTop - MacroGeologyField.BASE_SURFACE_Y
         );
-        if (reliefGate <= 0.0 || sourceHeightGate <= 0.0) {
+        if (!face.exposed() || reliefGate <= 0.0 || sourceHeightGate <= 0.0) {
             return Column.inactive(
                     worldSeed,
                     worldX,
@@ -130,45 +90,17 @@ public final class EscarpmentErosionField {
             );
         }
 
-        double maskGradientX = (east.rockFormationMask() - west.rockFormationMask())
-                / (probe * 2.0);
-        double maskGradientZ = (south.rockFormationMask() - north.rockFormationMask())
-                / (probe * 2.0);
-        double maskGradientLength = Math.hypot(maskGradientX, maskGradientZ);
-        double heightGradientX = (eastTop - westTop) / (probe * 2.0);
-        double heightGradientZ = (southTop - northTop) / (probe * 2.0);
-        double heightGradientLength = Math.hypot(heightGradientX, heightGradientZ);
-
-        double inwardX;
-        double inwardZ;
-        if (maskGradientLength >= 0.0010) {
-            inwardX = maskGradientX / maskGradientLength;
-            inwardZ = maskGradientZ / maskGradientLength;
-        } else if (heightGradientLength >= 0.01) {
-            inwardX = heightGradientX / heightGradientLength;
-            inwardZ = heightGradientZ / heightGradientLength;
-        } else {
-            return Column.inactive(
-                    worldSeed,
-                    worldX,
-                    worldZ,
-                    originalRockTopY,
-                    fissureRockTopY,
-                    erosion
-            );
-        }
-
-        double distanceDenominator = Math.max(maskGradientLength, 1.0 / (probe * 3.2));
-        double signedFaceDistance = GeologyNoise.clamp(
-                (formationMask - edgeThreshold) / distanceDenominator,
-                -probe * 2.0,
-                probe * 2.0
+        double edgeThreshold = GeologyNoise.clamp(
+                erosion.escarpmentStartStrength(),
+                0.05,
+                0.90
         );
-        double faceGate = 1.0 - GeologyNoise.smoothStep(
-                probe * 0.82,
-                probe * 1.72,
-                Math.abs(signedFaceDistance)
+        double faceGate = GeologyNoise.smoothStep(
+                edgeThreshold,
+                Math.min(1.0, edgeThreshold + 0.34),
+                face.exposure()
         );
+        double signedFaceDistance = face.signedFaceDistance();
         double permissionGate = GeologyNoise.smoothStep(0.10, 0.55, provincePermission);
         double verticalBias = GeologyNoise.clamp(erosion.verticalFaceBias(), 0.0, 1.25);
         double escarpmentStrength = GeologyNoise.clamp(
@@ -191,8 +123,8 @@ public final class EscarpmentErosionField {
             );
         }
 
-        double outwardX = -inwardX;
-        double outwardZ = -inwardZ;
+        double outwardX = face.outwardNormalX();
+        double outwardZ = face.outwardNormalZ();
         double windRadians = Math.toRadians(settings.nativeDunes().windAngleDegrees());
         double windX = Math.cos(windRadians);
         double windZ = Math.sin(windRadians);

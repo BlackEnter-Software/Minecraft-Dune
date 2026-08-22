@@ -27,6 +27,7 @@ public final class RockSurfaceErosionField {
             int originalRockTopY,
             int fissureRockTopY,
             MacroGeologyField.Sample geology,
+            RockFaceExposure.Sample face,
             MassifFractureField.Sample fracture,
             ArrakisTerrainSettings settings
     ) {
@@ -80,27 +81,6 @@ public final class RockSurfaceErosionField {
                     surface
             );
         }
-
-        double formationMask = GeologyNoise.clamp(
-                geology.rockFormationMask(),
-                0.0,
-                1.0
-        );
-
-        // A mask-space edge gate is intentionally analytic and neighborhood-free. It catches
-        // the ordinary sides of foreland/Broken Rock bodies that are too small to justify the
-        // four-probe major escarpment field.
-        double edgeGate = GeologyNoise.smoothStep(
-                0.015,
-                0.18,
-                formationMask
-        ) * (
-                1.0 - GeologyNoise.smoothStep(
-                        0.78,
-                        0.995,
-                        formationMask
-                )
-        );
 
         int configuredRetreat = Math.max(
                 0,
@@ -169,13 +149,13 @@ public final class RockSurfaceErosionField {
         double topStrength = GeologyNoise.clamp(
                 baseStrength
                         * (0.18 + pattern * 0.82)
-                        * (0.72 + edgeGate * 0.28),
+                        * (0.72 + face.exposure() * 0.28),
                 0.0,
                 1.5
         );
-        double edgeStrength = GeologyNoise.clamp(
+        double faceStrength = GeologyNoise.clamp(
                 baseStrength
-                        * edgeGate
+                        * face.exposure()
                         * (0.52 + pattern * 0.48),
                 0.0,
                 1.5
@@ -194,11 +174,10 @@ public final class RockSurfaceErosionField {
                 worldZ,
                 originalRockTopY,
                 fissureRockTopY,
-                formationMask,
-                edgeGate,
+                face,
                 provinceStrength,
                 topStrength,
-                edgeStrength,
+                faceStrength,
                 fractureStrength,
                 fractureBottomY,
                 maximumRetreat,
@@ -217,11 +196,10 @@ public final class RockSurfaceErosionField {
             double worldZ,
             int originalRockTopY,
             int fissureRockTopY,
-            double formationMask,
-            double edgeGate,
+            RockFaceExposure.Sample face,
             double provinceStrength,
             double topStrength,
-            double edgeStrength,
+            double faceErosionStrength,
             double fractureStrength,
             double fractureBottomY,
             int maximumRetreat,
@@ -247,8 +225,7 @@ public final class RockSurfaceErosionField {
                     worldZ,
                     originalRockTopY,
                     fissureRockTopY,
-                    0.0,
-                    0.0,
+                    RockFaceExposure.Sample.NONE,
                     0.0,
                     0.0,
                     0.0,
@@ -320,22 +297,46 @@ public final class RockSurfaceErosionField {
                 }
             }
 
-            // Shift the outer material boundary in mask space. Because lithologyRelief is
-            // evaluated per Y, hard beds/ribs remain proud while soft beds recess. The effect
-            // is intentionally shallow and only exists on the analytic outer edge.
-            if (edgeStrength > 0.01) {
+            // Recede the real height-derived face through its complete exposed vertical
+            // interval. faceInset is a bounded near-probe estimate of how far this column lies
+            // behind the physical edge; comparing it with a coherent recession field prevents
+            // erosion from tunnelling arbitrarily into solid interior rock.
+            if (faceErosionStrength > 0.01
+                    && face.highSide()
+                    && worldY > Math.max(
+                            MacroGeologyField.BASE_SURFACE_Y + 2,
+                            face.lowY()
+                    )
+                    && worldY <= Math.min(fissureRockTopY, face.highY())) {
                 double verticalPattern = 0.5 + 0.5 * GeologyNoise.value3(
                         worldSeed ^ VERTICAL_SALT,
                         worldX / coarseScale,
                         worldY / Math.max(5.0, coarseScale * 0.82),
                         worldZ / coarseScale
                 );
-                double threshold = 0.018
-                        + 0.17
-                        * edgeStrength
+                double lowerFaceGate = GeologyNoise.smoothStep(
+                        face.lowY(),
+                        face.lowY() + Math.max(2.0, maximumRetreat),
+                        worldY
+                );
+                double recessionResponse = GeologyNoise.smoothStep(
+                        0.0,
+                        0.55,
+                        faceErosionStrength
+                );
+                double recession = maximumRetreat
+                        * recessionResponse
                         * lithologyRelief
+                        * lowerFaceGate
                         * (0.52 + verticalPattern * 0.48);
-                if (formationMask < threshold) {
+                recession = Math.min(maximumRetreat, recession);
+                double boundaryDetail = GeologyNoise.value3(
+                        worldSeed ^ DETAIL_SALT,
+                        worldX / detailScale,
+                        worldY / Math.max(6.0, coarseScale * 0.90),
+                        worldZ / detailScale
+                ) * 0.42;
+                if (face.faceInset() + boundaryDetail < recession) {
                     return false;
                 }
             }
