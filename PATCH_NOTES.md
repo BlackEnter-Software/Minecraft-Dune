@@ -1,5 +1,42 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.3 - Scarp & Fault-Wall Morphology
+
+### Physical scarps are no longer province fades
+
+- Added `ScarpMorphologyField`, a deterministic structural precursor between broad macro
+  geography and the existing 0.5.14.x erosion stack.
+- The Shield Wall's broad province intervals remain available for geological weighting, but
+  they no longer have to be the physical 150-500 block-wide mountain slope.
+- Added `massif.scarp_morphology_enabled`, `inner_scarp_width` and `outer_scarp_width`.
+  The source profile uses 36/48 block physical scarps, making both inner and outer Shield Wall
+  faces steep enough for `RockFaceExposure` while leaving erosion responsible for detailed
+  ribs, recesses, undercuts and talus.
+- Existing massif start/full and outer_start/outer_end values are preserved.
+
+### Regional fault wall / toe separation
+
+- Decoupled the 0.5.12 guaranteed fault core from the complete `core_width -> outer_width`
+  percentage-depth ramp.
+- Added `faults.morphology.wall_width`; the source profile uses 14 blocks for the physical
+  canyon wall.
+- Added `faults.morphology.toe_depth`; the remainder of `outer_width` becomes only a shallow structural
+  shoulder (4 blocks in the source profile) instead of a tens-of-blocks-high smooth boot.
+- Rocky and sandy absolute fault floors remain unchanged.
+- The narrower depth transition also leaves the exposed wall outside the protected fault core,
+  allowing the existing escarpment/surface erosion fields to weather it normally.
+
+### Compatibility and validation
+
+- Missing scarp controls and `faults.morphology` decode to legacy morphology; serialized
+  0.5.14.2 worlds do not
+  silently change geometry at new chunk borders.
+- Preserved lithology, fissures, granite/deepslate, dunes, talus and current erosion strengths.
+- Added deterministic checks for inner/outer structural widths, full fault-core depth,
+  fault-wall termination, shallow shoulder containment and outer-width bounds.
+- Source terrain profile is `5143`; project version is `0.5.14.3`.
+- Subsurface geology remains deferred to 0.5.15.
+
 ## Minecraft: Dune 0.5.14.2 — Exposed Cliff Face Erosion
 
 ### Height-derived face detection

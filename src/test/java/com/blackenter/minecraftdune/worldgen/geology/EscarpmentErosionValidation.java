@@ -27,10 +27,27 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 5142, "active profile_version must be 5142");
+        require(settings.profileVersion() == 5143, "active profile_version must be 5143");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
-        JsonObject oldProfile = profile.json().deepCopy();
+        JsonObject legacy5142Profile = profile.json().deepCopy();
+        legacy5142Profile.addProperty("profile_version", 5142);
+        JsonObject legacyMassif = legacy5142Profile.getAsJsonObject("massif");
+        legacyMassif.remove("scarp_morphology_enabled");
+        legacyMassif.remove("inner_scarp_width");
+        legacyMassif.remove("outer_scarp_width");
+        legacy5142Profile.getAsJsonObject("faults").remove("morphology");
+        ArrakisTerrainSettings legacy5142 = ArrakisTerrainSettings.CODEC
+                .parse(JsonOps.INSTANCE, legacy5142Profile)
+                .getOrThrow();
+        require(!legacy5142.massif().scarpMorphologyEnabled(),
+                "missing scarp controls must retain 0.5.14.2 massif morphology");
+        require(legacy5142.faults().morphology().equals(
+                        ArrakisTerrainSettings.FaultMorphologySettings.LEGACY
+                ),
+                "missing fault morphology must retain the 0.5.14.2 fault transition");
+
+        JsonObject oldProfile = legacy5142Profile.deepCopy();
         oldProfile.addProperty("profile_version", 513);
         oldProfile.remove("erosion");
         ArrakisTerrainSettings backward = ArrakisTerrainSettings.CODEC
@@ -39,6 +56,7 @@ public final class EscarpmentErosionValidation {
         require(!backward.erosion().enabled(), "missing erosion group must decode disabled");
 
         validateResistanceOrder(settings);
+        validateScarpMorphology(settings);
         validateExposedFaceGeometry(settings);
         validateBasinAndDunes(settings);
         SeamCounts seams = validateChunkBoundaryOrderIndependence(settings);
@@ -133,6 +151,82 @@ public final class EscarpmentErosionValidation {
         );
         require(soft > medium && medium > hard && hard > veryHard,
                 "retreat must decrease monotonically with resistance");
+    }
+
+    private static void validateScarpMorphology(ArrakisTerrainSettings settings) {
+        ArrakisTerrainSettings.MassifSettings massif = settings.massif();
+        ArrakisTerrainSettings.FaultSettings faults = settings.faults();
+        ArrakisTerrainSettings.FaultMorphologySettings faultMorphology = faults.morphology();
+
+        require(massif.scarpMorphologyEnabled(),
+                "active 0.5.14.3 profile must enable scarp morphology");
+        require(faultMorphology.wallWidth() == 14.0 && faultMorphology.toeDepth() == 4.0,
+                "active 0.5.14.3 fault morphology must use the source-profile values");
+
+        double innerBefore = ScarpMorphologyField.massifEnvelope(
+                massif.startRadius() - 1.0,
+                massif.startRadius() - 1.0,
+                0.0,
+                massif
+        );
+        double innerAfter = ScarpMorphologyField.massifEnvelope(
+                massif.startRadius() + massif.innerScarpWidth() + 1.0,
+                massif.startRadius() + massif.innerScarpWidth() + 1.0,
+                1.0,
+                massif
+        );
+        double outerBefore = ScarpMorphologyField.massifEnvelope(
+                massif.outerStartRadius() - 1.0,
+                massif.outerStartRadius() - 1.0,
+                1.0,
+                massif
+        );
+        double outerAfter = ScarpMorphologyField.massifEnvelope(
+                massif.outerStartRadius() + massif.outerScarpWidth() + 1.0,
+                massif.outerStartRadius() + massif.outerScarpWidth() + 1.0,
+                1.0,
+                massif
+        );
+
+        require(innerBefore < 0.01 && innerAfter > 0.95,
+                "inner structural scarp did not reach full massif over configured width");
+        require(outerBefore > 0.95 && outerAfter < 0.01,
+                "outer structural scarp did not terminate over configured width");
+
+        ScarpMorphologyField.FaultProfile core = ScarpMorphologyField.faultProfile(
+                0.0,
+                1.0,
+                faults,
+                true
+        );
+        ScarpMorphologyField.FaultProfile wallOutside = ScarpMorphologyField.faultProfile(
+                faults.coreWidth() + faultMorphology.wallWidth() + 1.0,
+                1.0,
+                faults,
+                true
+        );
+        ScarpMorphologyField.FaultProfile outside = ScarpMorphologyField.faultProfile(
+                faults.outerWidth() + 1.0,
+                1.0,
+                faults,
+                true
+        );
+
+        require(core.depthMask() > 0.99,
+                "fault core no longer reaches full absolute-depth mask");
+        require(wallOutside.depthMask() < 0.02,
+                "fault depth still ramps across the complete outer influence zone");
+        require(wallOutside.shoulderMask() > 0.0,
+                "fault outer influence lost its shallow shoulder");
+        require(outside.depthMask() == 0.0 && outside.shoulderMask() == 0.0,
+                "fault morphology escaped outer_width");
+
+        require(massif.innerScarpWidth()
+                        < massif.fullRadius() - massif.startRadius(),
+                "inner physical scarp is not narrower than the broad province ramp");
+        require(massif.outerScarpWidth()
+                        < massif.outerEndRadius() - massif.outerStartRadius(),
+                "outer physical scarp is not narrower than the broad province fade");
     }
 
     private static void validateExposedFaceGeometry(ArrakisTerrainSettings settings) {

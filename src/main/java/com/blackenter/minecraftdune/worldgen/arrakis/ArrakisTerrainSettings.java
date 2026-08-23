@@ -23,7 +23,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 5142;
+    public static final int CURRENT_PROFILE_VERSION = 5143;
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -157,7 +157,10 @@ public record ArrakisTerrainSettings(
                     -0.38,
                     -0.02,
                     0.07,
-                    0.58
+                    0.58,
+                    false,
+                    250.0,
+                    100.0
             ),
             new FaultSettings(
                     4,
@@ -174,7 +177,8 @@ public record ArrakisTerrainSettings(
                     780.0,
                     75.0,
                     0.56,
-                    4.0
+                    4.0,
+                    FaultMorphologySettings.LEGACY
             ),
             DEFAULT_LITHOLOGY,
             DEFAULT_FRACTURES,
@@ -328,7 +332,10 @@ public record ArrakisTerrainSettings(
             double continuityLow,
             double continuityHigh,
             double shapeLow,
-            double shapeHigh
+            double shapeHigh,
+            boolean scarpMorphologyEnabled,
+            double innerScarpWidth,
+            double outerScarpWidth
     ) {
         public static final Codec<MassifSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -344,7 +351,13 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.fieldOf("continuity_high")
                                 .forGetter(MassifSettings::continuityHigh),
                         Codec.DOUBLE.fieldOf("shape_low").forGetter(MassifSettings::shapeLow),
-                        Codec.DOUBLE.fieldOf("shape_high").forGetter(MassifSettings::shapeHigh)
+                        Codec.DOUBLE.fieldOf("shape_high").forGetter(MassifSettings::shapeHigh),
+                        Codec.BOOL.optionalFieldOf("scarp_morphology_enabled", false)
+                                .forGetter(MassifSettings::scarpMorphologyEnabled),
+                        Codec.DOUBLE.optionalFieldOf("inner_scarp_width", 250.0)
+                                .forGetter(MassifSettings::innerScarpWidth),
+                        Codec.DOUBLE.optionalFieldOf("outer_scarp_width", 100.0)
+                                .forGetter(MassifSettings::outerScarpWidth)
                 ).apply(instance, MassifSettings::new));
     }
 
@@ -363,7 +376,8 @@ public record ArrakisTerrainSettings(
             double sineWarpScale,
             double sineWarpStrength,
             double sandyFloorThreshold,
-            double rockyFloorHeight
+            double rockyFloorHeight,
+            FaultMorphologySettings morphology
     ) {
         public static final Codec<FaultSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -390,8 +404,33 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.fieldOf("sandy_floor_threshold")
                                 .forGetter(FaultSettings::sandyFloorThreshold),
                         Codec.DOUBLE.optionalFieldOf("rocky_floor_height", 4.0)
-                                .forGetter(FaultSettings::rockyFloorHeight)
+                                .forGetter(FaultSettings::rockyFloorHeight),
+                        FaultMorphologySettings.CODEC.optionalFieldOf(
+                                        "morphology",
+                                        FaultMorphologySettings.LEGACY
+                                )
+                                .forGetter(FaultSettings::morphology)
                 ).apply(instance, FaultSettings::new));
+    }
+
+    /**
+     * Physical regional-fault wall and toe controls introduced in 0.5.14.3.
+     * Missing data must retain the broad 0.5.14.2 fault transition.
+     */
+    public record FaultMorphologySettings(
+            double wallWidth,
+            double toeDepth
+    ) {
+        public static final FaultMorphologySettings LEGACY =
+                new FaultMorphologySettings(75.0, 0.0);
+
+        public static final Codec<FaultMorphologySettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.DOUBLE.fieldOf("wall_width")
+                                .forGetter(FaultMorphologySettings::wallWidth),
+                        Codec.DOUBLE.fieldOf("toe_depth")
+                                .forGetter(FaultMorphologySettings::toeDepth)
+                ).apply(instance, FaultMorphologySettings::new));
     }
 
     /**

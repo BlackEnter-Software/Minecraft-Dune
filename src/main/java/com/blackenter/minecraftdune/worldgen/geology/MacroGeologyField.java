@@ -136,6 +136,12 @@ public final class MacroGeologyField {
                 massifSettings.outerEndRadius(),
                 effectiveRadius
         ));
+        double physicalMassifEnvelope = ScarpMorphologyField.massifEnvelope(
+                radius,
+                effectiveRadius,
+                massif,
+                massifSettings
+        );
 
         double faultedMargin = smoothStep(
                 massifSettings.outerStartRadius() - 570.0,
@@ -324,7 +330,7 @@ public final class MacroGeologyField {
                 massifSettings.continuityHigh(),
                 massifPotential
         );
-        double massifMask = massif * massifContinuity;
+        double massifMask = physicalMassifEnvelope * massifContinuity;
         double massifShape = smoothStep(
                 massifSettings.shapeLow(),
                 massifSettings.shapeHigh(),
@@ -338,7 +344,7 @@ public final class MacroGeologyField {
         );
         double massifHeight = (
                 30.0
-                        + 105.0 * massif
+                        + 105.0 * physicalMassifEnvelope
                         + 30.0 * massifRelief
         ) * massifShape;
 
@@ -354,7 +360,8 @@ public final class MacroGeologyField {
                 worldX,
                 worldZ,
                 radius,
-                settings.faults()
+                settings.faults(),
+                massifSettings.scarpMorphologyEnabled()
         );
 
         // Broken-rock remnants now begin their size decay immediately after the massif-facing
@@ -535,6 +542,11 @@ public final class MacroGeologyField {
                 0.0,
                 1.0
         );
+        double faultShoulderMask = clamp(
+                fault.shoulderMask(),
+                0.0,
+                1.0
+        );
 
         if (faultDepthMask > 0.0 && addedRockHeight > 0.0) {
             double rockyFloorHeight = Math.max(
@@ -570,6 +582,22 @@ public final class MacroGeologyField {
                     rawRockMask,
                     targetRockMask,
                     faultDepthMask
+            );
+        }
+
+        // The remaining outer_width is only a shallow structural toe. It no longer forms a
+        // second percentage-depth slope from the fault floor to the massif.
+        if (massifSettings.scarpMorphologyEnabled()
+                && faultShoulderMask > 0.0
+                && addedRockHeight > 0.0) {
+            double toeDepth = clamp(
+                    settings.faults().morphology().toeDepth(),
+                    0.0,
+                    12.0
+            );
+            addedRockHeight = Math.max(
+                    0.0,
+                    addedRockHeight - toeDepth * faultShoulderMask
             );
         }
 
@@ -665,7 +693,8 @@ public final class MacroGeologyField {
             double worldX,
             double worldZ,
             double radius,
-            ArrakisTerrainSettings.FaultSettings settings
+            ArrakisTerrainSettings.FaultSettings settings,
+            boolean scarpMorphologyEnabled
     ) {
         double radialGate = smoothStep(
                 settings.startRadius(),
@@ -678,11 +707,12 @@ public final class MacroGeologyField {
         ));
 
         if (radialGate <= 0.0 || settings.count() <= 0) {
-            return new FaultNetworkSample(0.0, 0.0);
+            return new FaultNetworkSample(0.0, 0.0, 0.0);
         }
 
         double strongestCarve = 0.0;
         double strongestSandFloor = 0.0;
+        double strongestShoulder = 0.0;
 
         for (int fault = 0; fault < settings.count(); fault++) {
             long step = (long) fault * 0x9E3779B97F4A7C15L;
@@ -736,13 +766,18 @@ public final class MacroGeologyField {
                     + secondarySine;
 
             double distance = Math.abs(perpendicular - centerline);
-            double faultMask = (
-                    1.0 - smoothStep(
-                            settings.coreWidth(),
-                            settings.outerWidth(),
-                            distance
-                    )
-            ) * radialGate;
+            ScarpMorphologyField.FaultProfile profile =
+                    ScarpMorphologyField.faultProfile(
+                            distance,
+                            radialGate,
+                            settings,
+                            scarpMorphologyEnabled
+                    );
+            double faultMask = profile.depthMask();
+            strongestShoulder = Math.max(
+                    strongestShoulder,
+                    profile.shoulderMask()
+            );
 
             if (faultMask <= 0.0) {
                 continue;
@@ -782,7 +817,8 @@ public final class MacroGeologyField {
 
         return new FaultNetworkSample(
                 clamp(strongestCarve, 0.0, 1.0),
-                clamp(strongestSandFloor, 0.0, 1.0)
+                clamp(strongestSandFloor, 0.0, 1.0),
+                clamp(strongestShoulder, 0.0, 1.0)
         );
     }
 
@@ -1017,7 +1053,8 @@ public final class MacroGeologyField {
 
     private record FaultNetworkSample(
             double carveMask,
-            double sandFloorMask
+            double sandFloorMask,
+            double shoulderMask
     ) {
     }
 
