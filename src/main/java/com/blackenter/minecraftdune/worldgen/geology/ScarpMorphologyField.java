@@ -63,6 +63,57 @@ public final class ScarpMorphologyField {
         return GeologyNoise.clamp(inner * outer, 0.0, 1.0);
     }
 
+    /**
+     * Permission for Shield-Wall erosion.
+     *
+     * <p>The broad massif weight remains a geographical/province field. 0.5.14.3 introduced
+     * a much narrower physical scarp, so erosion must also be allowed by that physical
+     * envelope or the inner wall can finish before the old province ramp becomes strong
+     * enough to authorize erosion.</p>
+     */
+    public static double massifErosionPermission(
+            MacroGeologyField.Sample geology,
+            ArrakisTerrainSettings.MassifSettings massif
+    ) {
+        return massifErosionPermission(
+                geology.radiusBlocks(),
+                geology.effectiveRadiusBlocks(),
+                geology.massifWeight(),
+                massif
+        );
+    }
+
+    static double massifErosionPermission(
+            double radius,
+            double effectiveRadius,
+            double legacyMassifEnvelope,
+            ArrakisTerrainSettings.MassifSettings massif
+    ) {
+        double physical = massifEnvelope(
+                radius,
+                effectiveRadius,
+                legacyMassifEnvelope,
+                massif
+        );
+        return GeologyNoise.clamp(
+                Math.max(legacyMassifEnvelope, physical),
+                0.0,
+                1.0
+        );
+    }
+
+    /**
+     * Separates protection of the 0.5.12 absolute fault floor from weathering of the
+     * 0.5.14.3 physical fault wall.
+     *
+     * <p>A full carve mask remains protected. Permission rises quickly once the column leaves
+     * the guaranteed floor core, so almost the complete wall can use normal face erosion.</p>
+     */
+    public static double faultErosionPermission(double faultCarveMask) {
+        double carve = GeologyNoise.clamp(faultCarveMask, 0.0, 1.0);
+        return 1.0 - GeologyNoise.smoothStep(0.90, 0.995, carve);
+    }
+
     public static FaultProfile faultProfile(
             double distanceFromCenterline,
             double radialGate,

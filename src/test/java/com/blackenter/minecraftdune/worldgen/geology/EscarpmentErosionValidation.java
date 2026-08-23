@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 5143, "active profile_version must be 5143");
+        require(settings.profileVersion() == 5144, "active profile_version must be 5144");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject legacy5142Profile = profile.json().deepCopy();
@@ -57,6 +57,7 @@ public final class EscarpmentErosionValidation {
 
         validateResistanceOrder(settings);
         validateScarpMorphology(settings);
+        validateStructuralFaceCoupling(settings);
         validateExposedFaceGeometry(settings);
         validateBasinAndDunes(settings);
         SeamCounts seams = validateChunkBoundaryOrderIndependence(settings);
@@ -227,6 +228,44 @@ public final class EscarpmentErosionValidation {
         require(massif.outerScarpWidth()
                         < massif.outerEndRadius() - massif.outerStartRadius(),
                 "outer physical scarp is not narrower than the broad province fade");
+    }
+
+    private static void validateStructuralFaceCoupling(ArrakisTerrainSettings settings) {
+        ArrakisTerrainSettings.MassifSettings massif = settings.massif();
+
+        double innerMidRadius = massif.startRadius() + massif.innerScarpWidth() * 0.50;
+        double physicalInnerPermission = ScarpMorphologyField.massifErosionPermission(
+                innerMidRadius,
+                innerMidRadius,
+                0.01,
+                massif
+        );
+        require(physicalInnerPermission > 0.45,
+                "physical inner scarp did not authorize erosion independently of broad massif weight");
+
+        double outerMidRadius = massif.outerStartRadius() + massif.outerScarpWidth() * 0.50;
+        double physicalOuterPermission = ScarpMorphologyField.massifErosionPermission(
+                outerMidRadius,
+                outerMidRadius,
+                0.92,
+                massif
+        );
+        require(physicalOuterPermission > 0.90,
+                "outer scarp lost existing broad/physical erosion permission");
+
+        double protectedCore = ScarpMorphologyField.faultErosionPermission(1.0);
+        double innerWall = ScarpMorphologyField.faultErosionPermission(0.97);
+        double ordinaryWall = ScarpMorphologyField.faultErosionPermission(0.80);
+        double noFault = ScarpMorphologyField.faultErosionPermission(0.0);
+
+        require(protectedCore < 0.01,
+                "full-depth fault core is no longer protected from erosion");
+        require(innerWall > 0.05 && innerWall < 0.95,
+                "fault core-to-wall erosion transition is not gradual");
+        require(ordinaryWall > 0.99,
+                "ordinary physical fault wall is still being protected like the floor");
+        require(noFault > 0.999,
+                "non-fault terrain lost erosion permission");
     }
 
     private static void validateExposedFaceGeometry(ArrakisTerrainSettings settings) {

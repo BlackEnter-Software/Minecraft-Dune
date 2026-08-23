@@ -1,5 +1,36 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.4 - Structural Face Erosion Coupling
+
+### Inner Shield Wall erosion follows the physical scarp
+
+- Fixed a stale permission mismatch exposed by 0.5.14.3: the new 36-block inner physical
+  Shield Wall could finish before the old 150-block geographical massif weight became strong
+  enough to authorize erosion.
+- `ScarpMorphologyField.massifErosionPermission` now accepts either the broad geographical
+  massif weight or the physical 0.5.14.3 massif envelope.
+- `RockFaceExposure`, `EscarpmentErosionField` and `RockSurfaceErosionField` use that shared
+  permission. Height-derived exposure remains the actual cliff detector.
+
+### Fault floors are protected separately from fault walls
+
+- Removed the old broad fault-carve exclusions (`>0.20` / `>0.86`) that accidentally protected
+  most of the new 14-block physical fault wall from erosion.
+- Added a continuous fault erosion permission: carve masks up to 0.90 have full permission,
+  0.90-0.995 blend into protection, and the full-depth core remains protected.
+- The 0.5.12 absolute rocky/sandy fault-floor behavior is unchanged.
+- Major and surface erosion now weather the physical fault wall while fading cleanly into the
+  protected structural floor.
+
+### Scope
+
+- No erosion strength, scarp-width, lithology, dune or fault-floor tuning values were changed.
+- Added deterministic validation for inner physical-scarp permission and fault core/wall
+  separation.
+- Source terrain profile is `5144`; project version is `0.5.14.4`.
+- Unsupported/floating resistant remnants remain deferred until face coverage is stable.
+- Subsurface geology remains planned for 0.5.15.
+
 ## Minecraft: Dune 0.5.14.3 - Scarp & Fault-Wall Morphology
 
 ### Physical scarps are no longer province fades

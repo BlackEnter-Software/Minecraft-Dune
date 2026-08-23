@@ -33,13 +33,16 @@ public final class RockSurfaceErosionField {
     ) {
         ArrakisTerrainSettings.ErosionSettings erosion = settings.erosion();
         ArrakisTerrainSettings.SurfaceErosionSettings surface = erosion.surface();
+        double faultErosionPermission = ScarpMorphologyField.faultErosionPermission(
+                geology.faultCarveMask()
+        );
 
         int rockHeight = originalRockTopY - MacroGeologyField.BASE_SURFACE_Y;
         if (!erosion.enabled()
                 || !surface.enabled()
                 || rockHeight <= 2
                 || geology.sandCorridorMask() > 0.35
-                || geology.faultCarveMask() > 0.86) {
+                || faultErosionPermission <= 0.015) {
             return Column.inactive(
                     worldSeed,
                     worldX,
@@ -52,7 +55,10 @@ public final class RockSurfaceErosionField {
         }
 
         double massifPermission = Math.max(
-                geology.massifWeight(),
+                ScarpMorphologyField.massifErosionPermission(
+                        geology,
+                        settings.massif()
+                ),
                 geology.faultedMarginWeight() * 0.72
         );
         double forelandPermission = geology.innerForelandWeight()
@@ -142,7 +148,9 @@ public final class RockSurfaceErosionField {
         );
 
         double baseStrength = GeologyNoise.clamp(
-                Math.max(0.0, surface.strength()) * provinceStrength,
+                Math.max(0.0, surface.strength())
+                        * provinceStrength
+                        * faultErosionPermission,
                 0.0,
                 1.5
         );

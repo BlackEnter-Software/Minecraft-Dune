@@ -25,8 +25,15 @@ public final class RockFaceExposure {
     ) {
         ArrakisTerrainSettings.ErosionSettings erosion = settings.erosion();
         ArrakisTerrainSettings.SurfaceErosionSettings surface = erosion.surface();
+        double massifPermission = ScarpMorphologyField.massifErosionPermission(
+                geology,
+                settings.massif()
+        );
+        double faultErosionPermission = ScarpMorphologyField.faultErosionPermission(
+                geology.faultCarveMask()
+        );
         double provincePermission = Math.max(
-                geology.massifWeight(),
+                massifPermission,
                 Math.max(
                         geology.faultedMarginWeight() * 0.78,
                         Math.max(
@@ -42,12 +49,11 @@ public final class RockFaceExposure {
                                 )
                         )
                 )
-        );
+        ) * faultErosionPermission;
         if (!erosion.enabled()
                 || (currentTopY <= MacroGeologyField.BASE_SURFACE_Y + 2
                 && geology.rockFormationMask() <= 0.015)
                 || geology.sandCorridorMask() > 0.35
-                || geology.faultCarveMask() > 0.86
                 || provincePermission <= 0.015) {
             return Sample.NONE;
         }

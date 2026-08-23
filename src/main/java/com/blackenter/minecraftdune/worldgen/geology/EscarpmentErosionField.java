@@ -32,9 +32,12 @@ public final class EscarpmentErosionField {
             ArrakisTerrainSettings settings
     ) {
         ArrakisTerrainSettings.ErosionSettings erosion = settings.erosion();
+        double faultErosionPermission = ScarpMorphologyField.faultErosionPermission(
+                geology.faultCarveMask()
+        );
         if (!erosion.enabled()
                 || geology.sandCorridorMask() > 0.08
-                || geology.faultCarveMask() > 0.20) {
+                || faultErosionPermission <= 0.015) {
             return Column.inactive(
                     worldSeed,
                     worldX,
@@ -46,8 +49,12 @@ public final class EscarpmentErosionField {
         }
 
         double brokenScale = GeologyNoise.clamp(erosion.brokenRockScale(), 0.0, 1.5);
+        double massifPermission = ScarpMorphologyField.massifErosionPermission(
+                geology,
+                settings.massif()
+        );
         double provincePermission = Math.max(
-                geology.massifWeight(),
+                massifPermission,
                 Math.max(
                         geology.faultedMarginWeight() * 0.78,
                         geology.brokenRockWeight() * brokenScale
@@ -108,6 +115,7 @@ public final class EscarpmentErosionField {
                         * sourceHeightGate
                         * permissionGate
                         * faceGate
+                        * faultErosionPermission
                         * (0.55 + verticalBias * 0.68),
                 0.0,
                 1.0

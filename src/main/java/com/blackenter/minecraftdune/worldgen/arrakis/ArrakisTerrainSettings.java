@@ -23,7 +23,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 5143;
+    public static final int CURRENT_PROFILE_VERSION = 5144;
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
