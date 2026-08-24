@@ -15,6 +15,7 @@ import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
 public final class MacroGeologyField {
     public static final int BASE_SURFACE_Y = 64;
     public static final int BASAL_CONTACT_OWNERSHIP_PROFILE_VERSION = 51410;
+    public static final int HARD_CLIFF_FOOT_PROFILE_VERSION = 51411;
 
     private static final double MASSIF_CONTACT_CLEARANCE_BLOCKS = 8.0;
     private static final double TWO_PI = Math.PI * 2.0;
@@ -546,6 +547,24 @@ public final class MacroGeologyField {
                 nonMassifHeight
         );
 
+        // Contact ownership has now been resolved and this is the final candidate native-rock
+        // height before structural carving. A low positive remainder of the smooth massif
+        // height field would otherwise root a broad native-rock skirt into the flat foundation.
+        // Cull only that bounded Shield-Wall foot; unrelated low formations remain valid.
+        double preCutRockHeight = addedRockHeight;
+        addedRockHeight = hardCliffFootHeight(
+                addedRockHeight,
+                worldSeed,
+                worldX,
+                worldZ,
+                radius,
+                effectiveRadius,
+                settings
+        );
+        if (preCutRockHeight > 0.0 && addedRockHeight <= 0.0) {
+            rawRockMask = 0.0;
+        }
+
         // Sand corridors are final suppressors.
         addedRockHeight *= 1.0 - sandCorridorMask;
         rawRockMask *= 1.0 - sandCorridorMask;
@@ -732,6 +751,56 @@ public final class MacroGeologyField {
             double contactClearance
     ) {
         return value * (1.0 - clamp(contactClearance, 0.0, 1.0));
+    }
+
+    static double hardCliffFootHeight(
+            double candidateHeight,
+            long worldSeed,
+            double worldX,
+            double worldZ,
+            double radius,
+            double effectiveRadius,
+            ArrakisTerrainSettings settings
+    ) {
+        if (settings.profileVersion() < HARD_CLIFF_FOOT_PROFILE_VERSION) {
+            return candidateHeight;
+        }
+
+        ScarpMorphologyField.LowSideContact contact =
+                ScarpMorphologyField.nearestMassifLowSideContact(
+                        worldSeed,
+                        worldX,
+                        worldZ,
+                        radius,
+                        effectiveRadius,
+                        settings.massif()
+                );
+        if (!contact.valid()) {
+            return candidateHeight;
+        }
+
+        return hardCliffFootHeight(
+                candidateHeight,
+                contact.signedDistance(),
+                settings.baseAlignment().minimumCliffFootHeight(),
+                settings.baseAlignment().cliffFootCutWidth()
+        );
+    }
+
+    static double hardCliffFootHeight(
+            double candidateHeight,
+            double signedContactDistance,
+            double minimumHeight,
+            double cutWidth
+    ) {
+        if (minimumHeight <= 0.0
+                || cutWidth <= 0.0
+                || Math.abs(signedContactDistance) > cutWidth) {
+            return candidateHeight;
+        }
+        return candidateHeight > 0.0 && candidateHeight < minimumHeight
+                ? 0.0
+                : candidateHeight;
     }
 
     static double massifHeightWithBasalContact(

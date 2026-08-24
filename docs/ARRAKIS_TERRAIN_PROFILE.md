@@ -1,4 +1,4 @@
-# Arrakis terrain profile — parameter reference (0.5.14.10)
+# Arrakis terrain profile — parameter reference (0.5.14.11)
 
 The native Arrakis generator reads its terrain parameters from:
 
@@ -9,6 +9,36 @@ src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
 The `terrain` object is serialized into the world's chunk-generator data. For clean visual
 comparisons after changing world-generation parameters, create a new Arrakis Dev world or
 regenerate the affected region files while the world is closed.
+
+## 0.5.14.11 Shield-Wall base alignment
+
+The active source profile uses:
+
+```json
+"base_alignment": {
+  "massif_vertical_offset": -4.0,
+  "minimum_cliff_foot_height": 10.0,
+  "cliff_foot_cut_width": 16.0
+}
+```
+
+`massif_vertical_offset` continues to lower only the main massif height field without moving
+the global Y=64 sand datum. `minimum_cliff_foot_height` is the strict lower cutoff for a final
+positive native-rock candidate at a physical Shield-Wall contact: values below 10 become zero,
+while 10-block and taller cliffs remain. `cliff_foot_cut_width` bounds that test to 16 blocks
+on either side of the warped inner/outer physical contact, so low foreland, broken-rock and
+transition formations remain legal elsewhere.
+
+The cutoff runs after the 0.5.14.10 non-massif contact-ownership clearance and final
+massif/non-massif height composition, but before fault carving, fractures, erosion,
+orphan-remnant filtering and rock placement. Talus subsequently queries the actual final
+surviving pre-talus footprint. Its representative relief is now the maximum surviving rock top
+sampled 16-24 blocks into either a massif or fault wall; this changes the relief gate, never
+the actual contact used for placement.
+
+Both new base-alignment keys are optional and default to `0.0`, which disables the cutoff for
+older serialized worlds. Profile 51411 explicitly enables it. Profiles 51410 and below retain
+their earlier massif relief behavior; the 51410 regional-fault wall probe remains active.
 
 ## 0.5.14 erosion section
 
@@ -38,11 +68,11 @@ source preset enables it explicitly, avoiding silent morphology changes at the u
 of an older world. The existing `lithology.talus` group is reused for cliff-base scree and is
 enabled in the supplied 0.5.14 profile.
 
-The current source preset uses `profile_version=51410`. Version 0.5.14.10 adds no JSON keys and
-preserves the existing tuning values. Profiles below 51410 retain the previous height
-composition and talus-source rules. Profile 51410 clears overlapping non-massif height
-ownership in a narrow Shield-Wall contact band, accepts actual surviving contact rock there,
-and measures regional-fault talus relief through shallow toes into the wall. Serialized
+The current source preset uses `profile_version=51411`. Profile 51410 clears overlapping
+non-massif height ownership in a narrow Shield-Wall contact band, accepts actual surviving
+contact rock there, and measures regional-fault talus relief through shallow toes into the
+wall. Profile 51411 adds the hard, bounded cliff-foot cutoff described above and extends that
+same generalized wall-relief probe to inner and outer massif contacts. Serialized
 profiles below 5149 still retain the older nominal-apron targeting path; profiles missing the
 optional basal-apron fields still decode with that feature disabled. Ordinary face detection
 reuses

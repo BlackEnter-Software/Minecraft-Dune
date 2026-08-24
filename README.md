@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.10**
+Current development version: **0.5.14.11**
 
 The project currently contains:
 
@@ -88,6 +88,14 @@ cliff immediately behind it. Opposing aprons still preserve an open Y=64 sandy c
 remains colluvial debris, not wind-blown sand; aeolian accumulation is deferred to
 approximately 0.5.16.
 
+0.5.14.11 stops representing the Shield-Wall foot as a low continuous height-field skirt.
+After massif/non-massif contact ownership is composed, native-rock candidates below 10 blocks
+are culled only within 16 blocks of the warped physical inner or outer contact. The massif
+therefore terminates abruptly into the desert, and gravity-driven talus is then placed against
+the actual surviving rock face. Massif and fault talus now share the same 16-24-block inward
+surviving-rock relief probe; fault floors, protected sandy cores, talus dimensions/materials,
+erosion, dunes, the Y=64 datum and `massif_vertical_offset=-4` remain unchanged.
+
 New Arrakis Dev worlds use the featureless `minecraftdune:arrakis_desert` biome. Its natural
 spawn table contains only Muad'dib and Desert Hare; an Arrakis-generator placement gate also
 blocks vanilla natural spawns in older Arrakis saves that still serialize `minecraft:desert`.
@@ -147,7 +155,8 @@ connection and shallow one- or two-block outcrops, and rejects strong regional-f
 sand-pass carving. It does not create common water or full caves. The 0.5.15 cave pass will
 consume rare limestone hosts and fractures.
 
-See [Lithology and fracture framework](docs/LITHOLOGY_AND_FRACTURES.md),
+See [Hard Cliff Foot & Unified Wall Talus](docs/HARD_CLIFF_FOOT_0.5.14.11.md),
+[Lithology and fracture framework](docs/LITHOLOGY_AND_FRACTURES.md),
 [Escarpment and differential erosion](docs/ESCARPMENT_EROSION.md), and the full
 [terrain profile reference](docs/ARRAKIS_TERRAIN_PROFILE.md).
 

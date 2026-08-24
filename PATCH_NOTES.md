@@ -1,5 +1,46 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.11 - Hard Cliff Foot & Unified Wall Talus
+
+### Hard Shield-Wall foot
+
+- Confirmed that the remaining native-rock skirt was the low positive tail of the smooth
+  massif height field. Contact ownership could correctly clear foreland/broken-rock overlap
+  while `max(massifHeight, nonMassifHeight)` still retained 1-9 blocks of massif rock.
+- After final massif/non-massif ownership composition, profile 51411 now culls positive native
+  rock below 10 blocks within a 16-block band around the warped physical inner and outer
+  Shield-Wall contacts. The rock mask is cleared with the height.
+- The cutoff happens before sand-corridor suppression and regional-fault carving, and therefore
+  before fractures, major/surface erosion, orphan filtering, final surviving-rock contact,
+  talus and dunes.
+- Small foreland rocks, broken-rock formations and isolated outcrops outside the bounded
+  Shield-Wall contact band remain valid. Heights at or above 10 blocks are unchanged.
+- `base_alignment.massif_vertical_offset=-4` and the global Y=64 sand datum remain unchanged.
+
+### Unified surviving-wall relief
+
+- Massif and regional-fault talus now share one deterministic pre-talus wall-relief probe.
+  Starting at the actual surviving contact, it samples 16-24 blocks into rock and uses the
+  maximum surviving top Y for the talus relief gate.
+- Inner/outer massif probes use the existing warped physical scarp inward normal. Fault probes
+  retain the working actual-contact direction introduced in 0.5.14.10.
+- Nominal radii remain only a bounded massif search gate. Apron placement still begins directly
+  beside final rock after faults, fractures, both erosion passes and orphan-remnant filtering.
+- The opposing-fault-apron cap remains unchanged, preserving the open Y=64 sandy channel.
+
+### Profile, compatibility and validation
+
+- Project version is `0.5.14.11`; terrain profile version is `51411`.
+- The source preset explicitly stores `minimum_cliff_foot_height=10` and
+  `cliff_foot_cut_width=16` in `base_alignment`.
+- Both new keys decode to zero when absent, and the cutoff is also profile-gated at 51411, so
+  existing serialized profiles retain their old contact morphology.
+- Deterministic validation covers low-foot removal, high-cliff preservation, out-of-band small
+  rocks, inner/outer contacts, massif and fault shallow-toe relief, open fault cores,
+  opposing-apron separation, sampling-order independence and legacy decoding.
+- No aeolian deposition was added; wind-blown banking remains reserved for approximately
+  0.5.16.
+
 ## Minecraft: Dune 0.5.14.10 - Basal Contact Ownership & Wall-Relief Talus
 
 ### Shield-Wall basal ownership

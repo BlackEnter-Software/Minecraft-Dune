@@ -33,7 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 51410,
+          "profile_version": 51411,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0
@@ -70,7 +70,9 @@
             "scarp_detail_strength": 2.5
           },
           "base_alignment": {
-            "massif_vertical_offset": -4.0
+            "massif_vertical_offset": -4.0,
+            "minimum_cliff_foot_height": 10.0,
+            "cliff_foot_cut_width": 16.0
           },
           "faults": {
             "count": 6,

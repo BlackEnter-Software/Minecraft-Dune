@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 51410, "active profile_version must be 51410");
+        require(settings.profileVersion() == 51411, "active profile_version must be 51411");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject legacy5142Profile = profile.json().deepCopy();
@@ -63,6 +63,9 @@ public final class EscarpmentErosionValidation {
                 "missing fault morphology must retain the 0.5.14.2 fault transition");
         require(legacy5142.baseAlignment().massifVerticalOffset() == 0.0,
                 "missing base_alignment must preserve the old massif elevation");
+        require(legacy5142.baseAlignment().minimumCliffFootHeight() == 0.0
+                        && legacy5142.baseAlignment().cliffFootCutWidth() == 0.0,
+                "missing base_alignment must leave the cliff-foot cutoff disabled");
         require(!legacy5142.lithology().talus().basalApronEnabled(),
                 "missing basal apron fields must preserve old talus behavior");
         require(!legacy5142.additionalMaterials().enabled(),
@@ -76,7 +79,25 @@ public final class EscarpmentErosionValidation {
         require(!BasalTalusApronField.usesContactOwnership(5149),
                 "serialized 0.5.14.9 profiles must retain source-owned contact classification");
         require(BasalTalusApronField.usesContactOwnership(51410),
-                "profile 51410 must use actual contact ownership and wall-relief probing");
+                "profile 51410 must use actual contact ownership and fault wall-relief probing");
+        require(!BasalTalusApronField.usesUnifiedWallRelief(51410),
+                "profile 51410 must retain single-contact massif relief");
+        require(BasalTalusApronField.usesUnifiedWallRelief(51411),
+                "profile 51411 must probe relief behind massif and fault contacts");
+
+        JsonObject legacy51410Profile = profile.json().deepCopy();
+        legacy51410Profile.addProperty("profile_version", 51410);
+        JsonObject legacyAlignment = legacy51410Profile.getAsJsonObject("base_alignment");
+        legacyAlignment.remove("minimum_cliff_foot_height");
+        legacyAlignment.remove("cliff_foot_cut_width");
+        ArrakisTerrainSettings legacy51410 = ArrakisTerrainSettings.CODEC
+                .parse(JsonOps.INSTANCE, legacy51410Profile)
+                .getOrThrow();
+        require(legacy51410.baseAlignment().massifVerticalOffset() == -4.0,
+                "legacy base_alignment lost its serialized massif offset");
+        require(legacy51410.baseAlignment().minimumCliffFootHeight() == 0.0
+                        && legacy51410.baseAlignment().cliffFootCutWidth() == 0.0,
+                "legacy profile missing cliff-foot fields did not retain old behavior");
 
         JsonObject oldProfile = legacy5142Profile.deepCopy();
         oldProfile.addProperty("profile_version", 513);
@@ -91,7 +112,7 @@ public final class EscarpmentErosionValidation {
         validateStructuralFaceCoupling(settings);
         validateScarpRoughness(settings);
         validateBaseAlignment(settings);
-        validateBasalContactAndTalus(settings);
+        validateBasalContactAndTalus(settings, legacy51410);
         validateAdditionalMaterials(settings);
         validateOrphanRemnantFilter(settings);
         validateExposedFaceGeometry(settings);
@@ -375,6 +396,9 @@ public final class EscarpmentErosionValidation {
 
         require(alignment.massifVerticalOffset() == -4.0,
                 "active 0.5.14.7 massif vertical offset must be -4 blocks");
+        require(alignment.minimumCliffFootHeight() == 10.0
+                        && alignment.cliffFootCutWidth() == 16.0,
+                "active 0.5.14.11 cliff-foot cutoff must use height 10 and width 16");
         require(settings.faults().rockyFloorHeight() == 0.0,
                 "active 0.5.14.7 regional fault floor must target the sand datum");
 
@@ -396,7 +420,8 @@ public final class EscarpmentErosionValidation {
     }
 
     private static void validateBasalContactAndTalus(
-            ArrakisTerrainSettings settings
+            ArrakisTerrainSettings settings,
+            ArrakisTerrainSettings legacySettings
     ) {
         ArrakisTerrainSettings.BaseAlignmentSettings alignment =
                 settings.baseAlignment();
@@ -481,6 +506,36 @@ public final class EscarpmentErosionValidation {
                 "full basal-contact clearance did not remove non-massif height");
         require(MacroGeologyField.applyContactClearance(7.0, 0.0) == 7.0,
                 "zero basal-contact clearance changed terrain outside the contact band");
+
+        double minimumFootHeight = alignment.minimumCliffFootHeight();
+        double cutWidth = alignment.cliffFootCutWidth();
+        require(MacroGeologyField.hardCliffFootHeight(
+                        5.0, 0.0, minimumFootHeight, cutWidth
+                ) == 0.0,
+                "low Shield-Wall contact column survived the hard cliff-foot cutoff");
+        require(MacroGeologyField.hardCliffFootHeight(
+                        40.0, 0.0, minimumFootHeight, cutWidth
+                ) == 40.0,
+                "real Shield-Wall cliff was removed by the hard cliff-foot cutoff");
+        require(MacroGeologyField.hardCliffFootHeight(
+                        5.0, cutWidth + 1.0, minimumFootHeight, cutWidth
+                ) == 5.0,
+                "small formation outside the Shield-Wall contact zone was removed");
+        require(MacroGeologyField.hardCliffFootHeight(
+                        5.0, 0L, innerContactRadius, 0.0,
+                        innerContactRadius, innerContactRadius, settings
+                ) == 0.0,
+                "inner Shield-Wall contact did not apply the hard cliff-foot cutoff");
+        require(MacroGeologyField.hardCliffFootHeight(
+                        5.0, 0L, outerContactRadius, 0.0,
+                        outerContactRadius, outerContactRadius, settings
+                ) == 0.0,
+                "outer Shield-Wall contact did not apply the hard cliff-foot cutoff");
+        require(MacroGeologyField.hardCliffFootHeight(
+                        5.0, 0L, innerContactRadius, 0.0,
+                        innerContactRadius, innerContactRadius, legacySettings
+                ) == 5.0,
+                "pre-0.5.14.11 contact skirt no longer retains legacy behavior");
 
         require(BasalTalusApronField.heightFromFactors(
                         talus.basalApronMaxHeight(),
@@ -597,6 +652,39 @@ public final class EscarpmentErosionValidation {
                 "shallow fault toe did not inherit relief from the tall wall behind it");
         require(!wallRelief5149.active(),
                 "profile 5149 no longer retains its single-contact relief behavior");
+
+        BasalTalusApronField.RockColumn shallowMassifToe =
+                new BasalTalusApronField.RockColumn(true, 68, true, 0.0);
+        BasalTalusApronField.RockColumn tallMassifWall =
+                new BasalTalusApronField.RockColumn(true, 150, true, 0.0);
+        BasalTalusApronField.SurvivingRockLookup shallowOuterToeWithWall = (x, z) -> {
+            if (x > 0) {
+                return BasalTalusApronField.RockColumn.EMPTY;
+            }
+            return x > -4 ? shallowMassifToe : tallMassifWall;
+        };
+        BasalTalusApronField.SurvivingRockLookup shallowInnerToeWithWall = (x, z) -> {
+            if (x < 0) {
+                return BasalTalusApronField.RockColumn.EMPTY;
+            }
+            return x < 4 ? shallowMassifToe : tallMassifWall;
+        };
+        BasalTalusApronField.Sample outerWallRelief51411 =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 1, 0, 0.0, 51411, talus, shallowOuterToeWithWall
+                );
+        BasalTalusApronField.Sample innerWallRelief51411 =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, -1, 0, 0.0, 51411, talus, shallowInnerToeWithWall
+                );
+        BasalTalusApronField.Sample massifWallRelief51410 =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 1, 0, 0.0, 51410, talus, shallowOuterToeWithWall
+                );
+        require(outerWallRelief51411.active() && innerWallRelief51411.active(),
+                "inner/outer shallow massif toes did not inherit the tall wall relief");
+        require(!massifWallRelief51410.active(),
+                "profile 51410 no longer retains its single-contact massif relief behavior");
 
         BasalTalusApronField.SurvivingRockLookup narrowFault = (x, z) ->
                 Math.abs(x) >= 2

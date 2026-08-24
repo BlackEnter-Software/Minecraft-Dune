@@ -12,6 +12,7 @@ import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
 public final class BasalTalusApronField {
     public static final int ACTUAL_CONTACT_PROFILE_VERSION = 5149;
     public static final int CONTACT_OWNERSHIP_PROFILE_VERSION = 51410;
+    public static final int UNIFIED_WALL_RELIEF_PROFILE_VERSION = 51411;
     private static final long HEIGHT_SALT = 0x6D53A91C27F84BE2L;
     private static final long MATERIAL_SALT = 0xB8E2417D5A39C60FL;
     private static final int[][] CONTACT_DIRECTIONS = {
@@ -30,6 +31,10 @@ public final class BasalTalusApronField {
 
     public static boolean usesContactOwnership(int profileVersion) {
         return profileVersion >= CONTACT_OWNERSHIP_PROFILE_VERSION;
+    }
+
+    public static boolean usesUnifiedWallRelief(int profileVersion) {
+        return profileVersion >= UNIFIED_WALL_RELIEF_PROFILE_VERSION;
     }
 
     /**
@@ -53,18 +58,19 @@ public final class BasalTalusApronField {
         }
 
         boolean faultSearch = geology.faultCarveMask() > 0.12;
+        ScarpMorphologyField.LowSideContact structuralContact =
+                ScarpMorphologyField.LowSideContact.NONE;
         if (!faultSearch) {
             // The structural contact is only a cheap province-level search gate. It never
             // supplies placement distance; the final surviving-rock lookup below does that.
-            ScarpMorphologyField.LowSideContact structuralContact =
-                    ScarpMorphologyField.nearestMassifLowSideContact(
-                            worldSeed,
-                            worldX + 0.5,
-                            worldZ + 0.5,
-                            geology.radiusBlocks(),
-                            geology.effectiveRadiusBlocks(),
-                            settings.massif()
-                    );
+            structuralContact = ScarpMorphologyField.nearestMassifLowSideContact(
+                    worldSeed,
+                    worldX + 0.5,
+                    worldZ + 0.5,
+                    geology.radiusBlocks(),
+                    geology.effectiveRadiusBlocks(),
+                    settings.massif()
+            );
             double searchBand = Math.max(1.0, talus.basalApronSpread())
                     + Math.max(0.0, talus.basalApronInset())
                     + 8.0;
@@ -81,7 +87,9 @@ public final class BasalTalusApronField {
                 geology.faultCarveMask(),
                 settings.profileVersion(),
                 talus,
-                survivingRock
+                survivingRock,
+                structuralContact.inwardX(),
+                structuralContact.inwardZ()
         );
     }
 
@@ -98,7 +106,7 @@ public final class BasalTalusApronField {
                 worldX,
                 worldZ,
                 targetFaultCarveMask,
-                CONTACT_OWNERSHIP_PROFILE_VERSION,
+                UNIFIED_WALL_RELIEF_PROFILE_VERSION,
                 talus,
                 survivingRock
         );
@@ -112,6 +120,30 @@ public final class BasalTalusApronField {
             int profileVersion,
             ArrakisTerrainSettings.TalusSettings talus,
             SurvivingRockLookup survivingRock
+    ) {
+        return sampleFromSurvivingContact(
+                worldSeed,
+                worldX,
+                worldZ,
+                targetFaultCarveMask,
+                profileVersion,
+                talus,
+                survivingRock,
+                Double.NaN,
+                Double.NaN
+        );
+    }
+
+    private static Sample sampleFromSurvivingContact(
+            long worldSeed,
+            int worldX,
+            int worldZ,
+            double targetFaultCarveMask,
+            int profileVersion,
+            ArrakisTerrainSettings.TalusSettings talus,
+            SurvivingRockLookup survivingRock,
+            double massifInwardX,
+            double massifInwardZ
     ) {
         if (!talus.basalApronEnabled()) {
             return Sample.NONE;
@@ -175,13 +207,18 @@ public final class BasalTalusApronField {
         );
 
         int representativeTopY = contact.rock().topY();
-        if (contact.kind() == ContactKind.FAULT
-                && usesContactOwnership(profileVersion)) {
-            representativeTopY = representativeFaultWallTopY(
+        boolean faultWallProbe = contact.kind() == ContactKind.FAULT
+                && usesContactOwnership(profileVersion);
+        boolean massifWallProbe = contact.kind() == ContactKind.MASSIF
+                && usesUnifiedWallRelief(profileVersion);
+        if (faultWallProbe || massifWallProbe) {
+            representativeTopY = representativeWallTopY(
                     worldX,
                     worldZ,
                     contact,
                     spread,
+                    massifWallProbe ? massifInwardX : Double.NaN,
+                    massifWallProbe ? massifInwardZ : Double.NaN,
                     survivingRock
             );
         }
@@ -399,17 +436,24 @@ public final class BasalTalusApronField {
         return best;
     }
 
-    static int representativeFaultWallTopY(
+    static int representativeWallTopY(
             int worldX,
             int worldZ,
             Contact contact,
             double spread,
+            double preferredInwardX,
+            double preferredInwardZ,
             SurvivingRockLookup survivingRock
     ) {
         int highest = contact.rock().topY();
         double contactDistance = Math.max(1.0, contact.distance());
-        double unitX = contact.offsetX() / contactDistance;
-        double unitZ = contact.offsetZ() / contactDistance;
+        double inwardLength = Math.hypot(preferredInwardX, preferredInwardZ);
+        double unitX = Double.isFinite(inwardLength) && inwardLength > 1.0e-9
+                ? preferredInwardX / inwardLength
+                : contact.offsetX() / contactDistance;
+        double unitZ = Double.isFinite(inwardLength) && inwardLength > 1.0e-9
+                ? preferredInwardZ / inwardLength
+                : contact.offsetZ() / contactDistance;
         int probeLength = (int) Math.round(
                 Math.max(16.0, Math.min(24.0, spread + 8.0))
         );

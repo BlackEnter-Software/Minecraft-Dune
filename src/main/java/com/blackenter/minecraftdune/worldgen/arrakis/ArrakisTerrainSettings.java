@@ -25,7 +25,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 51410;
+    public static final int CURRENT_PROFILE_VERSION = 51411;
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -69,7 +69,7 @@ public record ArrakisTerrainSettings(
             );
 
     public static final BaseAlignmentSettings DEFAULT_BASE_ALIGNMENT =
-            new BaseAlignmentSettings(0.0);
+            new BaseAlignmentSettings(0.0, 0.0, 0.0);
 
     public static final LithologySettings DEFAULT_LITHOLOGY =
             new LithologySettings(
@@ -426,15 +426,22 @@ public record ArrakisTerrainSettings(
      * Vertical alignment controls that must not move the global Arrakis sand datum.
      *
      * <p>This is separate from MassifSettings because that codec already contains sixteen
-     * RecordCodecBuilder fields. Missing data decodes to zero for old serialized worlds.</p>
+     * RecordCodecBuilder fields. Missing data decodes to zero for old serialized worlds, so
+     * the hard cliff-foot cutoff remains disabled unless a profile explicitly enables it.</p>
      */
     public record BaseAlignmentSettings(
-            double massifVerticalOffset
+            double massifVerticalOffset,
+            double minimumCliffFootHeight,
+            double cliffFootCutWidth
     ) {
         public static final Codec<BaseAlignmentSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
                         Codec.DOUBLE.optionalFieldOf("massif_vertical_offset", 0.0)
-                                .forGetter(BaseAlignmentSettings::massifVerticalOffset)
+                                .forGetter(BaseAlignmentSettings::massifVerticalOffset),
+                        Codec.DOUBLE.optionalFieldOf("minimum_cliff_foot_height", 0.0)
+                                .forGetter(BaseAlignmentSettings::minimumCliffFootHeight),
+                        Codec.DOUBLE.optionalFieldOf("cliff_foot_cut_width", 0.0)
+                                .forGetter(BaseAlignmentSettings::cliffFootCutWidth)
                 ).apply(instance, BaseAlignmentSettings::new));
     }
 
