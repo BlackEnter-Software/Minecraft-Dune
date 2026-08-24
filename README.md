@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.8**
+Current development version: **0.5.14.9**
 
 The project currently contains:
 
@@ -19,7 +19,7 @@ The project currently contains:
 - removal-only orphan-remnant suppression for detached exposed cliff needles/slabs;
 - smooth basalt, red sandstone and terracotta as coherent resistance-tiered lithologies;
 - serialized terrain-base alignment: the Shield Wall sits four blocks lower while full fault cores expose the Y=64 sand floor;
-- corrected Shield-Wall basal contact with a short gravity-driven gravel/sand talus apron;
+- actual-contact massif and fault-wall colluvium with short gravel/sand talus aprons;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -73,10 +73,15 @@ The native generator retains the same base stratigraphy:
 height field before faults and erosion are evaluated. Full regional-fault cores target zero
 rock height above the datum, so their floor exposes the existing flat sand layer.
 
-0.5.14.8 also removes the remaining low scarp pedestal by fading the massif's constant basal
-height contribution to zero at the physical contact. A short gravity-driven gravel/sand
-talus apron masks the corrected rock/sand junction. This is colluvial debris, not wind-blown
-sand; aeolian accumulation remains deferred to approximately 0.5.16.
+0.5.14.8 removes the remaining low scarp pedestal by fading the massif's constant basal
+height contribution to zero at the physical contact. In 0.5.14.9 the short gravity-driven
+gravel/sand apron no longer targets that nominal structural boundary: it samples the actual
+surviving rock footprint after fractures, both erosion passes and orphan-remnant filtering.
+Massif debris therefore begins immediately beside the final rock foot and follows its local
+irregularity. The same contact sampler now creates bounded colluvium along regional-fault
+walls while preserving an open Y=64 sandy core between opposing aprons. This remains
+colluvial debris, not wind-blown sand; aeolian accumulation is deferred to approximately
+0.5.16.
 
 New Arrakis Dev worlds use the featureless `minecraftdune:arrakis_desert` biome. Its natural
 spawn table contains only Muad'dib and Desert Hare; an Arrakis-generator placement gate also

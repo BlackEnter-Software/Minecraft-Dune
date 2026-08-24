@@ -1,5 +1,44 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.9 - Basal Talus Contact Fix
+
+### Actual surviving rock contact
+
+- Fixed the visible sand gap between the final Shield-Wall foot and its basal talus apron.
+- The 0.5.14.8 apron derived placement from the nominal warped scarp boundary before major
+  erosion, surface erosion and orphan-remnant filtering. That boundary was valid structural
+  context but was not the final rock contact.
+- Basal colluvium now queries the actual foundation-contact rock footprint after both erosion
+  passes and orphan filtering, but before basal talus and dunes.
+- The first low-side column directly adjacent to surviving rock has zero outward distance,
+  so gravel/sand deposition begins without an artificial gap.
+- The existing approximate 6-block height, 12-block spread, gravel-to-sand grading and local
+  fracture scree remain unchanged. The active `massif_vertical_offset=-4` also remains.
+
+### Regional-fault colluvium
+
+- Added equivalent actual-contact talus along both surviving walls of regional faults.
+- Each wall sources its own limited apron into the sandy floor.
+- When the opposite wall is within range, effective spread is capped from measured wall
+  separation so opposing aprons cannot bridge or refill the protected central channel.
+- Deposition starts above Y=64, never writes native rock, and never overwrites an occupied
+  pre-talus rock column. The absolute fault floor, wall shape, toe, widths and centerline warp
+  are unchanged.
+
+### Determinism, compatibility and validation
+
+- Contact sampling uses fixed absolute-coordinate probes and cached raw terrain columns; it
+  never reads generated chunks or recursively samples another talus result.
+- Profile 5149 uses actual-contact targeting. Serialized profiles below 5149 retain the
+  0.5.14.8 nominal-scarp path, while profiles missing the optional apron settings still decode
+  with basal aprons disabled.
+- Added deterministic checks for inner and outer massif contact, zero-gap adjacency, both
+  fault walls, central-channel preservation, repeatability and sampling-order independence.
+- Project version is `0.5.14.9`; terrain profile version is `5149`. No new JSON controls or
+  tuning changes were introduced.
+- This remains gravity-driven colluvium only; aeolian deposition is still deferred to
+  approximately 0.5.16.
+
 ## Minecraft: Dune 0.5.14.8 - Basal Contact & Talus Apron
 
 ### Shield Wall reaches the sand datum

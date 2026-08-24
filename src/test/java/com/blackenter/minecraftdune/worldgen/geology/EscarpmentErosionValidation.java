@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 5148, "active profile_version must be 5148");
+        require(settings.profileVersion() == 5149, "active profile_version must be 5149");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject legacy5142Profile = profile.json().deepCopy();
@@ -69,6 +69,10 @@ public final class EscarpmentErosionValidation {
                 "missing additional_materials must retain the old lithology palette");
         require(!legacy5142.erosion().orphanRemnants().enabled(),
                 "missing orphan_remnants must retain old erosion occupancy");
+        require(!BasalTalusApronField.usesActualContact(5148),
+                "serialized 0.5.14.8 profiles must retain nominal apron targeting");
+        require(BasalTalusApronField.usesActualContact(5149),
+                "profile 5149 must use actual surviving-rock contact");
 
         JsonObject oldProfile = legacy5142Profile.deepCopy();
         oldProfile.addProperty("profile_version", 513);
@@ -442,6 +446,106 @@ public final class EscarpmentErosionValidation {
                         1.0
                 ) == 0,
                 "basal talus apron did not taper to zero at its outer edge");
+
+        BasalTalusApronField.RockColumn massifRock =
+                new BasalTalusApronField.RockColumn(true, 160, true, 0.0);
+        BasalTalusApronField.SurvivingRockLookup outerMassif = (x, z) -> x <= 0
+                ? massifRock
+                : BasalTalusApronField.RockColumn.EMPTY;
+        BasalTalusApronField.SurvivingRockLookup innerMassif = (x, z) -> x >= 0
+                ? massifRock
+                : BasalTalusApronField.RockColumn.EMPTY;
+
+        BasalTalusApronField.Sample outerContact =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 1, 0, 0.0, talus, outerMassif
+                );
+        BasalTalusApronField.Sample innerContact =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, -1, 0, 0.0, talus, innerMassif
+                );
+        require(outerContact.active()
+                        && outerContact.contactKind()
+                        == BasalTalusApronField.ContactKind.MASSIF,
+                "outer massif apron did not find the surviving rock footprint");
+        require(innerContact.active()
+                        && innerContact.contactKind()
+                        == BasalTalusApronField.ContactKind.MASSIF,
+                "inner massif apron did not find the surviving rock footprint");
+        require(outerContact.contactDistance() == 1.0
+                        && outerContact.outwardDistance() == 0.0,
+                "massif apron retained an artificial gap beside surviving rock");
+        require(!BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 0, 0, 0.0, talus, outerMassif
+                ).active(),
+                "basal apron overwrote the surviving rock contact column");
+
+        BasalTalusApronField.RockColumn faultWallRock =
+                new BasalTalusApronField.RockColumn(true, 150, false, 0.995);
+        BasalTalusApronField.SurvivingRockLookup faultCanyon = (x, z) ->
+                Math.abs(x) >= 8
+                        ? faultWallRock
+                        : BasalTalusApronField.RockColumn.EMPTY;
+        BasalTalusApronField.Sample leftFault =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, -7, 0, 1.0, talus, faultCanyon
+                );
+        BasalTalusApronField.Sample rightFault =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 7, 0, 1.0, talus, faultCanyon
+                );
+        BasalTalusApronField.Sample protectedCenter =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 0, 0, 1.0, talus, faultCanyon
+                );
+        require(leftFault.active() && rightFault.active()
+                        && leftFault.contactKind() == BasalTalusApronField.ContactKind.FAULT
+                        && rightFault.contactKind() == BasalTalusApronField.ContactKind.FAULT,
+                "both surviving regional-fault walls must produce basal colluvium");
+        require(!protectedCenter.active(),
+                "opposing fault aprons bridged or refilled the protected sandy core");
+
+        BasalTalusApronField.SurvivingRockLookup narrowFault = (x, z) ->
+                Math.abs(x) >= 2
+                        ? faultWallRock
+                        : BasalTalusApronField.RockColumn.EMPTY;
+        require(BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, -1, 0, 1.0, talus, narrowFault
+                ).active()
+                        && BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 1, 0, 1.0, talus, narrowFault
+                ).active(),
+                "narrow fault lost its wall-adjacent colluvium");
+        require(!BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 0, 0, 1.0, talus, narrowFault
+                ).active(),
+                "block-grid rounding closed the narrow fault's central sandy channel");
+
+        BasalTalusApronField.Sample outerAgain =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 1, 0, 0.0, talus, outerMassif
+                );
+        require(outerContact.equals(outerAgain),
+                "surviving-contact talus sampling is not deterministic");
+        BasalTalusApronField.Sample[] forward = {
+                leftFault,
+                protectedCenter,
+                rightFault
+        };
+        BasalTalusApronField.Sample[] reverse = new BasalTalusApronField.Sample[3];
+        reverse[2] = BasalTalusApronField.sampleFromSurvivingContact(
+                0L, 7, 0, 1.0, talus, faultCanyon
+        );
+        reverse[1] = BasalTalusApronField.sampleFromSurvivingContact(
+                0L, 0, 0, 1.0, talus, faultCanyon
+        );
+        reverse[0] = BasalTalusApronField.sampleFromSurvivingContact(
+                0L, -7, 0, 1.0, talus, faultCanyon
+        );
+        for (int index = 0; index < forward.length; index++) {
+            require(forward[index].equals(reverse[index]),
+                    "talus result changed with sampling order");
+        }
     }
 
     private static void validateAdditionalMaterials(ArrakisTerrainSettings settings) {

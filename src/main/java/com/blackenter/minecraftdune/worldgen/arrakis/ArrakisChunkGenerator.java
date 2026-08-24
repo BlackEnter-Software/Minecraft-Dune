@@ -148,7 +148,13 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         }
 
         Map<Long, TerrainColumn> terrainCache = new HashMap<>(16);
-        TerrainColumn terrain = terrainColumnCached(x, z, terrainCache);
+        Map<Long, BasalTalusApronField.RockColumn> contactCache = new HashMap<>(16);
+        TerrainColumn terrain = terrainColumnWithBasalTalusCached(
+                x,
+                z,
+                terrainCache,
+                contactCache
+        );
         int nativeHeight = Mth.clamp(
                 highestFilteredOccupiedY(x, z, terrain, terrainCache) + 1,
                 level.getMinBuildHeight(),
@@ -175,7 +181,13 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         }
 
         Map<Long, TerrainColumn> terrainCache = new HashMap<>(16);
-        TerrainColumn terrain = terrainColumnCached(x, z, terrainCache);
+        Map<Long, BasalTalusApronField.RockColumn> contactCache = new HashMap<>(16);
+        TerrainColumn terrain = terrainColumnWithBasalTalusCached(
+                x,
+                z,
+                terrainCache,
+                contactCache
+        );
         int minimumY = height.getMinBuildHeight();
         int maximumY = height.getMaxBuildHeight() - 1;
 
@@ -243,17 +255,19 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         int maximumY = chunk.getMaxBuildHeight() - 1;
         BlockPos.MutableBlockPos position =
                 new BlockPos.MutableBlockPos();
-        Map<Long, TerrainColumn> terrainCache = new HashMap<>(384);
+        Map<Long, TerrainColumn> terrainCache = new HashMap<>(2048);
+        Map<Long, BasalTalusApronField.RockColumn> contactCache = new HashMap<>(2048);
 
         for (int localZ = 0; localZ < 16; localZ++) {
             int worldZ = minimumZ + localZ;
 
             for (int localX = 0; localX < 16; localX++) {
                 int worldX = minimumX + localX;
-                TerrainColumn terrain = terrainColumnCached(
+                TerrainColumn terrain = terrainColumnWithBasalTalusCached(
                         worldX,
                         worldZ,
-                        terrainCache
+                        terrainCache,
+                        contactCache
                 );
 
                 if (terrain.hasNativeRock()) {
@@ -390,14 +404,6 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 geology,
                 terrainSettings
         );
-        BasalTalusApronField.Sample basalTalusApron =
-                BasalTalusApronField.sample(
-                        worldSeed,
-                        worldX + 0.5,
-                        worldZ + 0.5,
-                        geology,
-                        terrainSettings
-                );
         EscarpmentErosionField.Column erosion = EscarpmentErosionField.sample(
                 worldSeed,
                 worldX + 0.5,
@@ -432,12 +438,49 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 originalRockTopY,
                 fissureRockTopY,
                 dune.surfaceUnits(),
+                geology,
                 lithology,
                 fracture,
                 erosion,
                 surfaceErosion,
-                basalTalusApron
+                BasalTalusApronField.Sample.NONE
         );
+    }
+
+    private TerrainColumn terrainColumnWithBasalTalusCached(
+            int worldX,
+            int worldZ,
+            Map<Long, TerrainColumn> terrainCache,
+            Map<Long, BasalTalusApronField.RockColumn> contactCache
+    ) {
+        TerrainColumn terrain = terrainColumnCached(worldX, worldZ, terrainCache);
+        BasalTalusApronField.Sample apron;
+        if (!BasalTalusApronField.usesActualContact(
+                terrainSettings.profileVersion()
+        )) {
+            apron = BasalTalusApronField.sampleLegacy(
+                    worldSeed,
+                    worldX + 0.5,
+                    worldZ + 0.5,
+                    terrain.geology(),
+                    terrainSettings
+            );
+        } else {
+            apron = BasalTalusApronField.sample(
+                    worldSeed,
+                    worldX,
+                    worldZ,
+                    terrain.geology(),
+                    terrainSettings,
+                    (sampleX, sampleZ) -> survivingRockContactColumn(
+                            sampleX,
+                            sampleZ,
+                            terrainCache,
+                            contactCache
+                    )
+            );
+        }
+        return terrain.withBasalTalusApron(apron);
     }
 
     private TerrainColumn terrainColumnCached(
@@ -454,6 +497,61 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         TerrainColumn terrain = terrainColumn(worldX, worldZ);
         terrainCache.put(key, terrain);
         return terrain;
+    }
+
+    private BasalTalusApronField.RockColumn survivingRockContactColumn(
+            int worldX,
+            int worldZ,
+            Map<Long, TerrainColumn> terrainCache,
+            Map<Long, BasalTalusApronField.RockColumn> contactCache
+    ) {
+        long key = ((long) worldX << 32) ^ (worldZ & 0xffffffffL);
+        BasalTalusApronField.RockColumn cached = contactCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+
+        TerrainColumn terrain = terrainColumnCached(worldX, worldZ, terrainCache);
+        boolean occupied = finalRockOccupiesBeforeTalus(
+                worldX,
+                worldZ,
+                FIRST_NATIVE_Y,
+                terrain,
+                terrainCache
+        );
+        MacroGeologyField.Sample geology = terrain.geology();
+        boolean massifSource = geology.massifWeight() > 0.06
+                || geology.faultedMarginWeight() > 0.06;
+        BasalTalusApronField.RockColumn result = new BasalTalusApronField.RockColumn(
+                occupied,
+                terrain.rockTopY(),
+                massifSource,
+                geology.faultCarveMask()
+        );
+        contactCache.put(key, result);
+        return result;
+    }
+
+    private boolean finalRockOccupiesBeforeTalus(
+            int worldX,
+            int worldZ,
+            int worldY,
+            TerrainColumn terrain,
+            Map<Long, TerrainColumn> terrainCache
+    ) {
+        if (!terrain.hasNativeRock()
+                || worldY < FIRST_NATIVE_Y
+                || worldY > terrain.rockTopY()) {
+            return false;
+        }
+        return filteredRockOccupies(
+                worldX,
+                worldZ,
+                worldY,
+                terrain,
+                terrain.materialSampleAt(worldY),
+                terrainCache
+        );
     }
 
     private boolean rawRockOccupies(
@@ -703,12 +801,28 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             int originalRockTopY,
             int fissureRockTopY,
             int duneSurfaceUnits,
+            MacroGeologyField.Sample geology,
             LithologyField.Column lithology,
             MassifFractureField.Sample fracture,
             EscarpmentErosionField.Column erosion,
             RockSurfaceErosionField.Column surfaceErosion,
             BasalTalusApronField.Sample basalTalusApron
     ) {
+        TerrainColumn withBasalTalusApron(BasalTalusApronField.Sample apron) {
+            return new TerrainColumn(
+                    rockTopY,
+                    originalRockTopY,
+                    fissureRockTopY,
+                    duneSurfaceUnits,
+                    geology,
+                    lithology,
+                    fracture,
+                    erosion,
+                    surfaceErosion,
+                    apron
+            );
+        }
+
         LithologyField.Sample materialSampleAt(int y) {
             LithologyField.Sample sample = lithology.sample(y);
             if (fracture.calciteExposure(y, originalRockTopY, fissureRockTopY)) {
