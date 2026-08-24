@@ -96,6 +96,7 @@ public final class MacroGeologyField {
                     0.0,
                     0.0,
                     0.0,
+                    0.0,
                     1.0,
                     0.0,
                     0.0,
@@ -137,6 +138,9 @@ public final class MacroGeologyField {
                 effectiveRadius
         ));
         double physicalMassifEnvelope = ScarpMorphologyField.massifEnvelope(
+                worldSeed,
+                worldX,
+                worldZ,
                 radius,
                 effectiveRadius,
                 massif,
@@ -644,6 +648,7 @@ public final class MacroGeologyField {
                 centralBasin,
                 innerForeland,
                 massif,
+                physicalMassifEnvelope,
                 faultedMargin,
                 brokenRock,
                 sandRockTransition,
@@ -671,6 +676,7 @@ public final class MacroGeologyField {
                 effectiveRadius,
                 boundaryWarp,
                 centralBasinWeight,
+                0.0,
                 0.0,
                 0.0,
                 0.0,
@@ -768,6 +774,9 @@ public final class MacroGeologyField {
             double distance = Math.abs(perpendicular - centerline);
             ScarpMorphologyField.FaultProfile profile =
                     ScarpMorphologyField.faultProfile(
+                            worldSeed,
+                            along,
+                            fault,
                             distance,
                             radialGate,
                             settings,
@@ -1065,6 +1074,7 @@ public final class MacroGeologyField {
             double centralBasinWeight,
             double innerForelandWeight,
             double massifWeight,
+            double physicalMassifWeight,
             double faultedMarginWeight,
             double brokenRockWeight,
             double sandRockTransitionWeight,

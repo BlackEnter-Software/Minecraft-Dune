@@ -23,7 +23,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 5144;
+    public static final int CURRENT_PROFILE_VERSION = 5145;
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -160,7 +160,11 @@ public record ArrakisTerrainSettings(
                     0.58,
                     false,
                     250.0,
-                    100.0
+                    100.0,
+                    150.0,
+                    0.0,
+                    42.0,
+                    0.0
             ),
             new FaultSettings(
                     4,
@@ -335,7 +339,11 @@ public record ArrakisTerrainSettings(
             double shapeHigh,
             boolean scarpMorphologyEnabled,
             double innerScarpWidth,
-            double outerScarpWidth
+            double outerScarpWidth,
+            double scarpWarpScale,
+            double scarpWarpStrength,
+            double scarpDetailScale,
+            double scarpDetailStrength
     ) {
         public static final Codec<MassifSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -357,7 +365,15 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.optionalFieldOf("inner_scarp_width", 250.0)
                                 .forGetter(MassifSettings::innerScarpWidth),
                         Codec.DOUBLE.optionalFieldOf("outer_scarp_width", 100.0)
-                                .forGetter(MassifSettings::outerScarpWidth)
+                                .forGetter(MassifSettings::outerScarpWidth),
+                        Codec.DOUBLE.optionalFieldOf("scarp_warp_scale", 150.0)
+                                .forGetter(MassifSettings::scarpWarpScale),
+                        Codec.DOUBLE.optionalFieldOf("scarp_warp_strength", 0.0)
+                                .forGetter(MassifSettings::scarpWarpStrength),
+                        Codec.DOUBLE.optionalFieldOf("scarp_detail_scale", 42.0)
+                                .forGetter(MassifSettings::scarpDetailScale),
+                        Codec.DOUBLE.optionalFieldOf("scarp_detail_strength", 0.0)
+                                .forGetter(MassifSettings::scarpDetailStrength)
                 ).apply(instance, MassifSettings::new));
     }
 
@@ -419,17 +435,23 @@ public record ArrakisTerrainSettings(
      */
     public record FaultMorphologySettings(
             double wallWidth,
-            double toeDepth
+            double toeDepth,
+            double wallVariationScale,
+            double wallVariation
     ) {
         public static final FaultMorphologySettings LEGACY =
-                new FaultMorphologySettings(75.0, 0.0);
+                new FaultMorphologySettings(75.0, 0.0, 90.0, 0.0);
 
         public static final Codec<FaultMorphologySettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
                         Codec.DOUBLE.fieldOf("wall_width")
                                 .forGetter(FaultMorphologySettings::wallWidth),
                         Codec.DOUBLE.fieldOf("toe_depth")
-                                .forGetter(FaultMorphologySettings::toeDepth)
+                                .forGetter(FaultMorphologySettings::toeDepth),
+                        Codec.DOUBLE.optionalFieldOf("wall_variation_scale", 90.0)
+                                .forGetter(FaultMorphologySettings::wallVariationScale),
+                        Codec.DOUBLE.optionalFieldOf("wall_variation", 0.0)
+                                .forGetter(FaultMorphologySettings::wallVariation)
                 ).apply(instance, FaultMorphologySettings::new));
     }
 

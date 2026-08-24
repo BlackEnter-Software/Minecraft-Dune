@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 5144, "active profile_version must be 5144");
+        require(settings.profileVersion() == 5145, "active profile_version must be 5145");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject legacy5142Profile = profile.json().deepCopy();
@@ -36,6 +36,10 @@ public final class EscarpmentErosionValidation {
         legacyMassif.remove("scarp_morphology_enabled");
         legacyMassif.remove("inner_scarp_width");
         legacyMassif.remove("outer_scarp_width");
+        legacyMassif.remove("scarp_warp_scale");
+        legacyMassif.remove("scarp_warp_strength");
+        legacyMassif.remove("scarp_detail_scale");
+        legacyMassif.remove("scarp_detail_strength");
         legacy5142Profile.getAsJsonObject("faults").remove("morphology");
         ArrakisTerrainSettings legacy5142 = ArrakisTerrainSettings.CODEC
                 .parse(JsonOps.INSTANCE, legacy5142Profile)
@@ -58,6 +62,7 @@ public final class EscarpmentErosionValidation {
         validateResistanceOrder(settings);
         validateScarpMorphology(settings);
         validateStructuralFaceCoupling(settings);
+        validateScarpRoughness(settings);
         validateExposedFaceGeometry(settings);
         validateBasinAndDunes(settings);
         SeamCounts seams = validateChunkBoundaryOrderIndependence(settings);
@@ -266,6 +271,71 @@ public final class EscarpmentErosionValidation {
                 "ordinary physical fault wall is still being protected like the floor");
         require(noFault > 0.999,
                 "non-fault terrain lost erosion permission");
+    }
+
+    private static void validateScarpRoughness(ArrakisTerrainSettings settings) {
+        ArrakisTerrainSettings.MassifSettings massif = settings.massif();
+        ArrakisTerrainSettings.FaultSettings faults = settings.faults();
+        ArrakisTerrainSettings.FaultMorphologySettings morphology = faults.morphology();
+
+        require(massif.scarpWarpStrength() > 0.0
+                        && massif.scarpDetailStrength() > 0.0,
+                "active 0.5.14.5 massif scarp roughness must be enabled");
+        require(morphology.wallVariation() > 0.0,
+                "active 0.5.14.5 fault wall variation must be enabled");
+
+        double maximumMassifOffset =
+                massif.scarpWarpStrength() + massif.scarpDetailStrength();
+        double innerA = ScarpMorphologyField.massifBoundaryOffset(
+                0L, 3000.0, 0.0, massif, true
+        );
+        double innerAgain = ScarpMorphologyField.massifBoundaryOffset(
+                0L, 3000.0, 0.0, massif, true
+        );
+        double innerB = ScarpMorphologyField.massifBoundaryOffset(
+                0L, 3144.0, 93.0, massif, true
+        );
+        double outerA = ScarpMorphologyField.massifBoundaryOffset(
+                0L, 4000.0, 0.0, massif, false
+        );
+
+        require(innerA == innerAgain,
+                "massif scarp roughness is not deterministic");
+        require(Math.abs(innerA) <= maximumMassifOffset + 1.0e-9
+                        && Math.abs(innerB) <= maximumMassifOffset + 1.0e-9
+                        && Math.abs(outerA) <= maximumMassifOffset + 1.0e-9,
+                "massif scarp roughness exceeded configured bound");
+        require(Math.abs(innerA - innerB) > 1.0e-4,
+                "massif scarp roughness did not vary spatially");
+
+        double wallA = ScarpMorphologyField.faultWallWidth(0L, 0.0, 0, faults);
+        double wallAgain = ScarpMorphologyField.faultWallWidth(0L, 0.0, 0, faults);
+        double wallB = ScarpMorphologyField.faultWallWidth(
+                0L, morphology.wallVariationScale() * 1.75, 0, faults
+        );
+        double coreA = ScarpMorphologyField.faultCoreWidth(0L, 0.0, 0, faults);
+        double coreB = ScarpMorphologyField.faultCoreWidth(
+                0L, morphology.wallVariationScale() * 1.75, 0, faults
+        );
+
+        require(wallA == wallAgain,
+                "fault wall variation is not deterministic");
+        require(Math.abs(wallA - morphology.wallWidth())
+                        <= morphology.wallVariation() + 1.0e-9
+                        && Math.abs(wallB - morphology.wallWidth())
+                        <= morphology.wallVariation() + 1.0e-9,
+                "fault wall variation exceeded configured bound");
+        require(Math.abs(wallA - wallB) > 1.0e-4,
+                "fault wall width did not vary along the fault");
+        require(coreA >= faults.coreWidth() && coreB >= faults.coreWidth(),
+                "fault roughness narrowed the protected core below core_width");
+
+        double maximumCoreExpansion = Math.min(
+                2.0, morphology.wallVariation() * 0.40
+        );
+        require(coreA <= faults.coreWidth() + maximumCoreExpansion + 1.0e-9
+                        && coreB <= faults.coreWidth() + maximumCoreExpansion + 1.0e-9,
+                "fault protected-core variation exceeded its safety bound");
     }
 
     private static void validateExposedFaceGeometry(ArrakisTerrainSettings settings) {

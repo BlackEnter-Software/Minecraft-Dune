@@ -1,5 +1,41 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.5 - Scarp Roughness & Wall Continuity
+
+### Coherent Shield Wall boundary roughness
+
+- Added two-scale lateral warping to the physical inner and outer Shield Wall scarp positions.
+- The source profile uses a 150-block / 7-block broad component and a 42-block / 2.5-block
+  detail component.
+- Warping shifts the cliff boundary in X/Z; it does not add per-block vertical height noise.
+  Plateau mass and the steep 36/48-block structural scarp widths remain intact.
+- Runtime erosion permission now reads the exact seeded physical massif envelope stored by
+  `MacroGeologyField.Sample`, so warped scarp geometry and erosion authorization stay aligned.
+
+### Regional fault wall continuity
+
+- Added `wall_variation_scale` and `wall_variation` to the existing nested fault morphology
+  settings. The source profile uses 90 blocks and +/-3 blocks.
+- Fault wall width now changes coherently along each fault instead of remaining an identical
+  14-block cross-section for long runs.
+- The same low-amplitude structural signal can expand the protected core edge slightly, but
+  never narrows it below configured `core_width`; absolute 0.5.12 fault-floor elevation remains
+  unchanged.
+- Existing broad/medium fault-centerline meander is preserved.
+
+### Compatibility and scope
+
+- Missing massif roughness strengths and fault wall variation decode to zero, preserving
+  serialized 0.5.14.4 geometry.
+- Global erosion strength, lithology, talus, dunes, scarp widths and fault floor values are
+  unchanged.
+- Added deterministic/bounds validation for massif boundary offsets and fault cross-section
+  variation.
+- Source terrain profile is `5145`; project version is `0.5.14.5`.
+- Unsupported/floating resistant remnants and eight-direction face probes remain deferred.
+- If seed-0 is satisfactory after this pass, above-ground erosion architecture should be
+  frozen and 0.5.15 can begin subsurface geology.
+
 ## Minecraft: Dune 0.5.14.4 - Structural Face Erosion Coupling
 
 ### Inner Shield Wall erosion follows the physical scarp

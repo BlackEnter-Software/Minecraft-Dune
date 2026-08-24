@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.4**
+Current development version: **0.5.14.5**
 
 The project currently contains:
 
@@ -15,6 +15,7 @@ The project currently contains:
 - height-detected, lithology-aware erosion down ordinary massif faces, fissures and smaller rocks;
 - steep structural Shield Wall and regional-fault scarps decoupled from broad province fades;
 - erosion permission coupled to physical scarps while preserving absolute regional-fault cores;
+- coherent two-scale Shield Wall scarp roughness and along-fault wall-width variation;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
