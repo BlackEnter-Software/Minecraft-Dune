@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 51412, "active profile_version must be 51412");
+        require(settings.profileVersion() == 51413, "active profile_version must be 51413");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject legacy5142Profile = profile.json().deepCopy();
@@ -88,6 +88,10 @@ public final class EscarpmentErosionValidation {
                 "profile 51411 must retain its pre-erosion-only cliff-foot behavior");
         require(FinalCliffFootField.enabled(51412),
                 "profile 51412 must use final pre-talus cliff-foot occupancy");
+        require(!HardCliffContactField.enabled(51412),
+                "profile 51412 must retain the old low-side scarp contact");
+        require(HardCliffContactField.enabled(51413),
+                "profile 51413 must use the high-rock hard cliff contact");
 
         JsonObject legacy51411Profile = profile.json().deepCopy();
         legacy51411Profile.addProperty("profile_version", 51411);
@@ -473,14 +477,20 @@ public final class EscarpmentErosionValidation {
                 "basal-contact gate changed full massif height");
 
         ArrakisTerrainSettings.MassifSettings massif = settings.massif();
-        double innerOffset = ScarpMorphologyField.massifBoundaryOffset(
+        double innerProbeRadius = massif.startRadius();
+        ScarpMorphologyField.LowSideContact innerHardContact =
+                HardCliffContactField.contact(
                 0L,
-                massif.startRadius(),
+                innerProbeRadius,
                 0.0,
-                massif,
-                true
+                innerProbeRadius,
+                innerProbeRadius,
+                massif
         );
-        double innerContactRadius = massif.startRadius() + innerOffset;
+        require(innerHardContact.valid() && innerHardContact.inwardX() > 0.999,
+                "profile 51413 inner hard contact was not selected");
+        double innerContactRadius = innerProbeRadius
+                - innerHardContact.signedDistance() * innerHardContact.inwardX();
         double innerClearance = MacroGeologyField.massifContactClearance(
                 0L,
                 innerContactRadius,
@@ -490,16 +500,20 @@ public final class EscarpmentErosionValidation {
                 settings
         );
 
-        double outerOffset = ScarpMorphologyField.massifBoundaryOffset(
+        double outerProbeRadius = massif.outerStartRadius();
+        ScarpMorphologyField.LowSideContact outerHardContact =
+                HardCliffContactField.contact(
                 0L,
-                massif.outerStartRadius(),
+                outerProbeRadius,
                 0.0,
-                massif,
-                false
+                outerProbeRadius,
+                outerProbeRadius,
+                massif
         );
-        double outerContactRadius = massif.outerStartRadius()
-                + outerOffset
-                + massif.outerScarpWidth();
+        require(outerHardContact.valid() && outerHardContact.inwardX() < -0.999,
+                "profile 51413 outer hard contact was not selected");
+        double outerContactRadius = outerProbeRadius
+                - outerHardContact.signedDistance() * outerHardContact.inwardX();
         double outerClearance = MacroGeologyField.massifContactClearance(
                 0L,
                 outerContactRadius,
@@ -533,6 +547,24 @@ public final class EscarpmentErosionValidation {
                 ) == 5.0,
                 "small formation outside the Shield-Wall contact zone was removed");
         require(MacroGeologyField.hardCliffFootHeight(
+                        30.0,
+                        -8.0,
+                        settings.massif().innerScarpWidth(),
+                        minimumFootHeight,
+                        cutWidth,
+                        settings.profileVersion()
+                ) == 0.0,
+                "profile 51413 did not remove a tall desert-side structural ramp column");
+        require(MacroGeologyField.hardCliffFootHeight(
+                        30.0,
+                        -(settings.massif().innerScarpWidth() + 1.0),
+                        settings.massif().innerScarpWidth(),
+                        minimumFootHeight,
+                        cutWidth,
+                        settings.profileVersion()
+                ) == 30.0,
+                "profile 51413 structural cull escaped the physical scarp width");
+        require(MacroGeologyField.hardCliffFootHeight(
                         5.0, 0L, innerContactRadius, 0.0,
                         innerContactRadius, innerContactRadius, settings
                 ) == 0.0,
@@ -560,11 +592,42 @@ public final class EscarpmentErosionValidation {
                 settings.profileVersion(),
                 macroCandidateTopY,
                 0.0,
+                settings.massif().innerScarpWidth(),
                 alignment,
                 y -> y >= baseY + 1 && y <= erodedTopY
         );
         require(finalCulledTopY == baseY,
                 "15-block macro column eroded to 6 blocks survived the final cliff-foot cull");
+
+        int tallRampTopY = baseY + 32;
+        int tallRampCulledTopY = FinalCliffFootField.resolveFinalPreTalusRockTopY(
+                settings.profileVersion(),
+                tallRampTopY,
+                -Math.min(8.0, settings.massif().innerScarpWidth() * 0.50),
+                settings.massif().innerScarpWidth(),
+                alignment,
+                y -> y >= baseY + 1 && y <= tallRampTopY
+        );
+        require(tallRampCulledTopY == baseY,
+                "tall desert-side structural scarp ramp survived profile 51413 hard contact");
+        require(FinalCliffFootField.resolveFinalPreTalusRockTopY(
+                        51412,
+                        tallRampTopY,
+                        -Math.min(8.0, settings.massif().innerScarpWidth() * 0.50),
+                        settings.massif().innerScarpWidth(),
+                        alignment,
+                        y -> y >= baseY + 1 && y <= tallRampTopY
+                ) == tallRampTopY,
+                "profile 51412 no longer retains its height-only final cull");
+        require(FinalCliffFootField.resolveFinalPreTalusRockTopY(
+                        settings.profileVersion(),
+                        tallRampTopY,
+                        -(settings.massif().innerScarpWidth() + 1.0),
+                        settings.massif().innerScarpWidth(),
+                        alignment,
+                        y -> y >= baseY + 1 && y <= tallRampTopY
+                ) == tallRampTopY,
+                "hard cliff contact removed unrelated rock beyond the structural scarp ramp");
         require(FinalCliffFootField.resolveFinalPreTalusRockTopY(
                         legacy51411.profileVersion(),
                         macroCandidateTopY,

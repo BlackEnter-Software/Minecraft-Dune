@@ -1,4 +1,4 @@
-# Arrakis terrain profile — parameter reference (0.5.14.12)
+# Arrakis terrain profile — parameter reference (0.5.14.13)
 
 The native Arrakis generator reads its terrain parameters from:
 
@@ -9,6 +9,26 @@ src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
 The `terrain` object is serialized into the world's chunk-generator data. For clean visual
 comparisons after changing world-generation parameters, create a new Arrakis Dev world or
 regenerate the affected region files while the world is closed.
+
+## 0.5.14.13 hard Shield-Wall contact
+
+Profile 51413 adds no tuning keys. It changes the structural interpretation of the existing
+physical scarp. The old contact was the low, zero-height edge of the smooth 36-block inner /
+48-block outer transition; that allowed taller parts of the transition to remain as a rooted
+rock terrace. The new hard contact is the high-rock edge:
+
+```text
+inner: start_radius + warped_offset + inner_scarp_width
+outer: outer_start_radius + warped_offset
+```
+
+In the authoritative post-erosion/pre-talus footprint, every non-fault rock column on the
+desert side of that face but still inside one structural scarp width is removed regardless of
+height. On the rock side, the existing 10-block / 16-block low-remnant cutoff still applies.
+The same hard face supplies the massif talus search gate and inward direction; actual final
+surviving rock still supplies placement distance.
+
+Profiles below 51413 retain the previous low-side contact semantics.
 
 ## 0.5.14.12 final pre-talus occupancy
 

@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.12**
+Current development version: **0.5.14.13**
 
 The project currently contains:
 
@@ -98,12 +98,18 @@ erosion, dunes, the Y=64 datum and `massif_vertical_offset=-4` remain unchanged.
 
 0.5.14.12 moves the authoritative Shield-Wall cliff-foot decision to the final pre-talus rock
 footprint after fractures, both erosion passes and orphan filtering. A macro column that starts
-above the cutoff but erodes below 10 blocks is now removed as a complete native-rock column
-before writing or talus sampling. Basal contacts recognize surviving rock throughout the low
-Y65-Y76 wall interval rather than requiring exact Y65 occupancy. Colluvium grading now weights
-outward distance at 80% and lower vertical position at 20%, so coarse gravel visibly touches
-the wall while sand remains concentrated toward the distal toe. Profiles 51411 and older keep
-their previous final occupancy and material grading.
+above the cutoff but erodes below 10 blocks is removed as a complete native-rock column before
+writing or talus sampling. Basal contacts recognize surviving rock throughout the low Y65-Y76
+wall interval, and colluvium grading keeps the wall-adjacent toe coarse.
+
+0.5.14.13 fixes the remaining structural cause of the visible massif base. The previous
+contact was still the zero-height edge of the 36-block inner / 48-block outer smooth physical
+scarp. Any part of that ramp that remained 10 blocks or taller survived as rooted native rock.
+Profile 51413 moves the authoritative Shield-Wall contact to the high-rock edge of each scarp
+and removes the complete desert-side structural ramp in the final post-erosion/pre-talus
+footprint, regardless of its height. The cull is bounded to one scarp width, so unrelated
+foreland and broken-rock formations farther away remain legal. Massif talus uses the same hard
+contact as its search gate and still places against actual surviving rock.
 
 New Arrakis Dev worlds use the featureless `minecraftdune:arrakis_desert` biome. Its natural
 spawn table contains only Muad'dib and Desert Hare; an Arrakis-generator placement gate also
@@ -164,7 +170,8 @@ connection and shallow one- or two-block outcrops, and rejects strong regional-f
 sand-pass carving. It does not create common water or full caves. The 0.5.15 cave pass will
 consume rare limestone hosts and fractures.
 
-See [Final Cliff Foot & Contact Talus](docs/FINAL_CLIFF_FOOT_0.5.14.12.md),
+See [Hard Cliff Contact](docs/HARD_CLIFF_CONTACT_0.5.14.13.md),
+[Final Cliff Foot & Contact Talus](docs/FINAL_CLIFF_FOOT_0.5.14.12.md),
 [Hard Cliff Foot & Unified Wall Talus](docs/HARD_CLIFF_FOOT_0.5.14.11.md),
 [Lithology and fracture framework](docs/LITHOLOGY_AND_FRACTURES.md),
 [Escarpment and differential erosion](docs/ESCARPMENT_EROSION.md), and the full

@@ -6,6 +6,7 @@ import com.blackenter.minecraftdune.worldgen.dune.NativeTransverseDuneField;
 import com.blackenter.minecraftdune.worldgen.geology.BasalTalusApronField;
 import com.blackenter.minecraftdune.worldgen.geology.EscarpmentErosionField;
 import com.blackenter.minecraftdune.worldgen.geology.FinalCliffFootField;
+import com.blackenter.minecraftdune.worldgen.geology.HardCliffContactField;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyBlockPalette;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
 import com.blackenter.minecraftdune.worldgen.geology.MacroGeologyField;
@@ -539,20 +540,31 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
 
         MacroGeologyField.Sample geology = terrain.geology();
         double signedContactDistance = Double.POSITIVE_INFINITY;
+        double structuralLowSideWidth = 0.0;
         // A regional-fault wall can cross the Shield-Wall band. Its low geometry belongs to
         // the fault system and must not be reclassified as a Shield-Wall skirt.
         if (geology.faultCarveMask() <= 0.12) {
             ScarpMorphologyField.LowSideContact contact =
-                    ScarpMorphologyField.nearestMassifLowSideContact(
-                            worldSeed,
-                            worldX + 0.5,
-                            worldZ + 0.5,
-                            geology.radiusBlocks(),
-                            geology.effectiveRadiusBlocks(),
-                            terrainSettings.massif()
-                    );
+                    HardCliffContactField.enabled(terrainSettings.profileVersion())
+                            ? HardCliffContactField.contact(
+                                    worldSeed,
+                                    worldX + 0.5,
+                                    worldZ + 0.5,
+                                    geology.radiusBlocks(),
+                                    geology.effectiveRadiusBlocks(),
+                                    terrainSettings.massif()
+                            )
+                            : ScarpMorphologyField.nearestMassifLowSideContact(
+                                    worldSeed,
+                                    worldX + 0.5,
+                                    worldZ + 0.5,
+                                    geology.radiusBlocks(),
+                                    geology.effectiveRadiusBlocks(),
+                                    terrainSettings.massif()
+                            );
             if (contact.valid()) {
                 signedContactDistance = contact.signedDistance();
+                structuralLowSideWidth = contact.scarpWidth();
             }
         }
 
@@ -560,6 +572,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 terrainSettings.profileVersion(),
                 terrain.rockTopY(),
                 signedContactDistance,
+                structuralLowSideWidth,
                 terrainSettings.baseAlignment(),
                 y -> filteredRockOccupies(
                         worldX,

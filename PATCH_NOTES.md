@@ -1,5 +1,45 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.13 - Hard Cliff Contact
+
+### Root cause
+
+- Seed-0 testing showed that 0.5.14.12's final post-erosion cutoff worked, but the visible
+  Shield-Wall base remained because the cutoff still used the zero-height LOW edge of the
+  smooth physical scarp as its contact.
+- The inner scarp still transitions across 36 blocks and the outer across 48 blocks. Columns
+  farther into those transitions can be 10-30+ blocks high, so the existing 10-block minimum
+  correctly preserved them even though visually they form the unwanted basal terrace.
+
+### High-rock cliff face
+
+- Added `HardCliffContactField`.
+- Profile 51413 defines the hard inner face at
+  `start_radius + warped_offset + inner_scarp_width` and the hard outer face at
+  `outer_start_radius + warped_offset`: the high-rock ends of the existing physical scarps.
+- The authoritative post-erosion/pre-talus cull now removes the complete desert-side
+  structural ramp within one configured scarp width regardless of the column's height.
+- The cull does not extend beyond that structural ramp, so unrelated foreland/broken-rock
+  formations farther into the desert remain legal.
+- Regional-fault columns retain their existing exclusion from the Shield-Wall final cull.
+
+### Talus alignment
+
+- Massif talus uses the same hard cliff face for its bounded structural search gate and inward
+  wall-relief direction.
+- Placement still comes from actual final surviving rock, not the structural radius.
+- Existing 0.5.14.12 low-wall contact recognition and 80/20 coarse-to-sand material grading
+  remain unchanged.
+- Fault talus, open Y64 cores and opposite-wall separation remain unchanged.
+
+### Compatibility
+
+- Project version is `0.5.14.13`; terrain profile version is `51413`.
+- No new JSON controls or tuning values were introduced.
+- Profiles below 51413 keep the previous low-side contact and height-only final cull.
+- `massif_vertical_offset=-4`, `minimum_cliff_foot_height=10`,
+  `cliff_foot_cut_width=16`, erosion, lithology, talus dimensions and dunes are unchanged.
+
 ## Minecraft: Dune 0.5.14.12 - Final Cliff Foot & Contact Talus
 
 ### Authoritative final Shield-Wall foot

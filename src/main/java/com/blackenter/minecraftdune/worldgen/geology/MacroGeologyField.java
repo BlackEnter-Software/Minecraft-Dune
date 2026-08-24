@@ -716,14 +716,23 @@ public final class MacroGeologyField {
         }
 
         ScarpMorphologyField.LowSideContact contact =
-                ScarpMorphologyField.nearestMassifLowSideContact(
-                        worldSeed,
-                        worldX,
-                        worldZ,
-                        radius,
-                        effectiveRadius,
-                        settings.massif()
-                );
+                HardCliffContactField.enabled(settings.profileVersion())
+                        ? HardCliffContactField.contact(
+                                worldSeed,
+                                worldX,
+                                worldZ,
+                                radius,
+                                effectiveRadius,
+                                settings.massif()
+                        )
+                        : ScarpMorphologyField.nearestMassifLowSideContact(
+                                worldSeed,
+                                worldX,
+                                worldZ,
+                                radius,
+                                effectiveRadius,
+                                settings.massif()
+                        );
         if (!contact.valid()) {
             return 0.0;
         }
@@ -767,23 +776,59 @@ public final class MacroGeologyField {
         }
 
         ScarpMorphologyField.LowSideContact contact =
-                ScarpMorphologyField.nearestMassifLowSideContact(
-                        worldSeed,
-                        worldX,
-                        worldZ,
-                        radius,
-                        effectiveRadius,
-                        settings.massif()
-                );
+                HardCliffContactField.enabled(settings.profileVersion())
+                        ? HardCliffContactField.contact(
+                                worldSeed,
+                                worldX,
+                                worldZ,
+                                radius,
+                                effectiveRadius,
+                                settings.massif()
+                        )
+                        : ScarpMorphologyField.nearestMassifLowSideContact(
+                                worldSeed,
+                                worldX,
+                                worldZ,
+                                radius,
+                                effectiveRadius,
+                                settings.massif()
+                        );
         if (!contact.valid()) {
             return candidateHeight;
         }
 
+        // Macro geometry keeps the existing height-threshold cleanup only. The complete
+        // height-independent structural-ramp cull is deliberately authoritative later, after
+        // erosion/orphan filtering, where regional-fault columns can be excluded safely.
         return hardCliffFootHeight(
                 candidateHeight,
                 contact.signedDistance(),
                 settings.baseAlignment().minimumCliffFootHeight(),
                 settings.baseAlignment().cliffFootCutWidth()
+        );
+    }
+
+    public static double hardCliffFootHeight(
+            double candidateHeight,
+            double signedContactDistance,
+            double structuralLowSideWidth,
+            double minimumHeight,
+            double cutWidth,
+            int profileVersion
+    ) {
+        if (HardCliffContactField.enabled(profileVersion)
+                && HardCliffContactField.cullsLowSideRamp(
+                        signedContactDistance,
+                        structuralLowSideWidth
+                )) {
+            return 0.0;
+        }
+
+        return hardCliffFootHeight(
+                candidateHeight,
+                signedContactDistance,
+                minimumHeight,
+                cutWidth
         );
     }
 

@@ -62,16 +62,27 @@ public final class BasalTalusApronField {
         ScarpMorphologyField.LowSideContact structuralContact =
                 ScarpMorphologyField.LowSideContact.NONE;
         if (!faultSearch) {
-            // The structural contact is only a cheap province-level search gate. It never
-            // supplies placement distance; the final surviving-rock lookup below does that.
-            structuralContact = ScarpMorphologyField.nearestMassifLowSideContact(
-                    worldSeed,
-                    worldX + 0.5,
-                    worldZ + 0.5,
-                    geology.radiusBlocks(),
-                    geology.effectiveRadiusBlocks(),
-                    settings.massif()
-            );
+            // The structural contact is only a bounded search gate and inward normal. Actual
+            // placement still comes exclusively from the final surviving-rock lookup below.
+            // Profile 51413 moves this gate to the HIGH-rock cliff face instead of the old
+            // zero-height edge of the smooth structural scarp.
+            structuralContact = HardCliffContactField.enabled(settings.profileVersion())
+                    ? HardCliffContactField.contact(
+                            worldSeed,
+                            worldX + 0.5,
+                            worldZ + 0.5,
+                            geology.radiusBlocks(),
+                            geology.effectiveRadiusBlocks(),
+                            settings.massif()
+                    )
+                    : ScarpMorphologyField.nearestMassifLowSideContact(
+                            worldSeed,
+                            worldX + 0.5,
+                            worldZ + 0.5,
+                            geology.radiusBlocks(),
+                            geology.effectiveRadiusBlocks(),
+                            settings.massif()
+                    );
             double searchBand = Math.max(1.0, talus.basalApronSpread())
                     + Math.max(0.0, talus.basalApronInset())
                     + 8.0;

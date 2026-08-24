@@ -22,10 +22,39 @@ public final class FinalCliffFootField {
         return profileVersion >= PROFILE_VERSION;
     }
 
+    /**
+     * Legacy-compatible resolver used by profiles through 51412 and by older tests.
+     */
     public static int resolveFinalPreTalusRockTopY(
             int profileVersion,
             int candidateRockTopY,
             double signedContactDistance,
+            ArrakisTerrainSettings.BaseAlignmentSettings alignment,
+            IntPredicate filteredRockOccupancy
+    ) {
+        return resolveFinalPreTalusRockTopY(
+                profileVersion,
+                candidateRockTopY,
+                signedContactDistance,
+                0.0,
+                alignment,
+                filteredRockOccupancy
+        );
+    }
+
+    /**
+     * Resolves the final pre-talus rock top after erosion/orphan filtering.
+     *
+     * <p>Profile 51413 adds a structural footprint rule: the full desert-side physical-scarp
+     * ramp is absent, regardless of whether one of its columns is 3, 12 or 30 blocks high.
+     * This is the authoritative final classification and therefore controls block writing,
+     * height queries and talus contact sampling together.</p>
+     */
+    public static int resolveFinalPreTalusRockTopY(
+            int profileVersion,
+            int candidateRockTopY,
+            double signedContactDistance,
+            double structuralLowSideWidth,
             ArrakisTerrainSettings.BaseAlignmentSettings alignment,
             IntPredicate filteredRockOccupancy
     ) {
@@ -44,8 +73,10 @@ public final class FinalCliffFootField {
         double resolvedHeight = MacroGeologyField.hardCliffFootHeight(
                 filteredTopY - MacroGeologyField.BASE_SURFACE_Y,
                 signedContactDistance,
+                structuralLowSideWidth,
                 alignment.minimumCliffFootHeight(),
-                alignment.cliffFootCutWidth()
+                alignment.cliffFootCutWidth(),
+                profileVersion
         );
         return resolvedHeight > 0.0
                 ? filteredTopY
@@ -70,7 +101,9 @@ public final class FinalCliffFootField {
                     MacroGeologyField.BASE_SURFACE_Y
                             + Math.max(
                                     2,
-                                    (int) Math.ceil(Math.max(0.0, minimumCliffFootHeight)) + 2
+                                    (int) Math.ceil(
+                                            Math.max(0.0, minimumCliffFootHeight)
+                                    ) + 2
                             )
             );
         }
