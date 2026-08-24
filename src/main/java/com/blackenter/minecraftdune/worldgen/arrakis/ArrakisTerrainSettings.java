@@ -16,6 +16,7 @@ public record ArrakisTerrainSettings(
         MassifSettings massif,
         FaultSettings faults,
         LithologySettings lithology,
+        AdditionalMaterialSettings additionalMaterials,
         FractureSettings fractures,
         ErosionSettings erosion,
         SandPassSettings sandPasses,
@@ -23,7 +24,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 5145;
+    public static final int CURRENT_PROFILE_VERSION = 5146;
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -47,6 +48,14 @@ public record ArrakisTerrainSettings(
 
     public static final TalusSettings DEFAULT_TALUS =
             new TalusSettings(false, 0.78, 3, 5.0);
+
+    public static final AdditionalMaterialSettings DEFAULT_ADDITIONAL_MATERIALS =
+            new AdditionalMaterialSettings(
+                    false,
+                    "minecraft:smooth_basalt",
+                    "minecraft:red_sandstone",
+                    "minecraft:terracotta"
+            );
 
     public static final LithologySettings DEFAULT_LITHOLOGY =
             new LithologySettings(
@@ -105,6 +114,15 @@ public record ArrakisTerrainSettings(
                     0.65
             );
 
+    public static final OrphanRemnantSettings DEFAULT_ORPHAN_REMNANTS =
+            new OrphanRemnantSettings(
+                    false,
+                    1,
+                    2,
+                    5,
+                    24.0
+            );
+
     /**
      * Missing erosion data stays disabled so a serialized 0.5.13 generator does not change
      * morphology at the border of newly generated chunks. The 0.5.14 source preset stores
@@ -126,7 +144,8 @@ public record ArrakisTerrainSettings(
                     6,
                     0.24,
                     0.72,
-                    DEFAULT_SURFACE_EROSION
+                    DEFAULT_SURFACE_EROSION,
+                    DEFAULT_ORPHAN_REMNANTS
             );
 
     public static final ArrakisTerrainSettings DEFAULT = new ArrakisTerrainSettings(
@@ -185,6 +204,7 @@ public record ArrakisTerrainSettings(
                     FaultMorphologySettings.LEGACY
             ),
             DEFAULT_LITHOLOGY,
+            DEFAULT_ADDITIONAL_MATERIALS,
             DEFAULT_FRACTURES,
             DEFAULT_EROSION,
             new SandPassSettings(
@@ -249,6 +269,11 @@ public record ArrakisTerrainSettings(
                                     DEFAULT_LITHOLOGY
                             )
                             .forGetter(ArrakisTerrainSettings::lithology),
+                    AdditionalMaterialSettings.CODEC.optionalFieldOf(
+                                    "additional_materials",
+                                    DEFAULT_ADDITIONAL_MATERIALS
+                            )
+                            .forGetter(ArrakisTerrainSettings::additionalMaterials),
                     FractureSettings.CODEC.optionalFieldOf(
                                     "fractures",
                                     DEFAULT_FRACTURES
@@ -576,6 +601,29 @@ public record ArrakisTerrainSettings(
                 ).apply(instance, MaterialPaletteSettings::new));
     }
 
+    /**
+     * Vanilla lithologies added after the original material-palette codec reached its
+     * 16-field RecordCodecBuilder arity limit. Missing data is disabled for old worlds.
+     */
+    public record AdditionalMaterialSettings(
+            boolean enabled,
+            String smoothBasalt,
+            String redSandstone,
+            String terracotta
+    ) {
+        public static final Codec<AdditionalMaterialSettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.BOOL.optionalFieldOf("enabled", false)
+                                .forGetter(AdditionalMaterialSettings::enabled),
+                        Codec.STRING.optionalFieldOf("smooth_basalt", "minecraft:smooth_basalt")
+                                .forGetter(AdditionalMaterialSettings::smoothBasalt),
+                        Codec.STRING.optionalFieldOf("red_sandstone", "minecraft:red_sandstone")
+                                .forGetter(AdditionalMaterialSettings::redSandstone),
+                        Codec.STRING.optionalFieldOf("terracotta", "minecraft:terracotta")
+                                .forGetter(AdditionalMaterialSettings::terracotta)
+                ).apply(instance, AdditionalMaterialSettings::new));
+    }
+
     /** Reserved 0.5.14 scree controls; generation stays disabled by default in 0.5.13. */
     public record TalusSettings(
             boolean localScreeEnabled,
@@ -676,7 +724,8 @@ public record ArrakisTerrainSettings(
             int maxUndercutBlocks,
             double undercutFrequency,
             double brokenRockScale,
-            SurfaceErosionSettings surface
+            SurfaceErosionSettings surface,
+            OrphanRemnantSettings orphanRemnants
     ) {
         public static final Codec<ErosionSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -712,8 +761,39 @@ public record ArrakisTerrainSettings(
                                         "surface",
                                         DEFAULT_SURFACE_EROSION
                                 )
-                                .forGetter(ErosionSettings::surface)
+                                .forGetter(ErosionSettings::surface),
+                        OrphanRemnantSettings.CODEC.optionalFieldOf(
+                                        "orphan_remnants",
+                                        DEFAULT_ORPHAN_REMNANTS
+                                )
+                                .forGetter(ErosionSettings::orphanRemnants)
                 ).apply(instance, ErosionSettings::new));
+    }
+
+    /**
+     * Final removal-only cleanup for exposed cliff survivors that have vertical support from
+     * the base but no same-Y connection back into the main rock body.
+     */
+    public record OrphanRemnantSettings(
+            boolean enabled,
+            int inwardSupportDepth,
+            int lateralSearchRadius,
+            int minimumHeightAboveBase,
+            double minimumFaceRelief
+    ) {
+        public static final Codec<OrphanRemnantSettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.BOOL.optionalFieldOf("enabled", false)
+                                .forGetter(OrphanRemnantSettings::enabled),
+                        Codec.INT.optionalFieldOf("inward_support_depth", 1)
+                                .forGetter(OrphanRemnantSettings::inwardSupportDepth),
+                        Codec.INT.optionalFieldOf("lateral_search_radius", 2)
+                                .forGetter(OrphanRemnantSettings::lateralSearchRadius),
+                        Codec.INT.optionalFieldOf("minimum_height_above_base", 5)
+                                .forGetter(OrphanRemnantSettings::minimumHeightAboveBase),
+                        Codec.DOUBLE.optionalFieldOf("minimum_face_relief", 24.0)
+                                .forGetter(OrphanRemnantSettings::minimumFaceRelief)
+                ).apply(instance, OrphanRemnantSettings::new));
     }
 
     /**

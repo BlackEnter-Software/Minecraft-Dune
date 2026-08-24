@@ -33,7 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 5145,
+          "profile_version": 5146,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0
@@ -132,6 +132,12 @@
               "spread": 18.0
             }
           },
+          "additional_materials": {
+            "enabled": true,
+            "smooth_basalt": "minecraft:smooth_basalt",
+            "red_sandstone": "minecraft:red_sandstone",
+            "terracotta": "minecraft:terracotta"
+          },
           "fractures": {
             "enabled": true,
             "cell_size": 520.0,
@@ -175,6 +181,13 @@
               "small_rock_strength": 0.42,
               "broken_rock_strength": 0.58,
               "lithology_relief_strength": 0.65
+            },
+            "orphan_remnants": {
+              "enabled": true,
+              "inward_support_depth": 1,
+              "lateral_search_radius": 2,
+              "minimum_height_above_base": 5,
+              "minimum_face_relief": 24.0
             }
           },
           "sand_passes": {

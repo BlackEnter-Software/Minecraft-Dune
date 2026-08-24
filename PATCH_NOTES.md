@@ -1,5 +1,45 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.6 - Orphan Remnant Suppression
+
+### Exposed-face connectivity cleanup
+
+- Added `OrphanRemnantFilter`, a final removal-only support check after the existing major and
+  surface erosion occupancy fields.
+- The filter targets the remaining vertical artifact where a narrow resistant column is
+  supported from the base but detached by an air gap from the main cliff at the same Y.
+- A survivor is retained when it has immediate contiguous inward rock support, or can reach an
+  inward-supported block through a short contiguous lateral path.
+- Source defaults use `inward_support_depth=1`, `lateral_search_radius=2`,
+  `minimum_height_above_base=5` and `minimum_face_relief=24`.
+- The protected base/fault-floor region, small formations, attached ribs, large connected
+  overhangs, existing undercuts and talus remain outside or pass through the filter.
+- Support samples use the raw deterministic erosion result rather than recursively filtered
+  neighbors, preserving chunk-order independence.
+
+### Additional vanilla lithologies
+
+- Added smooth basalt as HARD, red sandstone as SOFT and terracotta as MEDIUM.
+- Smooth basalt forms hard margins around very-hard basalt sheets.
+- Red sandstone is a coherent soft variant of sandstone units.
+- Terracotta forms coherent medium-strength clay-rich host units.
+- Added the serialized top-level `additional_materials` group rather than expanding the
+  already-16-field material-palette codec beyond DataFixerUpper's arity limit.
+- Missing `additional_materials` decodes disabled, so old serialized worlds retain their old
+  lithology selection in newly generated chunks.
+
+### Compatibility and scope
+
+- Added optional `erosion.orphan_remnants`; missing data decodes disabled.
+- Global erosion strengths, scarp widths, fault floors, dune tuning and 0.5.14.5 scarp
+  roughness remain unchanged.
+- Added deterministic checks for isolated-remnant removal, direct/lateral attachment, protected
+  base behavior, relief gating and the three new material resistance tiers.
+- Source terrain profile is `5146`; project version is `0.5.14.6`.
+- Broader vertical-face modulation remains deferred unless Seed 0 still demonstrates a separate
+  morphology problem after this cleanup.
+- Subsurface geology remains planned for 0.5.15.
+
 ## Minecraft: Dune 0.5.14.5 - Scarp Roughness & Wall Continuity
 
 ### Coherent Shield Wall boundary roughness

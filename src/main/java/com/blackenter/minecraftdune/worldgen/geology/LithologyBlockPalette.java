@@ -18,11 +18,21 @@ public final class LithologyBlockPalette {
     private final Block diorite;
     private final Block granite;
     private final Block basalt;
+    private final Block smoothBasalt;
     private final Block blackstone;
     private final Block deepslate;
+    private final Block redSandstone;
+    private final Block terracotta;
     private final Block talus;
 
     public LithologyBlockPalette(ArrakisTerrainSettings.MaterialPaletteSettings settings) {
+        this(settings, ArrakisTerrainSettings.DEFAULT_ADDITIONAL_MATERIALS);
+    }
+
+    public LithologyBlockPalette(
+            ArrakisTerrainSettings.MaterialPaletteSettings settings,
+            ArrakisTerrainSettings.AdditionalMaterialSettings additionalMaterials
+    ) {
         background = resolve(settings.background(), Blocks.STONE);
         sandstone = resolve(settings.sandstone(), Blocks.SANDSTONE);
         tuff = resolve(settings.tuff(), Blocks.TUFF);
@@ -33,8 +43,11 @@ public final class LithologyBlockPalette {
         diorite = resolve(settings.diorite(), Blocks.DIORITE);
         granite = resolve(settings.granite(), Blocks.GRANITE);
         basalt = resolve(settings.basalt(), Blocks.BASALT);
+        smoothBasalt = resolve(additionalMaterials.smoothBasalt(), Blocks.SMOOTH_BASALT);
         blackstone = resolve(settings.blackstone(), Blocks.BLACKSTONE);
         deepslate = resolve(settings.deepslate(), Blocks.DEEPSLATE);
+        redSandstone = resolve(additionalMaterials.redSandstone(), Blocks.RED_SANDSTONE);
+        terracotta = resolve(additionalMaterials.terracotta(), Blocks.TERRACOTTA);
         talus = resolve(settings.talus(), Blocks.GRAVEL);
     }
 
@@ -57,8 +70,11 @@ public final class LithologyBlockPalette {
             case DIORITE -> diorite;
             case GRANITE -> granite;
             case BASALT -> basalt;
+            case SMOOTH_BASALT -> smoothBasalt;
             case BLACKSTONE -> blackstone;
             case DEEPSLATE -> deepslate;
+            case RED_SANDSTONE -> redSandstone;
+            case TERRACOTTA -> terracotta;
             case GRAVEL -> talus;
         };
     }

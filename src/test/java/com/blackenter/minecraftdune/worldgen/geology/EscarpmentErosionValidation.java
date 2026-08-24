@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 5145, "active profile_version must be 5145");
+        require(settings.profileVersion() == 5146, "active profile_version must be 5146");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject legacy5142Profile = profile.json().deepCopy();
@@ -40,7 +40,9 @@ public final class EscarpmentErosionValidation {
         legacyMassif.remove("scarp_warp_strength");
         legacyMassif.remove("scarp_detail_scale");
         legacyMassif.remove("scarp_detail_strength");
+        legacy5142Profile.remove("additional_materials");
         legacy5142Profile.getAsJsonObject("faults").remove("morphology");
+        legacy5142Profile.getAsJsonObject("erosion").remove("orphan_remnants");
         ArrakisTerrainSettings legacy5142 = ArrakisTerrainSettings.CODEC
                 .parse(JsonOps.INSTANCE, legacy5142Profile)
                 .getOrThrow();
@@ -50,6 +52,10 @@ public final class EscarpmentErosionValidation {
                         ArrakisTerrainSettings.FaultMorphologySettings.LEGACY
                 ),
                 "missing fault morphology must retain the 0.5.14.2 fault transition");
+        require(!legacy5142.additionalMaterials().enabled(),
+                "missing additional_materials must retain the old lithology palette");
+        require(!legacy5142.erosion().orphanRemnants().enabled(),
+                "missing orphan_remnants must retain old erosion occupancy");
 
         JsonObject oldProfile = legacy5142Profile.deepCopy();
         oldProfile.addProperty("profile_version", 513);
@@ -63,6 +69,8 @@ public final class EscarpmentErosionValidation {
         validateScarpMorphology(settings);
         validateStructuralFaceCoupling(settings);
         validateScarpRoughness(settings);
+        validateAdditionalMaterials(settings);
+        validateOrphanRemnantFilter(settings);
         validateExposedFaceGeometry(settings);
         validateBasinAndDunes(settings);
         SeamCounts seams = validateChunkBoundaryOrderIndependence(settings);
@@ -336,6 +344,102 @@ public final class EscarpmentErosionValidation {
         require(coreA <= faults.coreWidth() + maximumCoreExpansion + 1.0e-9
                         && coreB <= faults.coreWidth() + maximumCoreExpansion + 1.0e-9,
                 "fault protected-core variation exceeded its safety bound");
+    }
+
+    private static void validateAdditionalMaterials(ArrakisTerrainSettings settings) {
+        require(settings.additionalMaterials().enabled(),
+                "active 0.5.14.6 profile must enable additional materials");
+        require(LithologyField.Material.SMOOTH_BASALT.resistance()
+                        == LithologyField.ResistanceClass.HARD,
+                "smooth basalt must be HARD");
+        require(LithologyField.Material.RED_SANDSTONE.resistance()
+                        == LithologyField.ResistanceClass.SOFT,
+                "red sandstone must be SOFT");
+        require(LithologyField.Material.TERRACOTTA.resistance()
+                        == LithologyField.ResistanceClass.MEDIUM,
+                "terracotta must be MEDIUM");
+    }
+
+    private static void validateOrphanRemnantFilter(ArrakisTerrainSettings settings) {
+        ArrakisTerrainSettings.OrphanRemnantSettings orphan =
+                settings.erosion().orphanRemnants();
+        require(orphan.enabled(),
+                "active 0.5.14.6 orphan-remnant filter must be enabled");
+
+        int y = MacroGeologyField.BASE_SURFACE_Y + 24;
+
+        boolean isolated = OrphanRemnantFilter.keeps(
+                0,
+                y,
+                0,
+                true,
+                80.0,
+                1.0,
+                0.0,
+                orphan,
+                (x, testY, z) -> x == 0 && z == 0
+        );
+        require(!isolated,
+                "isolated vertically-supported remnant was not removed");
+
+        boolean directlyAttached = OrphanRemnantFilter.keeps(
+                0,
+                y,
+                0,
+                true,
+                80.0,
+                1.0,
+                0.0,
+                orphan,
+                (x, testY, z) -> z == 0 && (x == 0 || x == -1)
+        );
+        require(directlyAttached,
+                "directly inward-attached cliff rib was incorrectly removed");
+
+        boolean laterallyAttached = OrphanRemnantFilter.keeps(
+                0,
+                y,
+                0,
+                true,
+                80.0,
+                1.0,
+                0.0,
+                orphan,
+                (x, testY, z) ->
+                        (x == 0 && z == 0)
+                                || (x == 0 && z == 1)
+                                || (x == -1 && z == 1)
+        );
+        require(laterallyAttached,
+                "short laterally-connected ledge was incorrectly removed");
+
+        boolean protectedBase = OrphanRemnantFilter.keeps(
+                0,
+                MacroGeologyField.BASE_SURFACE_Y + 2,
+                0,
+                true,
+                80.0,
+                1.0,
+                0.0,
+                orphan,
+                (x, testY, z) -> false
+        );
+        require(protectedBase,
+                "orphan filter modified the protected base layer");
+
+        boolean smallFormation = OrphanRemnantFilter.keeps(
+                0,
+                y,
+                0,
+                true,
+                orphan.minimumFaceRelief() - 1.0,
+                1.0,
+                0.0,
+                orphan,
+                (x, testY, z) -> false
+        );
+        require(smallFormation,
+                "orphan filter escaped its major-face relief gate");
     }
 
     private static void validateExposedFaceGeometry(ArrakisTerrainSettings settings) {

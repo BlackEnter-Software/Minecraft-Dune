@@ -15,6 +15,7 @@ public final class LithologyField {
     private static final long BAND_SALT = 0x0AA718DB4E39C625L;
     private static final long INTRUSION_SALT = 0x43E975A10CBD82F6L;
     private static final long GRANITE_SELECTOR_SALT = 0x58C16E4B29A7D03FL;
+    private static final long HOST_VARIANT_SALT = 0x26A7D14C9B53E80FL;
     private static final long BASEMENT_WARP_SALT = 0x1A4FD72C83E659B0L;
     private static final long RARE_BODY_SALT = 0x75BD094FC30A16E8L;
     private static final long SHEET_SALT = 0x61D38FA2940CE75BL;
@@ -33,7 +34,29 @@ public final class LithologyField {
             double worldZ,
             ArrakisTerrainSettings.LithologySettings settings
     ) {
-        return new Column(worldSeed, worldX, worldZ, settings);
+        return new Column(
+                worldSeed,
+                worldX,
+                worldZ,
+                settings,
+                ArrakisTerrainSettings.DEFAULT_ADDITIONAL_MATERIALS
+        );
+    }
+
+    public static Column column(
+            long worldSeed,
+            double worldX,
+            double worldZ,
+            ArrakisTerrainSettings.LithologySettings settings,
+            ArrakisTerrainSettings.AdditionalMaterialSettings additionalMaterials
+    ) {
+        return new Column(
+                worldSeed,
+                worldX,
+                worldZ,
+                settings,
+                additionalMaterials
+        );
     }
 
     public enum ResistanceClass {
@@ -70,8 +93,11 @@ public final class LithologyField {
         DIORITE("diorite", ResistanceClass.HARD, "hard intrusive body"),
         GRANITE("granite", ResistanceClass.HARD, "coherent hard plutonic intrusion"),
         BASALT("basalt", ResistanceClass.VERY_HARD, "very-hard resistant sheet"),
+        SMOOTH_BASALT("smooth_basalt", ResistanceClass.HARD, "hard altered basalt-sheet margin"),
         BLACKSTONE("blackstone", ResistanceClass.VERY_HARD, "rare ancient resistant body"),
         DEEPSLATE("deepslate", ResistanceClass.HARD, "hard ancient basement exposed by deep cuts"),
+        RED_SANDSTONE("red_sandstone", ResistanceClass.SOFT, "soft oxidized sedimentary unit"),
+        TERRACOTTA("terracotta", ResistanceClass.MEDIUM, "medium clay-rich sedimentary unit"),
         GRAVEL("gravel", ResistanceClass.LOOSE, "loose talus/collapse material");
 
         private final String commandName;
@@ -112,6 +138,7 @@ public final class LithologyField {
         private final double worldX;
         private final double worldZ;
         private final ArrakisTerrainSettings.LithologySettings settings;
+        private final ArrakisTerrainSettings.AdditionalMaterialSettings additionalMaterials;
         private final double strataWarp;
         private final double sheetWarp;
         private final double sheetGate;
@@ -122,12 +149,14 @@ public final class LithologyField {
                 long worldSeed,
                 double worldX,
                 double worldZ,
-                ArrakisTerrainSettings.LithologySettings settings
+                ArrakisTerrainSettings.LithologySettings settings,
+                ArrakisTerrainSettings.AdditionalMaterialSettings additionalMaterials
         ) {
             this.worldSeed = worldSeed;
             this.worldX = worldX;
             this.worldZ = worldZ;
             this.settings = settings;
+            this.additionalMaterials = additionalMaterials;
 
             double strataWarpScale = Math.max(1.0, settings.strataWarpScale());
             strataWarp = settings.strataWarpStrength() * GeologyNoise.value2(
@@ -187,6 +216,12 @@ public final class LithologyField {
             );
             double contactNoise = contactDetail * 0.30 + contactMicro * 0.11;
             double roughContactY = warpedY + contactDetail * 5.0 + contactMicro * 2.0;
+            double variantNoise = GeologyNoise.value3(
+                    worldSeed ^ HOST_VARIANT_SALT,
+                    worldX / Math.max(32.0, horizontalScale * 1.18),
+                    warpedY / Math.max(12.0, verticalScale * 1.70),
+                    worldZ / Math.max(32.0, horizontalScale * 1.18)
+            );
 
             double hostNoise = GeologyNoise.value3(
                     worldSeed ^ HOST_SALT,
@@ -216,6 +251,10 @@ public final class LithologyField {
             double localSheetWidth = Math.max(0.0, settings.dikeHalfWidth())
                     * GeologyNoise.smoothStep(-0.20, 0.55, sheetGate + contactDetail * 0.35);
             if (localSheetWidth > 0.35 && sheetDistance <= localSheetWidth) {
+                if (additionalMaterials.enabled()
+                        && sheetDistance >= localSheetWidth * 0.58) {
+                    return material(Material.SMOOTH_BASALT, false, true, false);
+                }
                 return material(Material.BASALT, false, true, false);
             }
 
@@ -270,7 +309,14 @@ public final class LithologyField {
             } else if (unitSignal >= 0.24) {
                 host = Material.TUFF;
             } else if (unitSignal <= -0.46) {
-                host = Material.SANDSTONE;
+                host = additionalMaterials.enabled() && variantNoise >= 0.25
+                        ? Material.RED_SANDSTONE
+                        : Material.SANDSTONE;
+            } else if (additionalMaterials.enabled()
+                    && unitSignal >= -0.18
+                    && unitSignal <= 0.18
+                    && variantNoise <= -0.42) {
+                host = Material.TERRACOTTA;
             } else {
                 host = Material.STONE;
             }

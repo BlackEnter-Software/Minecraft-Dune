@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.5**
+Current development version: **0.5.14.6**
 
 The project currently contains:
 
@@ -16,6 +16,8 @@ The project currently contains:
 - steep structural Shield Wall and regional-fault scarps decoupled from broad province fades;
 - erosion permission coupled to physical scarps while preserving absolute regional-fault cores;
 - coherent two-scale Shield Wall scarp roughness and along-fault wall-width variation;
+- removal-only orphan-remnant suppression for detached exposed cliff needles/slabs;
+- smooth basalt, red sandstone and terracotta as coherent resistance-tiered lithologies;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -74,8 +76,9 @@ caves, and biome features stay disabled. The Nether and End retain normal vanill
 ## Lithology, massif fissures, and escarpments — 0.5.14
 
 Native rock now reads as coherent geological units rather than uniform stone or per-block
-speckle. Stone, sandstone, tuff, calcite, andesite, diorite, granite, basalt, blackstone and
-deepslate have explicit roles and soft/medium/hard/very-hard resistance classes. Granite is a
+speckle. Stone, sandstone, red sandstone, terracotta, tuff, calcite, andesite, diorite,
+granite, basalt, smooth basalt, blackstone and deepslate have explicit roles and
+soft/medium/hard/very-hard resistance classes. Granite is a
 coherent hard plutonic intrusion; deepslate is hard ancient basement preferentially revealed
 by deep cuts. Gravel is defined as loose talus/collapse material rather than intact bedrock.
 
