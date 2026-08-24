@@ -787,7 +787,7 @@ public final class MacroGeologyField {
         );
     }
 
-    static double hardCliffFootHeight(
+    public static double hardCliffFootHeight(
             double candidateHeight,
             double signedContactDistance,
             double minimumHeight,

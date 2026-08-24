@@ -1,5 +1,48 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.12 - Final Cliff Foot & Contact Talus
+
+### Authoritative final Shield-Wall foot
+
+- Confirmed the remaining ordering bug: 0.5.14.11 culled low macro candidates before
+  fractures, major erosion, surface erosion and orphan filtering. A 15-block macro column
+  could survive the 10-block test, erode to six blocks, and still be written as native rock.
+- Profile 51412 resolves and caches the highest orphan-filtered surviving rock top, then applies
+  the same 10-block cutoff inside the same 16-block warped inner/outer contact zone. If culled,
+  the complete foundation-rooted native-rock column is absent.
+- The resolved final top is shared by `getBaseHeight`, `getBaseColumn`, `fillFromNoise`, local
+  scree/dune support bases, surviving-contact lookup, basal talus and wall-relief probes.
+- The lookup remains seed/absolute-coordinate analytical state. It does not inspect neighboring
+  generated chunks or depend on chunk order.
+- Regional-fault geometry is excluded from the Shield-Wall cull; its absolute Y64 sandy core,
+  walls, toes, variation and opposing-apron safety cap remain unchanged.
+
+### Low-wall contact and visible coarse toe
+
+- Profile 51412 recognizes filtered surviving contact rock from Y65 through Y76, derived from
+  `minimum_cliff_foot_height + 2`, rather than requiring a block exactly at Y65. High floating
+  rock above that bounded interval is not a basal contact.
+- Massif and fault representative relief still use the unified 16-24-block inward probe, now
+  reading post-final-cull rock tops and occupancy.
+- Talus contact distance is unchanged: a distance-one rock neighbor still maps to zero outward
+  distance with no intentional gap.
+- New material grading uses
+  `sandBias = distanceFraction * 0.80 + (1 - verticalFraction) * 0.20`.
+  Wall-adjacent lower debris is therefore coarse gravel, while distal/lower debris grades to
+  sand with the existing deterministic material noise retained.
+
+### Profile, compatibility and validation
+
+- Project version is `0.5.14.12`; terrain profile version is `51412`.
+- No serialized fields or tuning values changed. The existing 10-block minimum, 16-block cut
+  width, `massif_vertical_offset=-4`, talus height/spread and erosion settings remain active.
+- The final cull, low-wall interval and new material grading are gated at 51412. Profiles 51411
+  and older retain their earlier final occupancy, exact-Y65 contact and material rules.
+- Validation now directly drives the production final-top resolver with a 15-block candidate
+  analytically eroded to six blocks, and verifies complete removal, threshold-cliff survival,
+  out-of-band low-rock survival, low-wall/high-floating contact classification, post-cull talus
+  targeting, wall/distal materials, unified wall probes, open fault cores and order independence.
+
 ## Minecraft: Dune 0.5.14.11 - Hard Cliff Foot & Unified Wall Talus
 
 ### Hard Shield-Wall foot

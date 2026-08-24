@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.11**
+Current development version: **0.5.14.12**
 
 The project currently contains:
 
@@ -96,6 +96,15 @@ the actual surviving rock face. Massif and fault talus now share the same 16-24-
 surviving-rock relief probe; fault floors, protected sandy cores, talus dimensions/materials,
 erosion, dunes, the Y=64 datum and `massif_vertical_offset=-4` remain unchanged.
 
+0.5.14.12 moves the authoritative Shield-Wall cliff-foot decision to the final pre-talus rock
+footprint after fractures, both erosion passes and orphan filtering. A macro column that starts
+above the cutoff but erodes below 10 blocks is now removed as a complete native-rock column
+before writing or talus sampling. Basal contacts recognize surviving rock throughout the low
+Y65-Y76 wall interval rather than requiring exact Y65 occupancy. Colluvium grading now weights
+outward distance at 80% and lower vertical position at 20%, so coarse gravel visibly touches
+the wall while sand remains concentrated toward the distal toe. Profiles 51411 and older keep
+their previous final occupancy and material grading.
+
 New Arrakis Dev worlds use the featureless `minecraftdune:arrakis_desert` biome. Its natural
 spawn table contains only Muad'dib and Desert Hare; an Arrakis-generator placement gate also
 blocks vanilla natural spawns in older Arrakis saves that still serialize `minecraft:desert`.
@@ -155,7 +164,8 @@ connection and shallow one- or two-block outcrops, and rejects strong regional-f
 sand-pass carving. It does not create common water or full caves. The 0.5.15 cave pass will
 consume rare limestone hosts and fractures.
 
-See [Hard Cliff Foot & Unified Wall Talus](docs/HARD_CLIFF_FOOT_0.5.14.11.md),
+See [Final Cliff Foot & Contact Talus](docs/FINAL_CLIFF_FOOT_0.5.14.12.md),
+[Hard Cliff Foot & Unified Wall Talus](docs/HARD_CLIFF_FOOT_0.5.14.11.md),
 [Lithology and fracture framework](docs/LITHOLOGY_AND_FRACTURES.md),
 [Escarpment and differential erosion](docs/ESCARPMENT_EROSION.md), and the full
 [terrain profile reference](docs/ARRAKIS_TERRAIN_PROFILE.md).

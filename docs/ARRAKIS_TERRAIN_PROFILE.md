@@ -1,4 +1,4 @@
-# Arrakis terrain profile — parameter reference (0.5.14.11)
+# Arrakis terrain profile — parameter reference (0.5.14.12)
 
 The native Arrakis generator reads its terrain parameters from:
 
@@ -9,6 +9,42 @@ src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json
 The `terrain` object is serialized into the world's chunk-generator data. For clean visual
 comparisons after changing world-generation parameters, create a new Arrakis Dev world or
 regenerate the affected region files while the world is closed.
+
+## 0.5.14.12 final pre-talus occupancy
+
+Profile 51412 keeps the 0.5.14.11 `base_alignment` values unchanged, but moves the
+authoritative cliff-foot decision to the analytical final rock footprint. The chunk generator
+first resolves fractures, major erosion, surface erosion and orphan-remnant filtering. It then
+finds the highest surviving rock and applies the 10-block cutoff within the existing 16-block
+warped Shield-Wall contact zone. A culled column is absent in its entirety; no rooted native
+lithology is written below its former visible top.
+
+The resolved top is cached by absolute X/Z and shared by block generation, height/column
+queries, local scree and dune support, basal-contact lookup and talus wall probing. Regional
+fault geometry is excluded from the Shield-Wall classification. Profiles below 51412 retain
+their previous final occupancy behavior.
+
+For contact classification, profile 51412 searches from Y65 through:
+
+```text
+Y64 + minimum_cliff_foot_height + 2
+```
+
+With the active minimum of 10, this is Y65-Y76. The bounded interval recognizes eroded or
+undercut low wall rock while rejecting unrelated high floating blocks. The same final-cull
+occupancy and top Y feed the existing unified 16-24-block massif/fault relief probe.
+
+Basal colluvium material grading uses:
+
+```text
+sandBias = distanceFraction * 0.80
+         + (1.0 - verticalFraction) * 0.20
+```
+
+The existing material noise remains. The reduced vertical term prevents the lowest block at a
+wall-adjacent, zero-outward-distance contact from being unconditionally sand, while distal and
+lower toe material still trends toward sand. Profiles below 51412 retain the earlier maximum
+of distance and inverse-height fractions.
 
 ## 0.5.14.11 Shield-Wall base alignment
 
@@ -68,11 +104,13 @@ source preset enables it explicitly, avoiding silent morphology changes at the u
 of an older world. The existing `lithology.talus` group is reused for cliff-base scree and is
 enabled in the supplied 0.5.14 profile.
 
-The current source preset uses `profile_version=51411`. Profile 51410 clears overlapping
+The current source preset uses `profile_version=51412`. Profile 51410 clears overlapping
 non-massif height ownership in a narrow Shield-Wall contact band, accepts actual surviving
 contact rock there, and measures regional-fault talus relief through shallow toes into the
 wall. Profile 51411 adds the hard, bounded cliff-foot cutoff described above and extends that
-same generalized wall-relief probe to inner and outer massif contacts. Serialized
+same generalized wall-relief probe to inner and outer massif contacts. Profile 51412 moves the
+authoritative cutoff after erosion/orphan filtering, broadens basal contact recognition to the
+bounded low-wall interval, and changes the talus material weighting. Serialized
 profiles below 5149 still retain the older nominal-apron targeting path; profiles missing the
 optional basal-apron fields still decode with that feature disabled. Ordinary face detection
 reuses

@@ -13,6 +13,7 @@ public final class BasalTalusApronField {
     public static final int ACTUAL_CONTACT_PROFILE_VERSION = 5149;
     public static final int CONTACT_OWNERSHIP_PROFILE_VERSION = 51410;
     public static final int UNIFIED_WALL_RELIEF_PROFILE_VERSION = 51411;
+    public static final int CONTACT_TALUS_PROFILE_VERSION = 51412;
     private static final long HEIGHT_SALT = 0x6D53A91C27F84BE2L;
     private static final long MATERIAL_SALT = 0xB8E2417D5A39C60FL;
     private static final int[][] CONTACT_DIRECTIONS = {
@@ -106,7 +107,7 @@ public final class BasalTalusApronField {
                 worldX,
                 worldZ,
                 targetFaultCarveMask,
-                UNIFIED_WALL_RELIEF_PROFILE_VERSION,
+                CONTACT_TALUS_PROFILE_VERSION,
                 talus,
                 survivingRock
         );
@@ -252,6 +253,7 @@ public final class BasalTalusApronField {
                 outwardDistance,
                 effectiveSpread,
                 GeologyNoise.clamp(talus.basalApronSandStart(), 0.0, 1.0),
+                profileVersion >= CONTACT_TALUS_PROFILE_VERSION,
                 worldSeed,
                 sampleX,
                 sampleZ,
@@ -357,6 +359,7 @@ public final class BasalTalusApronField {
                 outwardDistance,
                 spread,
                 GeologyNoise.clamp(talus.basalApronSandStart(), 0.0, 1.0),
+                false,
                 worldSeed,
                 worldX,
                 worldZ,
@@ -535,12 +538,25 @@ public final class BasalTalusApronField {
                 );
     }
 
+    static double materialSandBias(
+            double distanceFraction,
+            double verticalFraction,
+            boolean contactCoarseGrading
+    ) {
+        if (!contactCoarseGrading) {
+            return Math.max(distanceFraction, 1.0 - verticalFraction);
+        }
+        return distanceFraction * 0.80
+                + (1.0 - verticalFraction) * 0.20;
+    }
+
     public record Sample(
             boolean active,
             int height,
             double outwardDistance,
             double spread,
             double sandStart,
+            boolean contactCoarseGrading,
             long worldSeed,
             double worldX,
             double worldZ,
@@ -555,6 +571,7 @@ public final class BasalTalusApronField {
                 Double.POSITIVE_INFINITY,
                 1.0,
                 1.0,
+                false,
                 0L,
                 0.0,
                 0.0,
@@ -599,9 +616,10 @@ public final class BasalTalusApronField {
                     worldZ / 11.0
             );
 
-            double sandBias = Math.max(
+            double sandBias = materialSandBias(
                     distanceFraction,
-                    1.0 - verticalFraction
+                    verticalFraction,
+                    contactCoarseGrading
             );
             if (sandBias >= sandStart
                     || (sandBias >= sandStart - 0.12 && materialNoise > 0.42)) {
