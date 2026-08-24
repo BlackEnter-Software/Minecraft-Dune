@@ -346,11 +346,12 @@ public final class MacroGeologyField {
                 worldZ / 1300.0,
                 3
         );
-        double massifHeight = (
-                30.0
-                        + 105.0 * physicalMassifEnvelope
-                        + 30.0 * massifRelief
-        ) * massifShape;
+        double massifHeight = massifHeightWithBasalContact(
+                physicalMassifEnvelope,
+                massifShape,
+                massifRelief,
+                settings.baseAlignment()
+        );
 
         double sandCorridorMask = sandCorridorMask(
                 worldSeed,
@@ -661,6 +662,39 @@ public final class MacroGeologyField {
                 duneSuitability,
                 baseElevation,
                 dominantProvince
+        );
+    }
+
+    static double massifHeightWithBasalContact(
+            double physicalMassifEnvelope,
+            double massifShape,
+            double massifRelief,
+            ArrakisTerrainSettings.BaseAlignmentSettings alignment
+    ) {
+        double envelope = clamp(physicalMassifEnvelope, 0.0, 1.0);
+        double shape = clamp(massifShape, 0.0, 1.0);
+        double relief = clamp(massifRelief, 0.0, 1.0);
+
+        double basalGate = smoothStep(0.10, 0.45, envelope);
+        double rawHeight = (
+                105.0 * envelope
+                        + (30.0 + 30.0 * relief) * basalGate
+        ) * shape;
+
+        return applyMassifVerticalOffset(rawHeight, alignment);
+    }
+
+    static double applyMassifVerticalOffset(
+            double massifHeight,
+            ArrakisTerrainSettings.BaseAlignmentSettings alignment
+    ) {
+        if (massifHeight <= 0.0) {
+            return 0.0;
+        }
+
+        return Math.max(
+                0.0,
+                massifHeight + alignment.massifVerticalOffset()
         );
     }
 

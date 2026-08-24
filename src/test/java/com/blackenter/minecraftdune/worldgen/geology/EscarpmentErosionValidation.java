@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 5146, "active profile_version must be 5146");
+        require(settings.profileVersion() == 5148, "active profile_version must be 5148");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject legacy5142Profile = profile.json().deepCopy();
@@ -40,6 +40,15 @@ public final class EscarpmentErosionValidation {
         legacyMassif.remove("scarp_warp_strength");
         legacyMassif.remove("scarp_detail_scale");
         legacyMassif.remove("scarp_detail_strength");
+        legacy5142Profile.remove("base_alignment");
+        JsonObject legacyTalus = legacy5142Profile
+                .getAsJsonObject("lithology")
+                .getAsJsonObject("talus");
+        legacyTalus.remove("basal_apron_enabled");
+        legacyTalus.remove("basal_apron_max_height");
+        legacyTalus.remove("basal_apron_spread");
+        legacyTalus.remove("basal_apron_inset");
+        legacyTalus.remove("basal_apron_sand_start");
         legacy5142Profile.remove("additional_materials");
         legacy5142Profile.getAsJsonObject("faults").remove("morphology");
         legacy5142Profile.getAsJsonObject("erosion").remove("orphan_remnants");
@@ -52,6 +61,10 @@ public final class EscarpmentErosionValidation {
                         ArrakisTerrainSettings.FaultMorphologySettings.LEGACY
                 ),
                 "missing fault morphology must retain the 0.5.14.2 fault transition");
+        require(legacy5142.baseAlignment().massifVerticalOffset() == 0.0,
+                "missing base_alignment must preserve the old massif elevation");
+        require(!legacy5142.lithology().talus().basalApronEnabled(),
+                "missing basal apron fields must preserve old talus behavior");
         require(!legacy5142.additionalMaterials().enabled(),
                 "missing additional_materials must retain the old lithology palette");
         require(!legacy5142.erosion().orphanRemnants().enabled(),
@@ -69,6 +82,8 @@ public final class EscarpmentErosionValidation {
         validateScarpMorphology(settings);
         validateStructuralFaceCoupling(settings);
         validateScarpRoughness(settings);
+        validateBaseAlignment(settings);
+        validateBasalContactAndTalus(settings);
         validateAdditionalMaterials(settings);
         validateOrphanRemnantFilter(settings);
         validateExposedFaceGeometry(settings);
@@ -344,6 +359,89 @@ public final class EscarpmentErosionValidation {
         require(coreA <= faults.coreWidth() + maximumCoreExpansion + 1.0e-9
                         && coreB <= faults.coreWidth() + maximumCoreExpansion + 1.0e-9,
                 "fault protected-core variation exceeded its safety bound");
+    }
+
+    private static void validateBaseAlignment(ArrakisTerrainSettings settings) {
+        ArrakisTerrainSettings.BaseAlignmentSettings alignment =
+                settings.baseAlignment();
+
+        require(alignment.massifVerticalOffset() == -4.0,
+                "active 0.5.14.7 massif vertical offset must be -4 blocks");
+        require(settings.faults().rockyFloorHeight() == 0.0,
+                "active 0.5.14.7 regional fault floor must target the sand datum");
+
+        require(MacroGeologyField.applyMassifVerticalOffset(
+                        100.0,
+                        alignment
+                ) == 96.0,
+                "massif vertical offset did not lower ordinary massif relief by four blocks");
+        require(MacroGeologyField.applyMassifVerticalOffset(
+                        3.0,
+                        alignment
+                ) == 0.0,
+                "massif vertical offset did not clamp a low scarp toe to the sand datum");
+        require(MacroGeologyField.applyMassifVerticalOffset(
+                        0.0,
+                        alignment
+                ) == 0.0,
+                "massif vertical offset raised an empty terrain column");
+    }
+
+    private static void validateBasalContactAndTalus(
+            ArrakisTerrainSettings settings
+    ) {
+        ArrakisTerrainSettings.BaseAlignmentSettings alignment =
+                settings.baseAlignment();
+        ArrakisTerrainSettings.TalusSettings talus =
+                settings.lithology().talus();
+
+        require(talus.basalApronEnabled(),
+                "active profile must enable the basal talus apron");
+        require(talus.basalApronMaxHeight() == 6
+                        && talus.basalApronSpread() == 12.0
+                        && talus.basalApronInset() == 4.0,
+                "active basal talus apron must use the source-profile dimensions");
+
+        double edgeHeight = MacroGeologyField.massifHeightWithBasalContact(
+                0.0,
+                1.0,
+                0.5,
+                alignment
+        );
+        double shallowHeight = MacroGeologyField.massifHeightWithBasalContact(
+                0.10,
+                0.05,
+                0.5,
+                alignment
+        );
+        double deepHeight = MacroGeologyField.massifHeightWithBasalContact(
+                1.0,
+                1.0,
+                0.5,
+                alignment
+        );
+
+        require(edgeHeight == 0.0,
+                "massif basal contact no longer reaches the sand datum");
+        require(shallowHeight == 0.0,
+                "low physical scarp still retains an artificial basal pedestal");
+        require(Math.abs(deepHeight - 146.0) < 1.0e-9,
+                "basal-contact gate changed full massif height");
+
+        require(BasalTalusApronField.heightFromFactors(
+                        talus.basalApronMaxHeight(),
+                        1.0,
+                        1.0,
+                        1.0
+                ) == talus.basalApronMaxHeight(),
+                "full basal talus contact did not reach configured maximum height");
+        require(BasalTalusApronField.heightFromFactors(
+                        talus.basalApronMaxHeight(),
+                        0.0,
+                        1.0,
+                        1.0
+                ) == 0,
+                "basal talus apron did not taper to zero at its outer edge");
     }
 
     private static void validateAdditionalMaterials(ArrakisTerrainSettings settings) {

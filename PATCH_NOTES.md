@@ -1,5 +1,84 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.8 - Basal Contact & Talus Apron
+
+### Shield Wall reaches the sand datum
+
+- Fixed the remaining +3..+8 block basal ledge at the macro-height source instead of lowering
+  the whole massif again.
+- The constant `30 + 30 * relief` portion of Shield-Wall height now fades out as the physical
+  massif envelope approaches its low-side contact.
+- The main `105 * physicalMassifEnvelope` structural rise remains, and full-envelope massif
+  height is unchanged.
+- The existing 0.5.14.7 `massif_vertical_offset=-4` remains active for this Seed-0 test.
+- `BASE_SURFACE_Y`, basin, foreland, broken-rock and fault-floor reference elevations remain
+  unchanged.
+
+### Gravity-driven basal talus apron
+
+- Added `BasalTalusApronField` at the inner and outer Shield-Wall low-side contacts.
+- Source settings use a maximum height of 6 blocks, 12-block outward spread and 4-block
+  inward inset.
+- The apron can replace/fill the lowest contact blocks, converting the former engineered
+  ledge into a debris wedge.
+- Material grades from gravel near/higher on the wall toward increasing sand content at the
+  distal and lower toe.
+- The apron is deterministic and uses the same warped physical scarp boundaries as the
+  Shield Wall rather than a nominal circular radius.
+- Existing localized fracture/erosion scree stacks above the basal apron when both occur.
+- Native dunes treat the apron as solid substrate instead of replacing it.
+
+### Compatibility and scope
+
+- Five optional basal-apron fields were added to `lithology.talus`; missing fields decode with
+  the apron disabled, preserving old serialized terrain behavior.
+- Added deterministic validation for zero-height basal contact, full massif-height retention,
+  apron dimensions and outer taper.
+- Project version is `0.5.14.8`; terrain profile version is `5148`.
+- Regional fault cores remain sand-floored at Y=64.
+- 0.5.14.6 orphan-remnant suppression and all erosion strengths remain unchanged.
+- This pass is gravity/colluvium only. Aeolian sand deposition remains reserved for
+  approximately 0.5.16 after subsurface geology.
+
+## Minecraft: Dune 0.5.14.7 - Terrain Base Alignment
+
+### Shield Wall vertical alignment
+
+- Added serialized `base_alignment.massif_vertical_offset`.
+- The active source profile uses `-4.0`, lowering only the main Shield Wall/massif height
+  field while keeping `MacroGeologyField.BASE_SURFACE_Y` and the global Arrakis sand datum
+  fixed at Y=64.
+- The offset is applied before sand-corridor suppression, regional fault carving, fractures,
+  face exposure, erosion, orphan-remnant suppression and talus, so the complete exposed
+  massif morphology inherits the same alignment.
+- Foreland, broken-rock, basin and native-dune reference elevations are unchanged.
+- `base_alignment` is a separate top-level codec group because the existing `MassifSettings`
+  codec already occupies DataFixerUpper's 16-field `RecordCodecBuilder.group` limit.
+- Missing `base_alignment` decodes to `0.0`, preserving 0.5.14.6 elevation in old serialized
+  profiles.
+
+### Sand-floored regional fault cores
+
+- Changed the active `faults.rocky_floor_height` from `4.0` to `0.0`.
+- Full fault cores now target zero native-rock height above the Y=64 datum, leaving the
+  already-generated Arrakis sand layer visible as the canyon floor.
+- The existing 0.5.12 absolute-depth calculation, core width, wall width, toe, centerline
+  warping and 0.5.14.5 wall variation remain unchanged.
+- `sandy_floor_threshold` remains serialized for diagnostics/backward compatibility and
+  possible later reuse.
+
+### Validation and scope
+
+- Added validation for the -4 massif offset, zero-height fault floor, low-to-zero clamping
+  and old-profile zero-offset compatibility.
+- Existing full-core fault validation now exercises the zero-height source floor and ensures
+  major/surface erosion do not bridge it.
+- Project version is `0.5.14.7`; terrain profile version is `5147`.
+- 0.5.14.6 orphan-remnant suppression and additional lithologies are unchanged.
+- Dune generation is unchanged.
+- Aeolian sand deposition against rocks is explicitly deferred to approximately 0.5.16,
+  after the planned 0.5.15 subsurface-geology pass.
+
 ## Minecraft: Dune 0.5.14.6 - Orphan Remnant Suppression
 
 ### Exposed-face connectivity cleanup

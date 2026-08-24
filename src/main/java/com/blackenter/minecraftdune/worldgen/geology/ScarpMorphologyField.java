@@ -121,6 +121,81 @@ public final class ScarpMorphologyField {
         return GeologyNoise.clamp(broad + detail, -maximum, maximum);
     }
 
+    public static LowSideContact nearestMassifLowSideContact(
+            long worldSeed,
+            double worldX,
+            double worldZ,
+            double radius,
+            double effectiveRadius,
+            ArrakisTerrainSettings.MassifSettings massif
+    ) {
+        if (!massif.scarpMorphologyEnabled() || radius < 1.0) {
+            return LowSideContact.NONE;
+        }
+
+        double radialX = worldX / radius;
+        double radialZ = worldZ / radius;
+
+        double availableInner = Math.max(
+                1.0,
+                massif.fullRadius() - massif.startRadius()
+        );
+        double innerWidth = GeologyNoise.clamp(
+                massif.innerScarpWidth(),
+                4.0,
+                availableInner
+        );
+        double innerOffset = massifBoundaryOffset(
+                worldSeed,
+                worldX,
+                worldZ,
+                massif,
+                true
+        );
+        double innerCoordinate = Math.min(radius, effectiveRadius);
+        double innerEdge = massif.startRadius() + innerOffset;
+        double innerSigned = innerCoordinate - innerEdge;
+
+        double availableOuter = Math.max(
+                1.0,
+                massif.outerEndRadius() - massif.outerStartRadius()
+        );
+        double outerWidth = GeologyNoise.clamp(
+                massif.outerScarpWidth(),
+                4.0,
+                availableOuter
+        );
+        double outerOffset = massifBoundaryOffset(
+                worldSeed,
+                worldX,
+                worldZ,
+                massif,
+                false
+        );
+        double outerEdge = massif.outerStartRadius()
+                + outerOffset
+                + outerWidth;
+        double outerSigned = outerEdge - effectiveRadius;
+
+        if (Math.abs(innerSigned) <= Math.abs(outerSigned)) {
+            return new LowSideContact(
+                    true,
+                    innerSigned,
+                    radialX,
+                    radialZ,
+                    innerWidth
+            );
+        }
+
+        return new LowSideContact(
+                true,
+                outerSigned,
+                -radialX,
+                -radialZ,
+                outerWidth
+        );
+    }
+
     /**
      * Permission for Shield-Wall erosion.
      *
@@ -308,6 +383,22 @@ public final class ScarpMorphologyField {
         return new FaultProfile(
                 GeologyNoise.clamp(depthMask, 0.0, 1.0),
                 GeologyNoise.clamp(shoulderMask, 0.0, 1.0)
+        );
+    }
+
+    public record LowSideContact(
+            boolean valid,
+            double signedDistance,
+            double inwardX,
+            double inwardZ,
+            double scarpWidth
+    ) {
+        public static final LowSideContact NONE = new LowSideContact(
+                false,
+                Double.POSITIVE_INFINITY,
+                0.0,
+                0.0,
+                1.0
         );
     }
 

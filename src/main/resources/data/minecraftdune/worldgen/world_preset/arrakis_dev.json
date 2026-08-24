@@ -33,7 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 5146,
+          "profile_version": 5148,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0
@@ -69,6 +69,9 @@
             "scarp_detail_scale": 42.0,
             "scarp_detail_strength": 2.5
           },
+          "base_alignment": {
+            "massif_vertical_offset": -4.0
+          },
           "faults": {
             "count": 6,
             "start_radius": 1400.0,
@@ -84,7 +87,7 @@
             "sine_warp_scale": 780.0,
             "sine_warp_strength": 75.0,
             "sandy_floor_threshold": 0.56,
-            "rocky_floor_height": 4.0,
+            "rocky_floor_height": 0.0,
             "morphology": {
               "wall_width": 14.0,
               "toe_depth": 4.0,
@@ -129,7 +132,12 @@
               "local_scree_enabled": true,
               "minimum_fracture_strength": 0.44,
               "maximum_thickness": 7,
-              "spread": 18.0
+              "spread": 18.0,
+              "basal_apron_enabled": true,
+              "basal_apron_max_height": 6,
+              "basal_apron_spread": 12.0,
+              "basal_apron_inset": 4.0,
+              "basal_apron_sand_start": 0.62
             }
           },
           "additional_materials": {

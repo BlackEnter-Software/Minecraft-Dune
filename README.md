@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.6**
+Current development version: **0.5.14.8**
 
 The project currently contains:
 
@@ -18,6 +18,8 @@ The project currently contains:
 - coherent two-scale Shield Wall scarp roughness and along-fault wall-width variation;
 - removal-only orphan-remnant suppression for detached exposed cliff needles/slabs;
 - smooth basalt, red sandstone and terracotta as coherent resistance-tiered lithologies;
+- serialized terrain-base alignment: the Shield Wall sits four blocks lower while full fault cores expose the Y=64 sand floor;
+- corrected Shield-Wall basal contact with a short gravity-driven gravel/sand talus apron;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -65,6 +67,16 @@ The native generator retains the same base stratigraphy:
 | 0 to 44 | Stone |
 | -63 to -1 | Deepslate |
 | -64 | Bedrock |
+
+0.5.14.7 keeps the global sand datum fixed at Y=64. The active source profile stores a
+`base_alignment.massif_vertical_offset` of -4 blocks, lowering only the main Shield Wall
+height field before faults and erosion are evaluated. Full regional-fault cores target zero
+rock height above the datum, so their floor exposes the existing flat sand layer.
+
+0.5.14.8 also removes the remaining low scarp pedestal by fading the massif's constant basal
+height contribution to zero at the physical contact. A short gravity-driven gravel/sand
+talus apron masks the corrected rock/sand junction. This is colluvial debris, not wind-blown
+sand; aeolian accumulation remains deferred to approximately 0.5.16.
 
 New Arrakis Dev worlds use the featureless `minecraftdune:arrakis_desert` biome. Its natural
 spawn table contains only Muad'dib and Desert Hare; an Arrakis-generator placement gate also

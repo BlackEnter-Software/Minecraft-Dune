@@ -3,6 +3,7 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 import com.blackenter.minecraftdune.registry.ModBlocks;
 import com.blackenter.minecraftdune.world.level.block.DuneSandLayerBlock;
 import com.blackenter.minecraftdune.worldgen.dune.NativeTransverseDuneField;
+import com.blackenter.minecraftdune.worldgen.geology.BasalTalusApronField;
 import com.blackenter.minecraftdune.worldgen.geology.EscarpmentErosionField;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyBlockPalette;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
@@ -215,6 +216,12 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 maximumY,
                 column::setBlock
         );
+        writeBasalTalusApronColumn(
+                terrain,
+                minimumY,
+                maximumY,
+                column::setBlock
+        );
         writeDuneColumn(
                 terrain,
                 minimumY,
@@ -286,6 +293,15 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 }
 
                 writeTalusColumn(
+                        terrain,
+                        minimumY,
+                        maximumY,
+                        (y, state) -> {
+                            position.set(worldX, y, worldZ);
+                            chunk.setBlockState(position, state, false);
+                        }
+                );
+                writeBasalTalusApronColumn(
                         terrain,
                         minimumY,
                         maximumY,
@@ -374,6 +390,14 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 geology,
                 terrainSettings
         );
+        BasalTalusApronField.Sample basalTalusApron =
+                BasalTalusApronField.sample(
+                        worldSeed,
+                        worldX + 0.5,
+                        worldZ + 0.5,
+                        geology,
+                        terrainSettings
+                );
         EscarpmentErosionField.Column erosion = EscarpmentErosionField.sample(
                 worldSeed,
                 worldX + 0.5,
@@ -411,7 +435,8 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 lithology,
                 fracture,
                 erosion,
-                surfaceErosion
+                surfaceErosion,
+                basalTalusApron
         );
     }
 
@@ -504,7 +529,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 ? terrain.talusBaseY() + terrain.erosion().talusThickness() - 1
                 : MacroGeologyField.BASE_SURFACE_Y;
         return Math.max(
-                Math.max(filteredRockTopY, talusTopY),
+                Math.max(
+                        Math.max(filteredRockTopY, talusTopY),
+                        terrain.basalTalusApron().topY()
+                ),
                 terrain.highestDuneY()
         );
     }
@@ -570,7 +598,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         int firstSandY = Math.max(
                 Math.max(
                         FIRST_NATIVE_Y,
-                        terrain.rockTopY() + 1
+                        Math.max(
+                                terrain.rockTopY(),
+                                terrain.basalTalusApron().topY()
+                        ) + 1
                 ),
                 minimumY
         );
@@ -584,7 +615,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         int partialLayers = terrain.partialDuneLayers();
         int partialY = terrain.dunePartialY();
         if (partialLayers > 0
-                && partialY > terrain.rockTopY()
+                && partialY > Math.max(
+                        terrain.rockTopY(),
+                        terrain.basalTalusApron().topY()
+                )
                 && !terrain.talusOccupiesY(partialY)
                 && partialY >= minimumY
                 && partialY <= maximumY) {
@@ -595,6 +629,39 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                             partialLayers
                     );
             writer.set(partialY, partialSand);
+        }
+    }
+
+    private void writeBasalTalusApronColumn(
+            TerrainColumn terrain,
+            int minimumY,
+            int maximumY,
+            BlockWriter writer
+    ) {
+        BasalTalusApronField.Sample apron = terrain.basalTalusApron();
+        if (!apron.active()) {
+            return;
+        }
+
+        int firstY = Math.max(
+                minimumY,
+                MacroGeologyField.BASE_SURFACE_Y + 1
+        );
+        int lastY = Math.min(maximumY, apron.topY());
+        for (int y = firstY; y <= lastY; y++) {
+            BasalTalusApronField.Material material = apron.materialAt(y);
+            switch (material) {
+                case GRAVEL -> writer.set(
+                        y,
+                        lithologyPalette.state(LithologyField.Material.GRAVEL)
+                );
+                case SAND -> writer.set(
+                        y,
+                        ModBlocks.SAND.get().defaultBlockState()
+                );
+                case NONE -> {
+                }
+            }
         }
     }
 
@@ -639,7 +706,8 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             LithologyField.Column lithology,
             MassifFractureField.Sample fracture,
             EscarpmentErosionField.Column erosion,
-            RockSurfaceErosionField.Column surfaceErosion
+            RockSurfaceErosionField.Column surfaceErosion,
+            BasalTalusApronField.Sample basalTalusApron
     ) {
         LithologyField.Sample materialSampleAt(int y) {
             LithologyField.Sample sample = lithology.sample(y);
@@ -686,7 +754,13 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             int talusTopY = erosion.talusThickness() > 0
                     ? talusBaseY() + erosion.talusThickness() - 1
                     : MacroGeologyField.BASE_SURFACE_Y;
-            return Math.max(Math.max(rockTopY, talusTopY), duneTopY);
+            return Math.max(
+                    Math.max(
+                            Math.max(rockTopY, talusTopY),
+                            basalTalusApron.topY()
+                    ),
+                    duneTopY
+            );
         }
 
         int highestDuneY() {
@@ -702,7 +776,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
 
         int talusBaseY() {
             return Math.max(
-                    Math.max(FIRST_NATIVE_Y, rockTopY + 1),
+                    Math.max(
+                            Math.max(FIRST_NATIVE_Y, rockTopY + 1),
+                            basalTalusApron.topY() + 1
+                    ),
                     duneFullTopY() + 1
             );
         }

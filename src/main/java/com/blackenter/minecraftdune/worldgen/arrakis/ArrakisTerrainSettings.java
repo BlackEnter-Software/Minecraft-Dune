@@ -14,6 +14,7 @@ public record ArrakisTerrainSettings(
         BasinSettings basin,
         ForelandSettings foreland,
         MassifSettings massif,
+        BaseAlignmentSettings baseAlignment,
         FaultSettings faults,
         LithologySettings lithology,
         AdditionalMaterialSettings additionalMaterials,
@@ -24,7 +25,7 @@ public record ArrakisTerrainSettings(
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 5146;
+    public static final int CURRENT_PROFILE_VERSION = 5148;
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -47,7 +48,17 @@ public record ArrakisTerrainSettings(
             );
 
     public static final TalusSettings DEFAULT_TALUS =
-            new TalusSettings(false, 0.78, 3, 5.0);
+            new TalusSettings(
+                    false,
+                    0.78,
+                    3,
+                    5.0,
+                    false,
+                    6,
+                    12.0,
+                    4.0,
+                    0.62
+            );
 
     public static final AdditionalMaterialSettings DEFAULT_ADDITIONAL_MATERIALS =
             new AdditionalMaterialSettings(
@@ -56,6 +67,9 @@ public record ArrakisTerrainSettings(
                     "minecraft:red_sandstone",
                     "minecraft:terracotta"
             );
+
+    public static final BaseAlignmentSettings DEFAULT_BASE_ALIGNMENT =
+            new BaseAlignmentSettings(0.0);
 
     public static final LithologySettings DEFAULT_LITHOLOGY =
             new LithologySettings(
@@ -185,6 +199,7 @@ public record ArrakisTerrainSettings(
                     42.0,
                     0.0
             ),
+            DEFAULT_BASE_ALIGNMENT,
             new FaultSettings(
                     4,
                     1050.0,
@@ -262,6 +277,11 @@ public record ArrakisTerrainSettings(
                             .forGetter(ArrakisTerrainSettings::foreland),
                     MassifSettings.CODEC.fieldOf("massif")
                             .forGetter(ArrakisTerrainSettings::massif),
+                    BaseAlignmentSettings.CODEC.optionalFieldOf(
+                                    "base_alignment",
+                                    DEFAULT_BASE_ALIGNMENT
+                            )
+                            .forGetter(ArrakisTerrainSettings::baseAlignment),
                     FaultSettings.CODEC.fieldOf("faults")
                             .forGetter(ArrakisTerrainSettings::faults),
                     LithologySettings.CODEC.optionalFieldOf(
@@ -400,6 +420,22 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.optionalFieldOf("scarp_detail_strength", 0.0)
                                 .forGetter(MassifSettings::scarpDetailStrength)
                 ).apply(instance, MassifSettings::new));
+    }
+
+    /**
+     * Vertical alignment controls that must not move the global Arrakis sand datum.
+     *
+     * <p>This is separate from MassifSettings because that codec already contains sixteen
+     * RecordCodecBuilder fields. Missing data decodes to zero for old serialized worlds.</p>
+     */
+    public record BaseAlignmentSettings(
+            double massifVerticalOffset
+    ) {
+        public static final Codec<BaseAlignmentSettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.DOUBLE.optionalFieldOf("massif_vertical_offset", 0.0)
+                                .forGetter(BaseAlignmentSettings::massifVerticalOffset)
+                ).apply(instance, BaseAlignmentSettings::new));
     }
 
     public record FaultSettings(
@@ -629,7 +665,12 @@ public record ArrakisTerrainSettings(
             boolean localScreeEnabled,
             double minimumFractureStrength,
             int maximumThickness,
-            double spread
+            double spread,
+            boolean basalApronEnabled,
+            int basalApronMaxHeight,
+            double basalApronSpread,
+            double basalApronInset,
+            double basalApronSandStart
     ) {
         public static final Codec<TalusSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -640,7 +681,17 @@ public record ArrakisTerrainSettings(
                         Codec.INT.optionalFieldOf("maximum_thickness", 3)
                                 .forGetter(TalusSettings::maximumThickness),
                         Codec.DOUBLE.optionalFieldOf("spread", 5.0)
-                                .forGetter(TalusSettings::spread)
+                                .forGetter(TalusSettings::spread),
+                        Codec.BOOL.optionalFieldOf("basal_apron_enabled", false)
+                                .forGetter(TalusSettings::basalApronEnabled),
+                        Codec.INT.optionalFieldOf("basal_apron_max_height", 6)
+                                .forGetter(TalusSettings::basalApronMaxHeight),
+                        Codec.DOUBLE.optionalFieldOf("basal_apron_spread", 12.0)
+                                .forGetter(TalusSettings::basalApronSpread),
+                        Codec.DOUBLE.optionalFieldOf("basal_apron_inset", 4.0)
+                                .forGetter(TalusSettings::basalApronInset),
+                        Codec.DOUBLE.optionalFieldOf("basal_apron_sand_start", 0.62)
+                                .forGetter(TalusSettings::basalApronSandStart)
                 ).apply(instance, TalusSettings::new));
     }
 
