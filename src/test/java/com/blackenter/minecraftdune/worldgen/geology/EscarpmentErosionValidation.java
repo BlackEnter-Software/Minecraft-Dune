@@ -27,7 +27,7 @@ public final class EscarpmentErosionValidation {
     public static void main(String[] args) throws Exception {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
-        require(settings.profileVersion() == 5149, "active profile_version must be 5149");
+        require(settings.profileVersion() == 51410, "active profile_version must be 51410");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
         JsonObject legacy5142Profile = profile.json().deepCopy();
@@ -73,6 +73,10 @@ public final class EscarpmentErosionValidation {
                 "serialized 0.5.14.8 profiles must retain nominal apron targeting");
         require(BasalTalusApronField.usesActualContact(5149),
                 "profile 5149 must use actual surviving-rock contact");
+        require(!BasalTalusApronField.usesContactOwnership(5149),
+                "serialized 0.5.14.9 profiles must retain source-owned contact classification");
+        require(BasalTalusApronField.usesContactOwnership(51410),
+                "profile 51410 must use actual contact ownership and wall-relief probing");
 
         JsonObject oldProfile = legacy5142Profile.deepCopy();
         oldProfile.addProperty("profile_version", 513);
@@ -432,6 +436,52 @@ public final class EscarpmentErosionValidation {
         require(Math.abs(deepHeight - 146.0) < 1.0e-9,
                 "basal-contact gate changed full massif height");
 
+        ArrakisTerrainSettings.MassifSettings massif = settings.massif();
+        double innerOffset = ScarpMorphologyField.massifBoundaryOffset(
+                0L,
+                massif.startRadius(),
+                0.0,
+                massif,
+                true
+        );
+        double innerContactRadius = massif.startRadius() + innerOffset;
+        double innerClearance = MacroGeologyField.massifContactClearance(
+                0L,
+                innerContactRadius,
+                0.0,
+                innerContactRadius,
+                innerContactRadius,
+                settings
+        );
+
+        double outerOffset = ScarpMorphologyField.massifBoundaryOffset(
+                0L,
+                massif.outerStartRadius(),
+                0.0,
+                massif,
+                false
+        );
+        double outerContactRadius = massif.outerStartRadius()
+                + outerOffset
+                + massif.outerScarpWidth();
+        double outerClearance = MacroGeologyField.massifContactClearance(
+                0L,
+                outerContactRadius,
+                0.0,
+                outerContactRadius,
+                outerContactRadius,
+                settings
+        );
+
+        require(innerClearance > 0.999,
+                "inner Shield-Wall contact did not clear overlapping non-massif ownership");
+        require(outerClearance > 0.999,
+                "outer Shield-Wall contact did not clear overlapping non-massif ownership");
+        require(MacroGeologyField.applyContactClearance(7.0, 1.0) == 0.0,
+                "full basal-contact clearance did not remove non-massif height");
+        require(MacroGeologyField.applyContactClearance(7.0, 0.0) == 7.0,
+                "zero basal-contact clearance changed terrain outside the contact band");
+
         require(BasalTalusApronField.heightFromFactors(
                         talus.basalApronMaxHeight(),
                         1.0,
@@ -480,6 +530,26 @@ public final class EscarpmentErosionValidation {
                 ).active(),
                 "basal apron overwrote the surviving rock contact column");
 
+        BasalTalusApronField.RockColumn overlapOwnedRock =
+                new BasalTalusApronField.RockColumn(true, 150, false, 0.0);
+        BasalTalusApronField.SurvivingRockLookup overlapOwnedContact = (x, z) -> x <= 0
+                ? overlapOwnedRock
+                : BasalTalusApronField.RockColumn.EMPTY;
+        BasalTalusApronField.Sample ownership51410 =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 1, 0, 0.0, 51410, talus, overlapOwnedContact
+                );
+        BasalTalusApronField.Sample ownership5149 =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 1, 0, 0.0, 5149, talus, overlapOwnedContact
+                );
+        require(ownership51410.active()
+                        && ownership51410.contactKind()
+                        == BasalTalusApronField.ContactKind.MASSIF,
+                "actual surviving contact owned by an overlap field was rejected in profile 51410");
+        require(!ownership5149.active(),
+                "profile 5149 no longer retains its source-owned massif contact behavior");
+
         BasalTalusApronField.RockColumn faultWallRock =
                 new BasalTalusApronField.RockColumn(true, 150, false, 0.995);
         BasalTalusApronField.SurvivingRockLookup faultCanyon = (x, z) ->
@@ -504,6 +574,29 @@ public final class EscarpmentErosionValidation {
                 "both surviving regional-fault walls must produce basal colluvium");
         require(!protectedCenter.active(),
                 "opposing fault aprons bridged or refilled the protected sandy core");
+
+        BasalTalusApronField.RockColumn shallowFaultToe =
+                new BasalTalusApronField.RockColumn(true, 68, false, 0.98);
+        BasalTalusApronField.RockColumn tallFaultWall =
+                new BasalTalusApronField.RockColumn(true, 150, false, 0.80);
+        BasalTalusApronField.SurvivingRockLookup shallowToeWithWall = (x, z) -> {
+            if (x < 8) {
+                return BasalTalusApronField.RockColumn.EMPTY;
+            }
+            return x < 12 ? shallowFaultToe : tallFaultWall;
+        };
+        BasalTalusApronField.Sample wallRelief51410 =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 7, 0, 1.0, 51410, talus, shallowToeWithWall
+                );
+        BasalTalusApronField.Sample wallRelief5149 =
+                BasalTalusApronField.sampleFromSurvivingContact(
+                        0L, 7, 0, 1.0, 5149, talus, shallowToeWithWall
+                );
+        require(wallRelief51410.active(),
+                "shallow fault toe did not inherit relief from the tall wall behind it");
+        require(!wallRelief5149.active(),
+                "profile 5149 no longer retains its single-contact relief behavior");
 
         BasalTalusApronField.SurvivingRockLookup narrowFault = (x, z) ->
                 Math.abs(x) >= 2

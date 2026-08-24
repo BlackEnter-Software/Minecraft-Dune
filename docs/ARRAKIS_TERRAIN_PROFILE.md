@@ -1,4 +1,4 @@
-# Arrakis terrain profile — parameter reference (0.5.14.9)
+# Arrakis terrain profile — parameter reference (0.5.14.10)
 
 The native Arrakis generator reads its terrain parameters from:
 
@@ -38,11 +38,14 @@ source preset enables it explicitly, avoiding silent morphology changes at the u
 of an older world. The existing `lithology.talus` group is reused for cliff-base scree and is
 enabled in the supplied 0.5.14 profile.
 
-The current source preset uses `profile_version=5149`. Version 0.5.14.9 adds no JSON keys and
-preserves every 0.5.14.8 terrain value. It changes basal-apron targeting from nominal scarp
-geometry to the actual surviving pre-talus rock contact. Serialized profiles below 5149 keep
-the 0.5.14.8 nominal targeting path; profiles missing the optional basal-apron fields still
-decode with that feature disabled. Ordinary face detection reuses
+The current source preset uses `profile_version=51410`. Version 0.5.14.10 adds no JSON keys and
+preserves the existing tuning values. Profiles below 51410 retain the previous height
+composition and talus-source rules. Profile 51410 clears overlapping non-massif height
+ownership in a narrow Shield-Wall contact band, accepts actual surviving contact rock there,
+and measures regional-fault talus relief through shallow toes into the wall. Serialized
+profiles below 5149 still retain the older nominal-apron targeting path; profiles missing the
+optional basal-apron fields still decode with that feature disabled. Ordinary face detection
+reuses
 `erosion.face_probe_distance` for its far height ring and
 `erosion.surface.max_retreat_blocks + 1` (bounded internally) for its short height ring. See
 [Escarpment and differential erosion](ESCARPMENT_EROSION.md) for the complete parameter table,

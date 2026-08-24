@@ -1,5 +1,50 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.10 - Basal Contact Ownership & Wall-Relief Talus
+
+### Shield-Wall basal ownership
+
+- Fixed the reason the low Shield-Wall shelf could survive even after `massifHeight` reached
+  zero: final macro height was still the maximum of massif, foreland, broken-rock and outer
+  transition contributions.
+- Profile 51410 adds an 8-block contact-clearance band around the same warped physical inner
+  and outer Shield-Wall contacts.
+- Only the non-massif contribution is suppressed in that band. At the exact contact it is
+  zero; eight blocks away its previous value is fully restored.
+- The massif height field itself, full Shield-Wall height, scarp widths, erosion and the
+  existing `massif_vertical_offset=-4` remain unchanged.
+- Profiles below 51410 retain the previous 0.5.14.9 height-composition path.
+
+### Actual contact ownership for massif talus
+
+- The physical scarp remains a bounded search-eligibility gate, not the placement surface.
+- Inside that band, profile 51410 treats actual surviving Y=65 rock as authoritative even when
+  overlapping foreland/broken-rock/transition terrain supplied the basal contact.
+- This removes the remaining `massifSource` classification rejection that could suppress the
+  apron exactly where the visible shelf existed.
+- Profile 5149 retains its original source-owned classification for serialized compatibility.
+
+### Regional-fault wall relief
+
+- Fault talus still starts from the nearest actual surviving wall contact and keeps the
+  existing opposite-wall spread cap that protects the central sandy core.
+- Profile 51410 now probes approximately 16–24 blocks through a shallow contact toe into the
+  wall and uses the maximum pre-talus rock top as representative relief.
+- A 3–6-block toe can therefore produce colluvium when a tall fault wall stands immediately
+  behind it, while the Y=64 core remains unfilled.
+- The contact location, absolute fault floor, core width, wall/toe morphology and material
+  grading are unchanged.
+
+### Compatibility and validation
+
+- Project version is `0.5.14.10`; terrain profile version is `51410`.
+- No new JSON tuning keys were introduced.
+- Added checks for inner/outer contact clearance, overlap-owned massif contact acceptance,
+  old 5149 source ownership, shallow-toe wall-relief inheritance, old 5149 relief behavior,
+  central fault-core preservation and deterministic talus sampling.
+- This remains gravity-driven colluvium only. Aeolian deposition remains reserved for
+  approximately 0.5.16.
+
 ## Minecraft: Dune 0.5.14.9 - Basal Talus Contact Fix
 
 ### Actual surviving rock contact

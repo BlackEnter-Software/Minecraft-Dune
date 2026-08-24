@@ -11,6 +11,7 @@ import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
  */
 public final class BasalTalusApronField {
     public static final int ACTUAL_CONTACT_PROFILE_VERSION = 5149;
+    public static final int CONTACT_OWNERSHIP_PROFILE_VERSION = 51410;
     private static final long HEIGHT_SALT = 0x6D53A91C27F84BE2L;
     private static final long MATERIAL_SALT = 0xB8E2417D5A39C60FL;
     private static final int[][] CONTACT_DIRECTIONS = {
@@ -25,6 +26,10 @@ public final class BasalTalusApronField {
 
     public static boolean usesActualContact(int profileVersion) {
         return profileVersion >= ACTUAL_CONTACT_PROFILE_VERSION;
+    }
+
+    public static boolean usesContactOwnership(int profileVersion) {
+        return profileVersion >= CONTACT_OWNERSHIP_PROFILE_VERSION;
     }
 
     /**
@@ -74,6 +79,7 @@ public final class BasalTalusApronField {
                 worldX,
                 worldZ,
                 geology.faultCarveMask(),
+                settings.profileVersion(),
                 talus,
                 survivingRock
         );
@@ -84,6 +90,26 @@ public final class BasalTalusApronField {
             int worldX,
             int worldZ,
             double targetFaultCarveMask,
+            ArrakisTerrainSettings.TalusSettings talus,
+            SurvivingRockLookup survivingRock
+    ) {
+        return sampleFromSurvivingContact(
+                worldSeed,
+                worldX,
+                worldZ,
+                targetFaultCarveMask,
+                CONTACT_OWNERSHIP_PROFILE_VERSION,
+                talus,
+                survivingRock
+        );
+    }
+
+    static Sample sampleFromSurvivingContact(
+            long worldSeed,
+            int worldX,
+            int worldZ,
+            double targetFaultCarveMask,
+            int profileVersion,
             ArrakisTerrainSettings.TalusSettings talus,
             SurvivingRockLookup survivingRock
     ) {
@@ -104,6 +130,7 @@ public final class BasalTalusApronField {
                 worldZ,
                 targetFaultCarveMask,
                 spread,
+                usesContactOwnership(profileVersion),
                 survivingRock
         );
         if (!contact.valid()) {
@@ -147,9 +174,20 @@ public final class BasalTalusApronField {
                 outwardDistance
         );
 
+        int representativeTopY = contact.rock().topY();
+        if (contact.kind() == ContactKind.FAULT
+                && usesContactOwnership(profileVersion)) {
+            representativeTopY = representativeFaultWallTopY(
+                    worldX,
+                    worldZ,
+                    contact,
+                    spread,
+                    survivingRock
+            );
+        }
         double relief = Math.max(
                 0.0,
-                contact.rock().topY() - MacroGeologyField.BASE_SURFACE_Y
+                representativeTopY - MacroGeologyField.BASE_SURFACE_Y
         );
         double reliefGate = GeologyNoise.smoothStep(12.0, 42.0, relief);
         if (reliefGate <= 0.0) {
@@ -297,6 +335,7 @@ public final class BasalTalusApronField {
             int worldZ,
             double targetFaultCarveMask,
             double spread,
+            boolean acceptAnyMassifContact,
             SurvivingRockLookup survivingRock
     ) {
         Contact best = Contact.NONE;
@@ -336,7 +375,10 @@ public final class BasalTalusApronField {
                     // by only a few thousandths. The empty target's fault context identifies
                     // the canyon; actual occupancy identifies the surviving wall contact.
                     kind = ContactKind.FAULT;
-                } else if (rock.massifSource()) {
+                } else if (acceptAnyMassifContact || rock.massifSource()) {
+                    // Profile 51410 treats actual surviving Y=65 contact as authoritative
+                    // inside the already-bounded physical Shield-Wall search band. This lets
+                    // foreland/broken-rock-owned basal overlap connect to the massif apron.
                     kind = ContactKind.MASSIF;
                 }
                 if (kind != ContactKind.NONE) {
@@ -355,6 +397,43 @@ public final class BasalTalusApronField {
             }
         }
         return best;
+    }
+
+    static int representativeFaultWallTopY(
+            int worldX,
+            int worldZ,
+            Contact contact,
+            double spread,
+            SurvivingRockLookup survivingRock
+    ) {
+        int highest = contact.rock().topY();
+        double contactDistance = Math.max(1.0, contact.distance());
+        double unitX = contact.offsetX() / contactDistance;
+        double unitZ = contact.offsetZ() / contactDistance;
+        int probeLength = (int) Math.round(
+                Math.max(16.0, Math.min(24.0, spread + 8.0))
+        );
+
+        int previousX = Integer.MIN_VALUE;
+        int previousZ = Integer.MIN_VALUE;
+        for (int step = 0; step <= probeLength; step++) {
+            int offsetX = (int) Math.round(contact.offsetX() + unitX * step);
+            int offsetZ = (int) Math.round(contact.offsetZ() + unitZ * step);
+            if (offsetX == previousX && offsetZ == previousZ) {
+                continue;
+            }
+            previousX = offsetX;
+            previousZ = offsetZ;
+
+            RockColumn rock = survivingRock.sample(
+                    worldX + offsetX,
+                    worldZ + offsetZ
+            );
+            if (rock.occupiedAtContact()) {
+                highest = Math.max(highest, rock.topY());
+            }
+        }
+        return highest;
     }
 
     private static double oppositeFaultWallDistance(

@@ -14,7 +14,9 @@ import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
  */
 public final class MacroGeologyField {
     public static final int BASE_SURFACE_Y = 64;
+    public static final int BASAL_CONTACT_OWNERSHIP_PROFILE_VERSION = 51410;
 
+    private static final double MASSIF_CONTACT_CLEARANCE_BLOCKS = 8.0;
     private static final double TWO_PI = Math.PI * 2.0;
 
     private static final long BOUNDARY_WARP_SALT = 0x51ED270B6D2A4F1BL;
@@ -512,19 +514,36 @@ public final class MacroGeologyField {
                 ) * transitionRelief
         ) * smoothStep(0.10, 0.62, transitionRockMask);
 
-        double rawRockMask = Math.max(
-                smallFormationMask,
+        double contactClearance = massifContactClearance(
+                worldSeed,
+                worldX,
+                worldZ,
+                radius,
+                effectiveRadius,
+                settings
+        );
+        double nonMassifMask = applyContactClearance(
                 Math.max(
-                        massifMask,
+                        smallFormationMask,
                         Math.max(outlierMask, transitionRockMask)
-                )
+                ),
+                contactClearance
+        );
+        double nonMassifHeight = applyContactClearance(
+                Math.max(
+                        smallFormationHeight,
+                        Math.max(outlierHeight, transitionRockHeight)
+                ),
+                contactClearance
+        );
+
+        double rawRockMask = Math.max(
+                massifMask,
+                nonMassifMask
         );
         double addedRockHeight = Math.max(
-                smallFormationHeight,
-                Math.max(
-                        massifHeight,
-                        Math.max(outlierHeight, transitionRockHeight)
-                )
+                massifHeight,
+                nonMassifHeight
         );
 
         // Sand corridors are final suppressors.
@@ -663,6 +682,56 @@ public final class MacroGeologyField {
                 baseElevation,
                 dominantProvince
         );
+    }
+
+    static double massifContactClearance(
+            long worldSeed,
+            double worldX,
+            double worldZ,
+            double radius,
+            double effectiveRadius,
+            ArrakisTerrainSettings settings
+    ) {
+        if (settings.profileVersion() < BASAL_CONTACT_OWNERSHIP_PROFILE_VERSION) {
+            return 0.0;
+        }
+
+        ScarpMorphologyField.LowSideContact contact =
+                ScarpMorphologyField.nearestMassifLowSideContact(
+                        worldSeed,
+                        worldX,
+                        worldZ,
+                        radius,
+                        effectiveRadius,
+                        settings.massif()
+                );
+        if (!contact.valid()) {
+            return 0.0;
+        }
+
+        return contactClearanceForSignedDistance(
+                contact.signedDistance(),
+                MASSIF_CONTACT_CLEARANCE_BLOCKS
+        );
+    }
+
+    static double contactClearanceForSignedDistance(
+            double signedDistance,
+            double width
+    ) {
+        double safeWidth = Math.max(1.0, width);
+        return 1.0 - smoothStep(
+                0.0,
+                safeWidth,
+                Math.abs(signedDistance)
+        );
+    }
+
+    static double applyContactClearance(
+            double value,
+            double contactClearance
+    ) {
+        return value * (1.0 - clamp(contactClearance, 0.0, 1.0));
     }
 
     static double massifHeightWithBasalContact(

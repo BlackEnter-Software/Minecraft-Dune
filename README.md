@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.9**
+Current development version: **0.5.14.10**
 
 The project currently contains:
 
@@ -19,7 +19,7 @@ The project currently contains:
 - removal-only orphan-remnant suppression for detached exposed cliff needles/slabs;
 - smooth basalt, red sandstone and terracotta as coherent resistance-tiered lithologies;
 - serialized terrain-base alignment: the Shield Wall sits four blocks lower while full fault cores expose the Y=64 sand floor;
-- actual-contact massif and fault-wall colluvium with short gravel/sand talus aprons;
+- actual-contact massif and fault-wall colluvium with contact-ownership clearance and wall-relief probing;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -75,13 +75,18 @@ rock height above the datum, so their floor exposes the existing flat sand layer
 
 0.5.14.8 removes the remaining low scarp pedestal by fading the massif's constant basal
 height contribution to zero at the physical contact. In 0.5.14.9 the short gravity-driven
-gravel/sand apron no longer targets that nominal structural boundary: it samples the actual
-surviving rock footprint after fractures, both erosion passes and orphan-remnant filtering.
-Massif debris therefore begins immediately beside the final rock foot and follows its local
-irregularity. The same contact sampler now creates bounded colluvium along regional-fault
-walls while preserving an open Y=64 sandy core between opposing aprons. This remains
-colluvial debris, not wind-blown sand; aeolian accumulation is deferred to approximately
-0.5.16.
+gravel/sand apron switches from the nominal structural boundary to the actual surviving
+pre-talus rock footprint.
+
+0.5.14.10 fixes the remaining ownership overlap at that contact: foreland, broken-rock and
+transition height contributions fade out across a narrow 8-block band around the warped
+Shield-Wall edge, while the massif itself remains unchanged. Within the same bounded search
+band, actual surviving Y=65 rock is authoritative for massif talus even when an overlapping
+field supplied it. Regional-fault talus keeps its actual contact position but probes through
+a shallow toe into the wall for representative relief, allowing a low toe to inherit the tall
+cliff immediately behind it. Opposing aprons still preserve an open Y=64 sandy core. This
+remains colluvial debris, not wind-blown sand; aeolian accumulation is deferred to
+approximately 0.5.16.
 
 New Arrakis Dev worlds use the featureless `minecraftdune:arrakis_desert` biome. Its natural
 spawn table contains only Muad'dib and Desert Hare; an Arrakis-generator placement gate also
