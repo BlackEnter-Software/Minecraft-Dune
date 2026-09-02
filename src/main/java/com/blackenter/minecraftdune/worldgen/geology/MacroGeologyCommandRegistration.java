@@ -1,6 +1,7 @@
 package com.blackenter.minecraftdune.worldgen.geology;
 
 import com.blackenter.minecraftdune.MinecraftDune;
+import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainCommand;
 import net.minecraft.commands.Commands;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -29,6 +30,7 @@ public final class MacroGeologyCommandRegistration {
                 Commands.literal("dune")
                         .requires(source -> source.hasPermission(REQUIRED_PERMISSION_LEVEL))
                         .then(MacroGeologyCommand.build())
+                        .then(ArrakisTerrainCommand.build())
         );
     }
 }

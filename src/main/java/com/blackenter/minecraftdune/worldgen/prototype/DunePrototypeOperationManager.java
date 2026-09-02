@@ -24,6 +24,7 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -40,7 +41,8 @@ public final class DunePrototypeOperationManager {
     private static final int MAX_IN_FLIGHT_CHUNKS = 2;
     private static final float BACKOFF_TICK_MILLIS = 40.0F;
 
-    private static final Map<MinecraftServer, Operation> ACTIVE = new IdentityHashMap<>();
+    private static final Map<MinecraftServer, Operation> ACTIVE =
+            Collections.synchronizedMap(new IdentityHashMap<>());
 
     private DunePrototypeOperationManager() {
     }
@@ -378,9 +380,12 @@ public final class DunePrototypeOperationManager {
     }
 
     private static void requestChunk(Operation operation, ServerLevel level, ChunkPos chunk) {
+        // 1.21.1 getChunkFuture blocks on the server thread; the off-thread entry point
+        // marshals the actual request to mainThreadProcessor without managed-blocking.
+        var chunkSource = level.getChunkSource();
         CompletableFuture<ChunkResult<ChunkAccess>> request = CompletableFuture
                 .supplyAsync(
-                        () -> level.getChunkSource().getChunkFuture(
+                        () -> chunkSource.getChunkFuture(
                                 chunk.x, chunk.z, ChunkStatus.FULL, true
                         ),
                         Util.backgroundExecutor()
@@ -389,6 +394,9 @@ public final class DunePrototypeOperationManager {
         operation.inFlightChunks.put(chunk.toLong(), request);
         request.whenCompleteAsync(
                 (result, error) -> {
+                    if (ACTIVE.get(operation.server) != operation) {
+                        return;
+                    }
                     operation.inFlightChunks.remove(chunk.toLong());
                     if (error != null) {
                         MinecraftDune.LOGGER.error(

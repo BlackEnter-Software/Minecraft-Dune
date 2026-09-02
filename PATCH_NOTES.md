@@ -1,5 +1,26 @@
 # Minecraft: Dune patch notes
 
+## Unreleased — 0.5.14.8 hardening branch
+
+- Extracted operation-local analytical terrain evaluation and semantic settings validation.
+  Serialized fields, defaults, profile `5148` and mod version `0.5.14.8` are unchanged.
+- Made the weak-rock low-column face-exposure guard respect explicit
+  `base_anchored_erosion=true`; false/missing flags keep the previous threshold.
+  The regression sweep changes eight face descriptions but no raw occupied blocks.
+- Preserved the continuous massif, erosion strengths and inward support depth of eight.
+- Added operator-only `/dune terrain inspect [x y z]` with a copyable analytical report.
+- Separated exploratory coordinate searches from build-blocking invariants; added
+  production-evaluator fingerprints, cache-saturation and cross-chunk order checks.
+- Made geology pregeneration per-server and ignored stale chunk completions after cancel.
+  Kept the thread-aware background chunk request entry point: this Minecraft version
+  managed-blocks if `getChunkFuture` is called directly on the server thread.
+- Expanded opt-in cache/timing metrics and stopped tracking runtime logs (local copies remain).
+- Measured structural-talus versus surviving-cliff separation. Talus relocation, residual
+  basal teeth and the one-block step remain follow-up work, not claimed visual fixes.
+
+See [validation and compatibility details](docs/HARDENING_0.5.14.8_REPORT.md) and the
+[next contact pass](docs/TALUS_CONTACT_FOLLOWUP.md). Historical notes below are unchanged.
+
 ## Minecraft: Dune 0.5.14.8 - Basal Contact & Talus Apron
 
 ### Shield Wall reaches the sand datum

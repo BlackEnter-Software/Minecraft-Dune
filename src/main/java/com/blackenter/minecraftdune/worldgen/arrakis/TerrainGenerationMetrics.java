@@ -25,6 +25,10 @@ final class TerrainGenerationMetrics {
     private static final LongAdder QUERIES = new LongAdder();
     private static final LongAdder COLUMN_EVALUATIONS = new LongAdder();
     private static final LongAdder CACHE_HITS = new LongAdder();
+    private static final LongAdder CHUNK_COLUMN_EVALUATIONS = new LongAdder();
+    private static final LongAdder CACHE_BYPASSES = new LongAdder();
+    private static final LongAdder FULL_CHUNK_CACHES = new LongAdder();
+    private static final AtomicLong WORST_CHUNK_NANOS = new AtomicLong();
     private static final AtomicLong NEXT_SLOW_LOG_NANOS = new AtomicLong();
 
     private TerrainGenerationMetrics() {
@@ -40,6 +44,11 @@ final class TerrainGenerationMetrics {
         }
 
         CHUNKS.increment();
+        CHUNK_COLUMN_EVALUATIONS.add(evaluation.cacheMisses);
+        WORST_CHUNK_NANOS.accumulateAndGet(elapsedNanos, Math::max);
+        if (cacheSize == ArrakisTerrainEvaluator.CHUNK_CACHE_LIMIT) {
+            FULL_CHUNK_CACHES.increment();
+        }
         add(evaluation);
         if (elapsedNanos >= SLOW_CHUNK_NANOS && reserveSlowLog()) {
             MinecraftDune.LOGGER.warn(
@@ -77,6 +86,7 @@ final class TerrainGenerationMetrics {
     private static void add(Evaluation evaluation) {
         COLUMN_EVALUATIONS.add(evaluation.cacheMisses);
         CACHE_HITS.add(evaluation.cacheHits);
+        CACHE_BYPASSES.add(evaluation.cacheBypasses);
     }
 
     private static boolean reserveSlowLog() {
@@ -90,11 +100,17 @@ final class TerrainGenerationMetrics {
         long operations = CHUNKS.sum() + QUERIES.sum();
         if (operations % SUMMARY_INTERVAL == 0L) {
             MinecraftDune.LOGGER.info(
-                    "Arrakis terrain metrics: {} chunks, {} external queries, {} column evaluations, {} cache hits",
+                    "Arrakis terrain metrics: {} chunks, {} external queries, {} column evaluations, {} cache hits; "
+                            + "{} evaluations/chunk, {}% hit rate, {} full chunk caches, {} uncached evaluations, worst {} ms",
                     CHUNKS.sum(),
                     QUERIES.sum(),
                     COLUMN_EVALUATIONS.sum(),
-                    CACHE_HITS.sum()
+                    CACHE_HITS.sum(),
+                    CHUNK_COLUMN_EVALUATIONS.sum() / Math.max(1L, CHUNKS.sum()),
+                    100L * CACHE_HITS.sum() / Math.max(1L, CACHE_HITS.sum() + COLUMN_EVALUATIONS.sum()),
+                    FULL_CHUNK_CACHES.sum(),
+                    CACHE_BYPASSES.sum(),
+                    TimeUnit.NANOSECONDS.toMillis(WORST_CHUNK_NANOS.get())
             );
         }
     }
@@ -105,6 +121,7 @@ final class TerrainGenerationMetrics {
         private final boolean enabled;
         private int cacheHits;
         private int cacheMisses;
+        private int cacheBypasses;
 
         private Evaluation() {
             this(true);
@@ -125,5 +142,13 @@ final class TerrainGenerationMetrics {
                 cacheMisses++;
             }
         }
+
+        void cacheBypass() {
+            if (enabled) cacheBypasses++;
+        }
+
+        int hits() { return cacheHits; }
+        int misses() { return cacheMisses; }
+        int bypasses() { return cacheBypasses; }
     }
 }

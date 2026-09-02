@@ -21,8 +21,10 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,7 +53,8 @@ public final class MacroGeologyGenerationManager {
     private static final int MAX_REQUESTS_PER_TICK = 1;
     private static final float BACKOFF_TICK_MILLIS = 40.0F;
 
-    private static GenerationJob activeJob;
+    private static final Map<MinecraftServer, GenerationJob> ACTIVE =
+            Collections.synchronizedMap(new IdentityHashMap<>());
 
     private MacroGeologyGenerationManager() {
     }
@@ -85,13 +88,13 @@ public final class MacroGeologyGenerationManager {
                 chunk -> squaredDistanceFromOriginToChunkCenter(chunk.x, chunk.z)
         ));
 
-        activeJob = new GenerationJob(
+        ACTIVE.put(source.getServer(), new GenerationJob(
                 source.getServer(),
                 feedbackPlayer(source),
                 source.getLevel().dimension(),
                 "initial radius 100 Minecraft chunks from (0,0)",
                 chunks
-        );
+        ));
 
         source.sendSuccess(
                 () -> Component.literal(
@@ -126,7 +129,7 @@ public final class MacroGeologyGenerationManager {
     }
 
     public static int status(CommandSourceStack source) {
-        GenerationJob job = activeJob;
+        GenerationJob job = ACTIVE.get(source.getServer());
         if (job == null || job.server() != source.getServer()) {
             source.sendSuccess(
                     () -> Component.literal(
@@ -162,7 +165,7 @@ public final class MacroGeologyGenerationManager {
     }
 
     public static int cancel(CommandSourceStack source) {
-        GenerationJob job = activeJob;
+        GenerationJob job = ACTIVE.get(source.getServer());
         if (job == null || job.server() != source.getServer()) {
             source.sendFailure(Component.literal(
                     "No native Arrakis pregeneration job is active."
@@ -172,7 +175,7 @@ public final class MacroGeologyGenerationManager {
 
         int processed = job.processedChunks;
         int total = job.totalChunks;
-        activeJob = null;
+        ACTIVE.remove(job.server(), job);
         job.cancelPending();
 
         source.sendSuccess(
@@ -187,14 +190,9 @@ public final class MacroGeologyGenerationManager {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        GenerationJob job = activeJob;
-        if (job == null) {
-            return;
-        }
-
         MinecraftServer server = event.getServer();
-        if (job.server() != server) {
-            activeJob = null;
+        GenerationJob job = ACTIVE.get(server);
+        if (job == null) {
             return;
         }
 
@@ -227,7 +225,7 @@ public final class MacroGeologyGenerationManager {
         double elapsedSeconds =
                 (System.nanoTime() - job.startNanoseconds) / 1_000_000_000.0;
         GenerationJob completed = job;
-        activeJob = null;
+        ACTIVE.remove(server, job);
 
         sendFeedback(
                 completed,
@@ -244,9 +242,8 @@ public final class MacroGeologyGenerationManager {
 
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
-        GenerationJob job = activeJob;
-        if (job != null && job.server() == event.getServer()) {
-            activeJob = null;
+        GenerationJob job = ACTIVE.remove(event.getServer());
+        if (job != null) {
             job.cancelPending();
         }
     }
@@ -256,9 +253,13 @@ public final class MacroGeologyGenerationManager {
             ServerLevel level,
             ChunkPos chunk
     ) {
+        // In 1.21.1 getChunkFuture managed-blocks when called on the server thread.
+        // Its off-thread branch schedules the actual request on mainThreadProcessor.
+        // Capture the source here; only that thread-aware API is invoked by the worker.
+        var chunkSource = level.getChunkSource();
         CompletableFuture<ChunkResult<ChunkAccess>> request = CompletableFuture
                 .supplyAsync(
-                        () -> level.getChunkSource().getChunkFuture(
+                        () -> chunkSource.getChunkFuture(
                                 chunk.x,
                                 chunk.z,
                                 ChunkStatus.FULL,
@@ -280,10 +281,10 @@ public final class MacroGeologyGenerationManager {
             ChunkResult<ChunkAccess> result,
             Throwable error
     ) {
-        job.inFlight.remove(chunk.toLong());
-        if (activeJob != job) {
+        if (ACTIVE.get(job.server()) != job) {
             return;
         }
+        job.inFlight.remove(chunk.toLong());
 
         if (error != null) {
             MinecraftDune.LOGGER.error("Native Arrakis pregeneration failed for chunk {}", chunk, error);
@@ -300,7 +301,7 @@ public final class MacroGeologyGenerationManager {
     }
 
     private static void failJob(GenerationJob job, String detail) {
-        activeJob = null;
+        ACTIVE.remove(job.server(), job);
         job.cancelPending();
         sendFeedback(
                 job,
@@ -353,13 +354,13 @@ public final class MacroGeologyGenerationManager {
         int tilesWide = tileRadius * 2 + 1;
         int tileCount = tilesWide * tilesWide;
 
-        activeJob = new GenerationJob(
+        ACTIVE.put(source.getServer(), new GenerationJob(
                 source.getServer(),
                 feedbackPlayer(source),
                 source.getLevel().dimension(),
                 description,
                 chunks
-        );
+        ));
 
         source.sendSuccess(
                 () -> Component.literal(
@@ -385,7 +386,7 @@ public final class MacroGeologyGenerationManager {
             return false;
         }
 
-        if (activeJob != null && activeJob.server() == source.getServer()) {
+        if (ACTIVE.containsKey(source.getServer())) {
             source.sendFailure(Component.literal(
                     "A native Arrakis pregeneration job is already active. Use "
                             + "/dune geology generation status or "
@@ -394,10 +395,6 @@ public final class MacroGeologyGenerationManager {
             return false;
         }
 
-        // The integrated server may be stopped and restarted in the same client JVM.
-        if (activeJob != null) {
-            activeJob = null;
-        }
         return true;
     }
 

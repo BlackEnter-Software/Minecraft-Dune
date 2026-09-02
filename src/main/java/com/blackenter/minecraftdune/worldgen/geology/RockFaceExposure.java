@@ -50,8 +50,13 @@ public final class RockFaceExposure {
                         )
                 )
         ) * faultErosionPermission;
+        // Keep the low-column eligibility gate consistent with per-Y erosion. Legacy
+        // profiles still protect +2; explicitly base-anchored profiles may expose Y65/66.
+        int protectedTopY = surface.baseAnchoredErosion()
+                ? MacroGeologyField.BASE_SURFACE_Y
+                : MacroGeologyField.BASE_SURFACE_Y + 2;
         if (!erosion.enabled()
-                || (currentTopY <= MacroGeologyField.BASE_SURFACE_Y + 2
+                || (currentTopY <= protectedTopY
                 && geology.rockFormationMask() <= 0.015)
                 || geology.sandCorridorMask() > 0.35
                 || provincePermission <= 0.015) {
