@@ -32,6 +32,8 @@ public final class EscarpmentErosionValidation {
         validateBasalContactAndTalus(settings);
         validateAdditionalMaterials(settings);
         validateOrphanRemnantFilter(settings);
+        BasalRemnantValidation.validate(settings);
+        ActualTalusContactValidation.validate();
         validateExposedFaceGeometry(settings);
         validateBaseAnchoredFaceExposure(settings);
         validateBasinAndDunes(settings);
@@ -964,6 +966,14 @@ public final class EscarpmentErosionValidation {
             require(!RockFaceExposure.sample(0L, 657.5, 3306.5, topY,
                             basalExposureGeology(topY, 1.0), settings).exposed(),
                     "base anchoring bypassed the sand corridor suppressor");
+            var corridor = BasalTalusApronField.evaluate(0L, 657, 3306,
+                    basalExposureGeology(topY, 1.0), settings, new BasalTalusApronField.RockLookup() {
+                        public boolean footPresent(int x, int z) { throw new AssertionError("corridor queried rock"); }
+                        public int topY(int x, int z) { throw new AssertionError("corridor queried relief"); }
+                        public boolean allowed(int x, int z) { throw new AssertionError("corridor searched contact"); }
+                    });
+            require(!corridor.apron().active() && corridor.actual().searchedBlocks() == 0,
+                    "actual-contact talus bypassed corridor suppression");
         }
         require(!RockFaceExposure.sample(0L, 657.5, 3306.5, 64,
                         basalExposureGeology(64, 0.0), settings).exposed(),

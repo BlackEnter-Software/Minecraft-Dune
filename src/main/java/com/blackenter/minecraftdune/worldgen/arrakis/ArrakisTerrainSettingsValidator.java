@@ -160,6 +160,10 @@ final class ArrakisTerrainSettingsValidator {
                 talus.basalApronInset(), talus.basalApronSpread());
         validation.unit("lithology.talus.basal_apron_sand_start",
                 talus.basalApronSandStart());
+        if (talus.actualContactEnabled()) {
+            validation.maximum("lithology.talus.basal_apron_spread (actual contact)", talus.basalApronSpread(), 32.0);
+            validation.maximum("lithology.talus.basal_apron_inset (actual contact)", talus.basalApronInset(), 32.0);
+        }
 
         FractureSettings fractures = settings.fractures();
         validation.positive("fractures.cell_size", fractures.cellSize(), 65_536.0);

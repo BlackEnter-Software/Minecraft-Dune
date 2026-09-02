@@ -6,9 +6,12 @@ Current development version: **0.5.14.8**
 
 Current hardening branch: `refactor/0.5.14.8-hardening`. The analytical evaluator,
 settings validation, operation lifecycle and debug tooling have been hardened without
-retuning macro geometry. Remaining basal teeth, the one-block step and detached talus
-are **not yet visually resolved**. See the [hardening report](docs/HARDENING_0.5.14.8_REPORT.md)
-and [talus/contact follow-up](docs/TALUS_CONTACT_FOLLOWUP.md).
+retuning macro geometry. The mountain-base appearance has been accepted at the tested
+Seed-0 sites. A new downstream pass makes basal support settings-aware and moves talus
+to surviving-rock contact. This needs a **new Seed-0 world** for visual acceptance; a
+separately relief-protected Y70 tooth remains. See the
+[current contact report](docs/BASAL_REMNANTS_ACTUAL_CONTACT_REPORT.md) and the
+[earlier hardening report](docs/HARDENING_0.5.14.8_REPORT.md).
 
 Operators can use `/dune terrain inspect` at their current position, or
 `/dune terrain inspect 3053 65 190`, to copy a report from the same analytical evaluator

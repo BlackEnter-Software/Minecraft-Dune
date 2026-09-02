@@ -1,5 +1,6 @@
 package com.blackenter.minecraftdune.worldgen.arrakis;
 
+import com.blackenter.minecraftdune.worldgen.geology.OrphanRemnantFilter;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -66,6 +67,8 @@ public final class ArrakisTerrainCommand {
         var major = c.erosion();
         var surface = c.surfaceErosion();
         var apron = c.basalTalusApron();
+        var structural = c.basal().structural();
+        var contact = c.basal().actual();
         var orphan = settings.erosion().orphanRemnants();
         int filteredTop = evaluator.highestFilteredRockY(x, z);
         var material = c.materialSampleAt(y);
@@ -81,7 +84,11 @@ public final class ArrakisTerrainCommand {
                 + "Face: exposed=%s high-side=%s Y=%d..%d relief=%.2f inset=%.2f normal=(%.3f,%.3f)%n"
                 + "Lithology at Y%d: %s/%s; filtered surface=%s%n"
                 + "Orphan: enabled=%s inward=%d lateral=%d protects-through-Y=%d min-relief=%.1f; raw=%s kept=%s%n"
-                + "Basal talus: active=%s height=%d structural-outward=%.2f spread=%.2f; local talus=%d blocks from Y%d%n"
+                + "Structural: valid=%s signed=%.2f inward-normal=(%.3f,%.3f)%n"
+                + "Actual contact: enabled=%s searched=%d found=%s signed=%.2f X/Z=%d/%d rock-top=%d reason=%s%n"
+                + "Wall: top=%d relief=%d probe-blocks=%d query-band=Y%d..%d%n"
+                + "Basal talus: active=%s height=%d outward=%.2f spread=%.2f; local talus=%d blocks from Y%d%n"
+                + "At queried Y: basal-material=%s local-talus=%s%n"
                 + "Dune units=%d dune-top=%d combined analytical top=%d cached-columns=%d",
                 seed, settings.profileVersion(), x, y, z, surface.settings().baseAnchoredErosion(),
                 g.dominantProvince().commandName(), g.radiusBlocks(), g.effectiveRadiusBlocks(),
@@ -96,10 +103,16 @@ public final class ArrakisTerrainCommand {
                 face.faceInset(), face.outwardNormalX(), face.outwardNormalZ(),
                 y, material.material(), material.resistance(), surfaceMaterial,
                 orphan.enabled(), orphan.inwardSupportDepth(), orphan.lateralSearchRadius(),
-                64 + orphan.minimumHeightAboveBase(), orphan.minimumFaceRelief(),
+                OrphanRemnantFilter.protectedThroughY(surface.settings().baseAnchoredErosion(), orphan), orphan.minimumFaceRelief(),
                 evaluator.rawRockOccupies(c, y), evaluator.rockOccupies(x, y, z),
+                structural.valid(), structural.signedDistance(), structural.inwardX(), structural.inwardZ(),
+                contact.enabled(), contact.searchedBlocks(), contact.found(), contact.signedDistance(),
+                contact.x(), contact.z(), contact.rockTopY(), contact.reason(),
+                contact.wallTopY(), contact.wallRelief(), contact.wallProbeBlocks(),
+                evaluator.talusWallQueryMinY(), evaluator.talusWallQueryMaxY(),
                 apron.active(), apron.height(), apron.outwardDistance(), apron.spread(),
-                major.talusThickness(), c.talusBaseY(), c.duneSurfaceUnits(), c.highestDuneY(),
-                evaluator.highestOccupiedY(x, z), evaluator.size());
+                major.talusThickness(), c.talusBaseY(), apron.materialAt(y), c.talusOccupiesY(y),
+                c.duneSurfaceUnits(), c.highestDuneY(),
+                evaluator.highestOccupiedY(x, z), evaluator.size()).replace("\r\n", "\n");
     }
 }

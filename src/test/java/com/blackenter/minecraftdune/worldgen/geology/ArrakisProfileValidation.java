@@ -15,6 +15,11 @@ public final class ArrakisProfileValidation {
     public static Profile validate() throws IOException {
         Profile profile = loadProfile();
         ArrakisTerrainSettings settings = profile.settings();
+        require(settings.lithology().talus().actualContactEnabled(), "active development profile must opt into actual contact");
+        JsonObject historicalContact = profile.json().deepCopy();
+        historicalContact.getAsJsonObject("lithology").getAsJsonObject("talus").remove("actual_contact_enabled");
+        require(!ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, historicalContact).getOrThrow()
+                .lithology().talus().actualContactEnabled(), "missing actual contact flag changed historical talus");
         require(settings.profileVersion() == 5148, "active profile_version must be 5148");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
 
@@ -33,6 +38,7 @@ public final class ArrakisProfileValidation {
                 .getAsJsonObject("lithology")
                 .getAsJsonObject("talus");
         legacyTalus.remove("basal_apron_enabled");
+        legacyTalus.remove("actual_contact_enabled");
         legacyTalus.remove("basal_apron_max_height");
         legacyTalus.remove("basal_apron_spread");
         legacyTalus.remove("basal_apron_inset");
@@ -97,6 +103,13 @@ public final class ArrakisProfileValidation {
     }
 
     private static void validateRejectedProfiles(JsonObject validProfile) {
+        JsonObject wideContact = validProfile.deepCopy();
+        wideContact.getAsJsonObject("lithology").getAsJsonObject("talus").addProperty("basal_apron_spread", 40);
+        require(ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, wideContact).error().isPresent(),
+                "actual contact spread exceeds bounded search");
+        wideContact.getAsJsonObject("lithology").getAsJsonObject("talus").addProperty("actual_contact_enabled", false);
+        require(ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, wideContact).result().isPresent(),
+                "new contact bound changed a legacy structural profile");
         JsonObject reversedBasin = validProfile.deepCopy();
         reversedBasin.getAsJsonObject("basin")
                 .addProperty("pure_sand_radius", 2_500.0);

@@ -2,12 +2,15 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 
 import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
 import com.blackenter.minecraftdune.worldgen.geology.ArrakisProfileValidation;
+import com.blackenter.minecraftdune.worldgen.geology.BasalTalusApronField;
 
 /** Golden production-occupancy checks, including additional materials, rooting and deposits. */
 public final class ArrakisTerrainEvaluatorValidation {
     // Captured only after exact agreement with a temporary copy of 9789ea8's evaluator.
     // Includes every written rock Y, additional lithology, deposits and height queries.
-    private static final long EXPECTED_FINGERPRINT = 0x624F66B5A25A22A3L;
+    private static final long HISTORICAL_FINGERPRINT = 0x624F66B5A25A22A3L;
+    // Intentional basal support + opt-in contact delta; historical reconstruction is still asserted.
+    private static final long EXPECTED_FINGERPRINT = 0x4587DD069077360FL;
     private static final long[] SEEDS = {0L, -5640511200611798902L, 7640891576956012809L};
     private static final int[][] POINTS = {
         {0, 0}, {1500, 0}, {657, 3306}, {2553, 1706}, {3053, 190}, {3067, 106},
@@ -18,11 +21,13 @@ public final class ArrakisTerrainEvaluatorValidation {
     public static void main(String[] args) throws Exception {
         ArrakisTerrainSettings settings = ArrakisProfileValidation.loadProfile().settings();
         long hash = 0xCBF29CE484222325L;
+        long historical = 0xCBF29CE484222325L;
         for (long seed : SEEDS) {
             for (int[] point : POINTS) {
                 ArrakisTerrainEvaluator evaluator = new ArrakisTerrainEvaluator(seed, settings, 1024);
                 long actual = fingerprint(evaluator, point[0], point[1]);
                 hash = mix(hash, actual);
+                historical = mix(historical, fingerprint(evaluator, point[0], point[1], seed, settings));
                 for (int limit : new int[] {0, 1, 64}) {
                     ArrakisTerrainEvaluator limited = new ArrakisTerrainEvaluator(seed, settings, limit);
                     limited.column(-123, 456); // Saturate the one-entry cache before the target.
@@ -32,10 +37,13 @@ public final class ArrakisTerrainEvaluatorValidation {
                 }
             }
         }
+        require(historical == HISTORICAL_FINGERPRINT, "changes beyond basal support/contact altered historical terrain");
+        System.out.printf("Historical reconstruction=%016x; current=%016x.%n", historical, hash);
         require(hash == EXPECTED_FINGERPRINT, "production occupancy fingerprint changed");
         validateGenerationOrder(settings);
         validateCoordinateKeys(settings);
         validateInspection(settings);
+        BasalContactPipelineValidation.validate(settings);
         System.out.printf("Production evaluator fingerprint=%016x; extraction/cache comparisons passed.%n", hash);
     }
 
@@ -49,7 +57,7 @@ public final class ArrakisTerrainEvaluatorValidation {
                 "inspection output disagrees with production occupancy");
         var seedZero = new ArrakisTerrainEvaluator(0L, settings, 64);
         require(seedZero.highestFilteredRockY(3053, 190) == 65,
-                "refactor unexpectedly retuned the remaining Seed-0 basal step");
+                "supported Seed-0 contact layer changed");
     }
 
     private static void validateGenerationOrder(ArrakisTerrainSettings settings) {
@@ -79,7 +87,19 @@ public final class ArrakisTerrainEvaluatorValidation {
     }
 
     static long fingerprint(ArrakisTerrainEvaluator evaluation, int x, int z) {
+        return fingerprint(evaluation, x, z, 0, null);
+    }
+
+    /** Reconstruct only the two intentionally changed stages, retaining the old golden hash. */
+    private static long fingerprint(ArrakisTerrainEvaluator evaluation, int x, int z,
+            long seed, ArrakisTerrainSettings historicalSettings) {
         ArrakisTerrainEvaluator.TerrainColumn c = evaluation.column(x, z);
+        boolean historical = historicalSettings != null;
+        if (historical) {
+            c = new ArrakisTerrainEvaluator.TerrainColumn(c.rock(), new BasalTalusApronField.Evaluation(
+                    BasalTalusApronField.sample(seed, x + 0.5, z + 0.5, c.geology(), historicalSettings),
+                    c.basal().structural(), c.basal().actual()));
+        }
         long hash = 0xCBF29CE484222325L;
         hash = mix(hash, c.rockTopY());
         hash = mix(hash, c.originalRockTopY());
@@ -88,17 +108,34 @@ public final class ArrakisTerrainEvaluatorValidation {
         hash = mix(hash, c.basalTalusApron().topY());
         hash = mix(hash, c.talusBaseY());
         hash = mix(hash, c.erosion().talusThickness());
-        hash = mix(hash, evaluation.highestOccupiedY(x, z));
+        int highest = evaluation.highestOccupiedY(x, z);
+        if (historical) {
+            int rockTop = 64;
+            for (int y = c.rockTopY(); y >= 65; y--) {
+                if (occupied(evaluation, c, x, y, z, true)) { rockTop = y; break; }
+            }
+            int talusTop = c.erosion().talusThickness() > 0
+                    ? c.talusBaseY() + c.erosion().talusThickness() - 1 : 64;
+            highest = Math.max(Math.max(rockTop, talusTop), Math.max(c.basalTalusApron().topY(), c.highestDuneY()));
+        }
+        hash = mix(hash, highest);
         for (int y = 44; y <= Math.max(c.highestOccupiedY(), c.fissureRockTopY()) + 1; y++) {
             LithologyField.Sample material = c.materialSampleAt(y);
-            boolean rock = c.hasNativeRock() && y <= c.rockTopY()
-                    && evaluation.filteredRockOccupies(x, z, y, c, material);
+            boolean rock = occupied(evaluation, c, x, y, z, historical);
             hash = mix(hash, rock ? material.material().ordinal() + 1 : 0);
             hash = mix(hash, c.basalTalusApron().materialAt(y).ordinal());
             hash = mix(hash, c.talusOccupiesY(y)
                     ? c.erosion().talusMaterialAt(y, c.lithology()).ordinal() + 1 : 0);
         }
         return hash;
+    }
+
+    private static boolean occupied(ArrakisTerrainEvaluator evaluation, ArrakisTerrainEvaluator.TerrainColumn c,
+            int x, int y, int z, boolean historical) {
+        var material = c.materialSampleAt(y);
+        return c.hasNativeRock() && y <= c.rockTopY() && (historical && y <= 69
+                ? c.erosion().occupies(y, material) && c.surfaceErosion().occupies(y, material)
+                : evaluation.filteredRockOccupies(x, z, y, c, material));
     }
 
     private static long mix(long hash, long value) {

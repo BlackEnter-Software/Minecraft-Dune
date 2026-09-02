@@ -57,7 +57,8 @@ public record ArrakisTerrainSettings(
                     6,
                     12.0,
                     4.0,
-                    0.62
+                    0.62,
+                    false
             );
 
     public static final AdditionalMaterialSettings DEFAULT_ADDITIONAL_MATERIALS =
@@ -676,7 +677,8 @@ public record ArrakisTerrainSettings(
             int basalApronMaxHeight,
             double basalApronSpread,
             double basalApronInset,
-            double basalApronSandStart
+            double basalApronSandStart,
+            boolean actualContactEnabled
     ) {
         public static final Codec<TalusSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -697,7 +699,9 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.optionalFieldOf("basal_apron_inset", 4.0)
                                 .forGetter(TalusSettings::basalApronInset),
                         Codec.DOUBLE.optionalFieldOf("basal_apron_sand_start", 0.62)
-                                .forGetter(TalusSettings::basalApronSandStart)
+                                .forGetter(TalusSettings::basalApronSandStart),
+                        Codec.BOOL.optionalFieldOf("actual_contact_enabled", false)
+                                .forGetter(TalusSettings::actualContactEnabled)
                 ).apply(instance, TalusSettings::new));
     }
 

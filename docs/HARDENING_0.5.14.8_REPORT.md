@@ -1,5 +1,8 @@
 # 0.5.14.8 hardening report
 
+This report covers the earlier extraction pass. The subsequent implementation is documented
+in [Basal remnants and actual-contact talus](BASAL_REMNANTS_ACTUAL_CONTACT_REPORT.md).
+
 Date: 2026-09-02. This is a local, uncommitted hardening pass, not a new terrain release.
 
 ## Repository state and scope

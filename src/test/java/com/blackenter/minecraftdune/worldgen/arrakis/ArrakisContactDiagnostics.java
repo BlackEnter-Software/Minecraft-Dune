@@ -3,6 +3,7 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 import com.blackenter.minecraftdune.worldgen.geology.ArrakisProfileValidation;
 import com.blackenter.minecraftdune.worldgen.geology.ScarpMorphologyField;
 import net.minecraft.world.level.ChunkPos;
+import com.mojang.serialization.JsonOps;
 
 import java.util.Locale;
 import java.util.function.IntPredicate;
@@ -19,13 +20,44 @@ public final class ArrakisContactDiagnostics {
         profileChunk(settings, 0L, 159, 106, true);
         profileChunk(settings, 0L, 0, 0, true);
         profileChunk(settings, 0L, 409, 0, true);
+        profileChunk(settings, 0L, 187, 29, true);
+        profileChunk(settings, 0L, 191, -4, true);
+        var structuralJson = ArrakisTerrainSettings.CODEC.encodeStart(JsonOps.INSTANCE, settings)
+                .getOrThrow().getAsJsonObject();
+        structuralJson.getAsJsonObject("lithology").getAsJsonObject("talus").addProperty("actual_contact_enabled", false);
+        var structural = ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, structuralJson).getOrThrow();
+        profileChunk(structural, -5640511200611798902L, 191, 6, true);
+        profileChunk(structural, 0L, 187, 29, true);
+        profileChunk(structural, 0L, 191, -4, true);
         transect(settings, 0L, 190, 2920, 3130, false);
         transect(settings, 0L, 3053, 100, 220, true);
         transect(settings, -5640511200611798902L, 173, 2990, 3160, false);
-        measureApronGap(settings, 0L);
+        measureActualAttachment(settings);
         recommendOuterContact(settings);
         var evaluator = new ArrakisTerrainEvaluator(0L, settings, 64);
         System.out.println(ArrakisTerrainCommand.describe(evaluator, 0L, settings, 3053, 65, 190));
+        System.out.println(ArrakisTerrainCommand.describe(evaluator, 0L, settings, 3050, 70, 190));
+        System.out.println(ArrakisTerrainCommand.describe(evaluator, 0L, settings, 3001, 70, 464));
+        if (java.util.Arrays.asList(args).contains("--trace")) trace(settings);
+        if (java.util.Arrays.asList(args).contains("--legacy-gap")) measureApronGap(settings, 0L);
+        findLowRemnant(settings);
+    }
+
+    private static void trace(ArrakisTerrainSettings settings) {
+        for (int z : new int[] {464, -52}) {
+            var probe = new ArrakisTerrainEvaluator(0L, settings, 1024);
+            for (int x = z == 464 ? 2950 : 3028; x <= (z == 464 ? 3010 : 3080); x += 2) {
+                var c = probe.column(x, z);
+                System.out.printf("Foot probe 0 %d/%d rock=%d apron=%d contact=%s%n", x, z,
+                        probe.highestFilteredRockY(x, z), c.basalTalusApron().height(), c.basal().actual());
+            }
+        }
+        var random = new ArrakisTerrainEvaluator(-5640511200611798902L, settings, 1024);
+        for (int x = 3050; x <= 3080; x += 2) {
+            var c = random.column(x, 173);
+            System.out.printf("Foot probe random %d/173 rock=%d apron=%d contact=%s%n", x,
+                    random.highestFilteredRockY(x, 173), c.basalTalusApron().height(), c.basal().actual());
+        }
     }
 
     private static void recommendOuterContact(ArrakisTerrainSettings settings) {
@@ -41,8 +73,8 @@ public final class ArrakisContactDiagnostics {
                 var contact = ScarpMorphologyField.nearestMassifLowSideContact(0L, x + 0.5, z + 0.5,
                         g.radiusBlocks(), g.effectiveRadiusBlocks(), settings.massif());
                 if (contact.valid() && contact.inwardX() * x + contact.inwardZ() * z < 0) {
-                    System.out.printf("Seed-0 outer contact diagnostic location: X/Z=%d/%d filtered-top=%d apron=%d%n",
-                            x, z, evaluator.highestFilteredRockY(x, z), c.basalTalusApron().height());
+                    System.out.printf("Seed-0 outer contact diagnostic location: X/Z=%d/%d filtered-top=%d apron=%d contact=%s%n",
+                            x, z, evaluator.highestFilteredRockY(x, z), c.basalTalusApron().height(), c.basal().actual());
                     return;
                 }
             }
@@ -70,8 +102,8 @@ public final class ArrakisContactDiagnostics {
         if (!report) return;
         TerrainGenerationMetrics.recordChunk(new ChunkPos(chunkX, chunkZ), elapsed, metrics, evaluator.size());
         System.out.printf(Locale.ROOT,
-                "Analytical-only chunk seed=%d chunk=%d/%d: %.2f ms evaluations=%d hit=%.2f%% cached=%d bypass=%d rock-writes=%d%n",
-                seed, chunkX, chunkZ, elapsed / 1_000_000.0, metrics.misses(),
+                "Analytical-only chunk seed=%d actual=%s chunk=%d/%d: %.2f ms evaluations=%d hit=%.2f%% cached=%d bypass=%d rock-writes=%d%n",
+                seed, settings.lithology().talus().actualContactEnabled(), chunkX, chunkZ, elapsed / 1_000_000.0, metrics.misses(),
                 100.0 * metrics.hits() / Math.max(1, metrics.hits() + metrics.misses()),
                 evaluator.size(), metrics.bypasses(), blocks);
     }
@@ -134,6 +166,52 @@ public final class ArrakisContactDiagnostics {
         System.out.println(result);
     }
 
+    private static void findLowRemnant(ArrakisTerrainSettings settings) {
+        var evaluator = new ArrakisTerrainEvaluator(-5640511200611798902L, settings, 1024);
+        for (int z = 96; z <= 111; z++) for (int x = 3040; x <= 3071; x++) {
+            var c = evaluator.preTalusColumn(x, z);
+            for (int y = 65; y <= 69; y++) {
+                if (evaluator.rawRockOccupies(c, y) && !evaluator.rockOccupies(x, y, z)) {
+                    System.out.printf("Basal-only cleanup example seed=-5640511200611798902 XYZ=%d/%d/%d%n", x, y, z);
+                    return;
+                }
+            }
+        }
+        System.out.println("No low cleanup example in this diagnostic window.");
+    }
+
+    private static void measureActualAttachment(ArrakisTerrainSettings settings) {
+        int active = 0, adjacent = 0, mismatches = 0;
+        for (int z = -100; z <= 500; z += 4) {
+            var evaluator = new ArrakisTerrainEvaluator(0, settings, 1024);
+            for (int x = 2900; x <= 3120; x += 4) {
+                var c = evaluator.column(x, z);
+                if (!c.basalTalusApron().active()) continue;
+                active++;
+                var contact = c.basal().actual();
+                if (!contact.found()) { mismatches++; continue; }
+                int dx = Integer.compare(contact.x(), x), dz = Integer.compare(contact.z(), z);
+                if (contact.signedDistance() > 0) {
+                    dx = Math.abs(c.basal().structural().inwardX()) >= Math.abs(c.basal().structural().inwardZ())
+                            ? (c.basal().structural().inwardX() >= 0 ? 1 : -1) : 0;
+                    dz = dx == 0 ? (c.basal().structural().inwardZ() >= 0 ? 1 : -1) : 0;
+                }
+                var neighbor = evaluator.column(contact.x() - dx, contact.z() - dz);
+                var next = neighbor.basal().actual();
+                adjacent++;
+                if (!neighbor.basalTalusApron().active() || !next.found() || next.outwardDistance() != 0
+                        || next.x() != contact.x() || next.z() != contact.z()) {
+                    mismatches++;
+                    System.out.printf("Attachment mismatch %d/%d contact=%s adjacent=%s structural=%s%n",
+                            x, z, contact, neighbor.basal(), c.basal().structural());
+                }
+            }
+        }
+        System.out.printf("Seed-0 actual attachment survey: active=%d adjacent-rechecks=%d mismatches=%d "
+                + "(analytical only; not a visual acceptance test).%n", active, adjacent, mismatches);
+    }
+
+    /** Historical diagnostic only: the radial Y84/Y70 criterion is not the new contact rule. */
     private static void measureApronGap(ArrakisTerrainSettings settings, long seed) {
         int found = 0, missed = 0, maximumGap = -1;
         String representative = "none";
@@ -172,7 +250,7 @@ public final class ArrakisContactDiagnostics {
                 if (!reached) missed++;
             }
         }
-        System.out.printf("Seed-%d bounded apron survey: %d rays reached Y84/Y70 wall, %d did not within 64; "
+        System.out.printf("Seed-%d LEGACY radial Y84/Y70 heuristic (not the actual-contact rule): %d rays reached wall, %d did not within 64; "
                 + "largest apron-to-wall separation=%d steps; %s%n", seed, found, missed, maximumGap, representative);
     }
 }

@@ -50,6 +50,27 @@ public final class BasalTalusApronField {
             return Sample.NONE;
         }
 
+        double probe = Math.max(
+                8.0,
+                Math.min(28.0, contact.scarpWidth() * 0.55)
+        );
+        double probeX = worldX + contact.inwardX() * probe;
+        double probeZ = worldZ + contact.inwardZ() * probe;
+        double high = MacroGeologyField.sample(
+                worldSeed,
+                probeX,
+                probeZ,
+                settings
+        ).baseElevation();
+        return shape(worldSeed, worldX, worldZ, settings, signedDistance, high);
+    }
+
+    private static Sample shape(long worldSeed, double worldX, double worldZ,
+            ArrakisTerrainSettings settings, double signedDistance, double high) {
+        var talus = settings.lithology().talus();
+        double spread = Math.max(1.0, talus.basalApronSpread());
+        double inset = Math.max(0.0, talus.basalApronInset());
+        if (signedDistance < -spread || signedDistance > inset) return Sample.NONE;
         double outwardDistance = Math.max(0.0, -signedDistance);
         double outwardFalloff = 1.0 - GeologyNoise.smoothStep(
                 0.0,
@@ -65,18 +86,6 @@ public final class BasalTalusApronField {
                 ? Math.max(0.45, inwardFalloff)
                 : outwardFalloff;
 
-        double probe = Math.max(
-                8.0,
-                Math.min(28.0, contact.scarpWidth() * 0.55)
-        );
-        double probeX = worldX + contact.inwardX() * probe;
-        double probeZ = worldZ + contact.inwardZ() * probe;
-        double high = MacroGeologyField.sample(
-                worldSeed,
-                probeX,
-                probeZ,
-                settings
-        ).baseElevation();
         double relief = Math.max(
                 0.0,
                 high - MacroGeologyField.BASE_SURFACE_Y
@@ -114,6 +123,104 @@ public final class BasalTalusApronField {
                 worldX,
                 worldZ
         );
+    }
+
+    // Search is local to the candidate deposit cell, not the obsolete structural foot.
+    public static final int CONTACT_SEARCH_LIMIT = 32;
+    public static final int WALL_PROBE_LIMIT = 24;
+
+    public static Evaluation evaluate(long seed, int x, int z, MacroGeologyField.Sample geology,
+            ArrakisTerrainSettings settings, RockLookup rock) {
+        var talus = settings.lithology().talus();
+        var structural = ScarpMorphologyField.nearestMassifLowSideContact(seed, x + 0.5, z + 0.5,
+                geology.radiusBlocks(), geology.effectiveRadiusBlocks(), settings.massif());
+        if (!talus.actualContactEnabled()) {
+            return new Evaluation(sample(seed, x + 0.5, z + 0.5, geology, settings),
+                    structural, ActualContact.none(false, "legacy-structural"));
+        }
+        String exclusion = !talus.basalApronEnabled() ? "apron-disabled"
+                : geology.sandCorridorMask() > 0.25 ? "sand-corridor"
+                : geology.faultCarveMask() > 0.85 ? "fault-core"
+                : !structural.valid() ? "no-structural-side"
+                // The candidate halo is wider than the canonical source band. Otherwise
+                // a distal cell can find a wall whose adjacent cell is outside the gate.
+                : Math.abs(structural.signedDistance()) > structural.scarpWidth() + 3 * CONTACT_SEARCH_LIMIT
+                        ? "outside-scarp-search-band" : null;
+        if (exclusion != null) {
+            return new Evaluation(Sample.NONE, structural, ActualContact.none(true, exclusion));
+        }
+        ActualContact actual = findContact(x, z, structural, talus.basalApronInset(), rock);
+        boolean sourceAllowed = actual.found() && rock.sourceAllowed(actual.x(), actual.z());
+        if (actual.found() && !sourceAllowed) actual = actual.withReason("outside-source-scarp-band");
+        Sample apron = sourceAllowed && actual.wallRelief() > 12
+                ? shape(seed, x + 0.5, z + 0.5, settings, actual.signedDistance(), actual.wallTopY())
+                : Sample.NONE;
+        return new Evaluation(apron, structural, actual);
+    }
+
+    /** A cardinal raster ray guarantees that the zero-distance exterior cell is face-adjacent. */
+    static ActualContact findContact(int x, int z, ScarpMorphologyField.LowSideContact structural,
+            double inset, RockLookup rock) {
+        int dx = 0, dz = 0;
+        if (Math.abs(structural.inwardX()) >= Math.abs(structural.inwardZ())) {
+            dx = structural.inwardX() >= 0 ? 1 : -1;
+        } else {
+            dz = structural.inwardZ() >= 0 ? 1 : -1;
+        }
+        boolean inside = rock.footPresent(x, z);
+        int direction = inside ? -1 : 1;
+        int limit = inside ? Math.min(CONTACT_SEARCH_LIMIT, (int) Math.ceil(inset) + 1)
+                : CONTACT_SEARCH_LIMIT;
+        for (int step = 1; step <= limit; step++) {
+            int px = x + dx * step * direction, pz = z + dz * step * direction;
+            if (!rock.allowed(px, pz)) {
+                return ActualContact.missing(step, "suppressed-path");
+            }
+            if (rock.footPresent(px, pz) == inside) continue;
+            int cx = inside ? px + dx : px, cz = inside ? pz + dz : pz;
+            int contactTop = rock.topY(cx, cz);
+            int wallTop = contactTop, probed = 0;
+            // Do not inherit relief across an air gap, a sand corridor or an opposing fault wall.
+            for (int probe = 1; probe <= WALL_PROBE_LIMIT; probe++) {
+                int rx = cx + dx * probe, rz = cz + dz * probe;
+                probed++;
+                if (!rock.allowed(rx, rz) || !rock.footPresent(rx, rz)) break;
+                wallTop = Math.max(wallTop, rock.topY(rx, rz));
+            }
+            return new ActualContact(true, step, true, inside ? step : 1.0 - step,
+                    cx, cz, contactTop, wallTop, probed,
+                    wallTop > MacroGeologyField.BASE_SURFACE_Y + 12 ? "found" : "insufficient-connected-relief");
+        }
+        return ActualContact.missing(limit, inside ? "inside-rock-beyond-inset" : "no-foot-within-bound");
+    }
+
+    public interface RockLookup {
+        boolean footPresent(int x, int z);
+        int topY(int x, int z);
+        boolean allowed(int x, int z);
+        default boolean sourceAllowed(int x, int z) { return true; }
+    }
+
+    public record Evaluation(Sample apron, ScarpMorphologyField.LowSideContact structural,
+            ActualContact actual) {}
+
+    public record ActualContact(boolean enabled, int searchedBlocks, boolean found,
+            double signedDistance, int x, int z, int rockTopY, int wallTopY,
+            int wallProbeBlocks, String reason) {
+        static ActualContact none(boolean enabled, String reason) {
+            return new ActualContact(enabled, 0, false, Double.POSITIVE_INFINITY,
+                    0, 0, MacroGeologyField.BASE_SURFACE_Y, MacroGeologyField.BASE_SURFACE_Y, 0, reason);
+        }
+        static ActualContact missing(int searched, String reason) {
+            return new ActualContact(true, searched, false, Double.POSITIVE_INFINITY,
+                    0, 0, MacroGeologyField.BASE_SURFACE_Y, MacroGeologyField.BASE_SURFACE_Y, 0, reason);
+        }
+        public double outwardDistance() { return found ? Math.max(0, -signedDistance) : Double.POSITIVE_INFINITY; }
+        public int wallRelief() { return wallTopY - MacroGeologyField.BASE_SURFACE_Y; }
+        ActualContact withReason(String reason) {
+            return new ActualContact(enabled, searchedBlocks, found, signedDistance,
+                    x, z, rockTopY, wallTopY, wallProbeBlocks, reason);
+        }
     }
 
     static int heightFromFactors(

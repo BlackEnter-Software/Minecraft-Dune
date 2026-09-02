@@ -1,5 +1,24 @@
 # Arrakis terrain profile — parameter reference (0.5.14.2)
 
+## Current hardening addition: actual-contact talus
+
+`lithology.talus.actual_contact_enabled` is an optional boolean, default `false`.
+The development preset explicitly stores `true`. False/missing retains the historical
+structural apron. True locates the final eroded wall with a bounded analytical search;
+spread and inset must then be at most 32 blocks. Other material/shape controls are unchanged.
+
+`erosion.surface.base_anchored_erosion=true` now also makes orphan basal protection end at
+Y64. False/missing still protects through `64 + minimum_height_above_base` (Y69 with the
+current value 5). The support depth, relief qualification and lateral rules are unchanged.
+Existing true profiles can therefore lose unsupported Y65–69 blocks in newly generated
+chunks even if they retain structural talus. Existing chunks are never rewritten.
+
+Version/profile remain `0.5.14.8` / `5148`: talus compatibility is controlled by its explicit
+flag, not an implicit version test. Use a new development world to get the new preset flag.
+See [the current implementation report](BASAL_REMNANTS_ACTUAL_CONTACT_REPORT.md).
+
+## Historical parameter reference
+
 The native Arrakis generator reads its terrain parameters from:
 
 ```text

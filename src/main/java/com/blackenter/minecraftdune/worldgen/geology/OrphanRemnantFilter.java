@@ -35,6 +35,7 @@ public final class OrphanRemnantFilter {
                 erosion.localRelief(),
                 erosion.outwardNormalX(),
                 erosion.outwardNormalZ(),
+                erosion.settings().surface().baseAnchoredErosion(),
                 settings,
                 rawRock
         );
@@ -71,6 +72,7 @@ public final class OrphanRemnantFilter {
                 Math.max(erosion.localRelief(), face.localRelief()),
                 outwardX,
                 outwardZ,
+                surfaceErosion.settings().baseAnchoredErosion(),
                 settings,
                 rawRock
         );
@@ -87,10 +89,26 @@ public final class OrphanRemnantFilter {
             ArrakisTerrainSettings.OrphanRemnantSettings settings,
             RawRockLookup rawRock
     ) {
+        return keeps(worldX, worldY, worldZ, erosionCandidate, localRelief,
+                outwardNormalX, outwardNormalZ, false, settings, rawRock);
+    }
+
+    public static int protectedThroughY(boolean baseAnchored,
+            ArrakisTerrainSettings.OrphanRemnantSettings settings) {
+        return MacroGeologyField.BASE_SURFACE_Y
+                + (baseAnchored ? 0 : Math.max(0, settings.minimumHeightAboveBase()));
+    }
+
+    static boolean keeps(
+            int worldX, int worldY, int worldZ, boolean erosionCandidate,
+            double localRelief, double outwardNormalX, double outwardNormalZ,
+            boolean baseAnchored,
+            ArrakisTerrainSettings.OrphanRemnantSettings settings,
+            RawRockLookup rawRock
+    ) {
         if (!settings.enabled()
                 || !erosionCandidate
-                || worldY <= MacroGeologyField.BASE_SURFACE_Y
-                        + Math.max(0, settings.minimumHeightAboveBase())
+                || worldY <= protectedThroughY(baseAnchored, settings)
                 || localRelief < Math.max(0.0, settings.minimumFaceRelief())) {
             return true;
         }

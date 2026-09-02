@@ -1,5 +1,8 @@
 # Next pass: basal remnants and talus contact
 
+Follow-up implementation: see [basal support and actual-contact report](BASAL_REMNANTS_ACTUAL_CONTACT_REPORT.md).
+The design and measurements below describe the earlier baseline; they are retained as history.
+
 Status: design and measurements only, 2026-09-02. No new contact solver, erosion retuning,
 or talus relocation was implemented in the hardening pass. Preserve the current continuous
 0.5.14.8 massif and the useful upper-wall erosion pattern.

@@ -1,6 +1,28 @@
 # Minecraft: Dune patch notes
 
-## Unreleased — 0.5.14.8 hardening branch
+## Unreleased — basal support and actual-contact talus
+
+- Base-anchored orphan filtering now protects only through Y64; Y65–69 uses the existing
+  same-height inward/lateral support checks. False/missing base anchoring keeps legacy
+  protection. Support depth 8, relief threshold 24, lithology and erosion strengths remain.
+- Added serialized `lithology.talus.actual_contact_enabled`, default false for old worlds,
+  true in the development preset. Enabled aprons use a maximum 32-cell directional search
+  against final pre-talus rock, with a connected inward relief probe up to 24 cells.
+- Split cached pre-talus and composed columns to prevent recursive deposit evaluation.
+  No macro-height cutoff or hard-cliff conversion was introduced.
+- Expanded `/dune terrain inspect` with structural/actual contact, search exclusions,
+  wall relief, query band and per-block deposit diagnostics; removed Windows carriage
+  returns from its chat report.
+- Added basal support, actual-contact, fault, corridor, legacy and cache/order tests.
+  The old production fingerprint remains asserted through a two-stage historical
+  reconstruction; the new intentional fingerprint is `4587dd069077360f`.
+- The known seed-0 tooth at 3050/70/190 remains: its local relief is below the unchanged
+  orphan-filter threshold. This pass does not claim that every remnant is gone.
+- No version/profile bump; the new talus behavior is explicitly serialized. Existing chunks
+  are not rewritten. See the [current report](docs/BASAL_REMNANTS_ACTUAL_CONTACT_REPORT.md)
+  for compatibility, costs and fresh-world visual tests.
+
+## Earlier pass — 0.5.14.8 hardening branch
 
 - Extracted operation-local analytical terrain evaluation and semantic settings validation.
   Serialized fields, defaults, profile `5148` and mod version `0.5.14.8` are unchanged.
