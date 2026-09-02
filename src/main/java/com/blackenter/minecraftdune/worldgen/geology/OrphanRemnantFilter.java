@@ -40,6 +40,42 @@ public final class OrphanRemnantFilter {
         );
     }
 
+    /**
+     * Applies orphan cleanup to either major escarpment carving or the ordinary surface pass.
+     * Surface-only faces previously bypassed cleanup even though that pass can create the same
+     * thin sheets and ribs as the major erosion field.
+     */
+    public static boolean keeps(
+            int worldX,
+            int worldY,
+            int worldZ,
+            EscarpmentErosionField.Column erosion,
+            RockSurfaceErosionField.Column surfaceErosion,
+            ArrakisTerrainSettings.OrphanRemnantSettings settings,
+            RawRockLookup rawRock
+    ) {
+        RockFaceExposure.Sample face = surfaceErosion.face();
+        boolean surfaceCandidate = surfaceErosion.active() && face.exposed();
+        boolean majorCandidate = erosion.candidate();
+        double outwardX = majorCandidate
+                ? erosion.outwardNormalX()
+                : face.outwardNormalX();
+        double outwardZ = majorCandidate
+                ? erosion.outwardNormalZ()
+                : face.outwardNormalZ();
+        return keeps(
+                worldX,
+                worldY,
+                worldZ,
+                majorCandidate || surfaceCandidate,
+                Math.max(erosion.localRelief(), face.localRelief()),
+                outwardX,
+                outwardZ,
+                settings,
+                rawRock
+        );
+    }
+
     static boolean keeps(
             int worldX,
             int worldY,
@@ -81,7 +117,7 @@ public final class OrphanRemnantFilter {
             lateralZ = 0;
         }
 
-        int inwardDepth = Math.max(1, Math.min(4, settings.inwardSupportDepth()));
+        int inwardDepth = Math.max(1, Math.min(16, settings.inwardSupportDepth()));
         if (hasInwardChain(
                 worldX,
                 worldY,

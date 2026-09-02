@@ -313,6 +313,27 @@ public final class EscarpmentErosionField {
         };
     }
 
+    static double retreatMultiplierAtY(
+            LithologyField.ResistanceClass resistance,
+            ArrakisTerrainSettings.ErosionSettings settings,
+            int worldY
+    ) {
+        double configured = retreatMultiplier(resistance, settings);
+        if (!settings.surface().baseAnchoredErosion()) {
+            return configured;
+        }
+
+        // Full very-hard resistance at the sand contact produces a continuous deepslate
+        // pedestal. Equalize only this short basal interval; normal resistance-dependent
+        // benches return above it.
+        double lithologyBlend = GeologyNoise.smoothStep(
+                MacroGeologyField.BASE_SURFACE_Y + 3.0,
+                MacroGeologyField.BASE_SURFACE_Y + 19.0,
+                worldY
+        );
+        return GeologyNoise.lerp(1.0, configured, lithologyBlend);
+    }
+
     private static double retention(LithologyField.ResistanceClass resistance) {
         return switch (resistance) {
             case LOOSE -> 0.0;
@@ -385,17 +406,31 @@ public final class EscarpmentErosionField {
             if (worldY > fissureRockTopY) {
                 return false;
             }
-            if (!candidate || worldY <= MacroGeologyField.BASE_SURFACE_Y + 2) {
+            boolean baseAnchored = settings.surface().baseAnchoredErosion();
+            int protectedTopY = baseAnchored
+                    ? MacroGeologyField.BASE_SURFACE_Y
+                    : MacroGeologyField.BASE_SURFACE_Y + 2;
+            if (!candidate || worldY <= protectedTopY) {
                 return true;
             }
 
             int maximumUndercut = Math.max(0, Math.min(16, settings.maxUndercutBlocks()));
+            double erosionFloor = baseAnchored
+                    ? MacroGeologyField.BASE_SURFACE_Y
+                    : MacroGeologyField.BASE_SURFACE_Y + 2.0;
+            double fullErosionY = baseAnchored
+                    ? MacroGeologyField.BASE_SURFACE_Y + 2.0
+                    : MacroGeologyField.BASE_SURFACE_Y + 11.0;
             double heightGate = GeologyNoise.smoothStep(
-                    MacroGeologyField.BASE_SURFACE_Y + 2.0,
-                    MacroGeologyField.BASE_SURFACE_Y + 11.0,
+                    erosionFloor,
+                    fullErosionY,
                     worldY
             );
-            double susceptibility = retreatMultiplier(lithology.resistance(), settings);
+            double susceptibility = retreatMultiplierAtY(
+                    lithology.resistance(),
+                    settings,
+                    worldY
+            );
             double materialRetention = retention(lithology.resistance());
             double fractureDepthGate = GeologyNoise.smoothStep(
                     fractureReachBottomY - 5.0,
@@ -448,8 +483,23 @@ public final class EscarpmentErosionField {
                     -maximumUndercut,
                     maximumUndercut
             );
+            double localEscarpmentStrength = escarpmentStrength;
+            if (baseAnchored) {
+                // Near the sand contact, weak regional exposure must not blend the face back
+                // toward the uncarved boundary. Fade to the normal .8 response above the toe
+                // so this lowers the erosion pattern without reshaping the upper massif.
+                double basalFaceBoost = 1.0 - GeologyNoise.smoothStep(
+                        MacroGeologyField.BASE_SURFACE_Y + 3.0,
+                        MacroGeologyField.BASE_SURFACE_Y + 19.0,
+                        worldY
+                );
+                localEscarpmentStrength = Math.max(
+                        localEscarpmentStrength,
+                        basalFaceBoost
+                );
+            }
             double effectiveStrength = GeologyNoise.clamp(
-                    escarpmentStrength * heightGate,
+                    localEscarpmentStrength * heightGate,
                     0.0,
                     1.0
             );

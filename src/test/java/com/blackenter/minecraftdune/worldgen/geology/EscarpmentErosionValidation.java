@@ -10,11 +10,14 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 /** Dependency-free deterministic smoke checks for the analytic 0.5.14 terrain fields. */
 public final class EscarpmentErosionValidation {
     private static final int CHUNK_SIZE = 16;
+    private static final long BASELINE_0_5_14_8_HASH = 0x10918FCC46909C98L;
     private static final long[] SEEDS = {
             0L,
             -7_219_451_331L,
@@ -52,6 +55,9 @@ public final class EscarpmentErosionValidation {
         legacy5142Profile.remove("additional_materials");
         legacy5142Profile.getAsJsonObject("faults").remove("morphology");
         legacy5142Profile.getAsJsonObject("erosion").remove("orphan_remnants");
+        legacy5142Profile.getAsJsonObject("erosion")
+                .getAsJsonObject("surface")
+                .remove("base_anchored_erosion");
         ArrakisTerrainSettings legacy5142 = ArrakisTerrainSettings.CODEC
                 .parse(JsonOps.INSTANCE, legacy5142Profile)
                 .getOrThrow();
@@ -69,6 +75,8 @@ public final class EscarpmentErosionValidation {
                 "missing additional_materials must retain the old lithology palette");
         require(!legacy5142.erosion().orphanRemnants().enabled(),
                 "missing orphan_remnants must retain old erosion occupancy");
+        require(!legacy5142.erosion().surface().baseAnchoredErosion(),
+                "missing base-anchored face erosion must retain the old erosion floor");
 
         JsonObject oldProfile = legacy5142Profile.deepCopy();
         oldProfile.addProperty("profile_version", 513);
@@ -77,6 +85,7 @@ public final class EscarpmentErosionValidation {
                 .parse(JsonOps.INSTANCE, oldProfile)
                 .getOrThrow();
         require(!backward.erosion().enabled(), "missing erosion group must decode disabled");
+        validateRejectedProfiles(profile.json());
 
         validateResistanceOrder(settings);
         validateScarpMorphology(settings);
@@ -91,6 +100,16 @@ public final class EscarpmentErosionValidation {
         SeamCounts seams = validateChunkBoundaryOrderIndependence(settings);
         ValidationCounts counts = validateEscarpments(settings);
         validateFaultFloors(settings);
+        validateReportedRemnantCoordinate(settings);
+        validateKnownRemnantBlock(settings);
+        validateSeedZeroBasalShelf(settings);
+        require(
+                counts.hash() == BASELINE_0_5_14_8_HASH,
+                "0.5.14.8 terrain baseline changed: expected "
+                        + Long.toUnsignedString(BASELINE_0_5_14_8_HASH, 16)
+                        + ", got "
+                        + Long.toUnsignedString(counts.hash(), 16)
+        );
 
         System.out.printf(
                 Locale.ROOT,
@@ -162,6 +181,245 @@ public final class EscarpmentErosionValidation {
                     .getOrThrow();
             return new Profile(terrain, settings);
         }
+    }
+
+    private static void validateReportedRemnantCoordinate(ArrakisTerrainSettings settings) {
+        long seed = -5_640_511_200_611_798_902L;
+        double x = 3_049.5;
+        double z = 107.5;
+        Evaluation evaluation = evaluate(seed, x, z, settings);
+        require(evaluation.originalTopY() > MacroGeologyField.BASE_SURFACE_Y + 10,
+                "reported remnant probe no longer reproduces the raised contact column");
+        require(!evaluation.erosion().candidate(),
+                "reported remnant probe unexpectedly became an ordinary erosion candidate");
+        require(evaluation.surfaceErosion().active(),
+                "reported remnant probe must remain covered by surface erosion");
+
+        Map<Long, Evaluation> cache = new HashMap<>();
+        int surfaceOnlyColumns = 0;
+        int removedSurfaceOnlyBlocks = 0;
+        for (int blockZ = 48; blockZ <= 160; blockZ += 2) {
+            for (int blockX = 3_032; blockX <= 3_080; blockX++) {
+                Evaluation column = evaluationAt(seed, blockX, blockZ, settings, cache);
+                if (column.erosion().candidate() || !column.surfaceErosion().active()) {
+                    continue;
+                }
+                boolean removedInColumn = false;
+                int lastY = Math.min(160, column.fissureTopY());
+                for (int y = MacroGeologyField.BASE_SURFACE_Y + 6; y <= lastY; y++) {
+                    if (!rawRockOccupies(column, y)) {
+                        continue;
+                    }
+                    boolean kept = OrphanRemnantFilter.keeps(
+                            blockX,
+                            y,
+                            blockZ,
+                            column.erosion(),
+                            column.surfaceErosion(),
+                            settings.erosion().orphanRemnants(),
+                            (supportX, supportY, supportZ) -> rawRockOccupies(
+                                    evaluationAt(
+                                            seed,
+                                            supportX,
+                                            supportZ,
+                                            settings,
+                                            cache
+                                    ),
+                                    supportY
+                            )
+                    );
+                    if (!kept) {
+                        removedSurfaceOnlyBlocks++;
+                        removedInColumn = true;
+                    }
+                }
+                if (removedInColumn) {
+                    surfaceOnlyColumns++;
+                }
+            }
+        }
+        require(surfaceOnlyColumns > 0 && removedSurfaceOnlyBlocks > 0,
+                "reported screenshot region receives no surface-only orphan cleanup");
+        System.out.printf(
+                Locale.ROOT,
+                "Reported remnant regression: %d surface-only columns, %d orphan blocks removed.%n",
+                surfaceOnlyColumns,
+                removedSurfaceOnlyBlocks
+        );
+    }
+
+    private static Evaluation evaluationAt(
+            long seed,
+            int blockX,
+            int blockZ,
+            ArrakisTerrainSettings settings,
+            Map<Long, Evaluation> cache
+    ) {
+        long key = ((long) blockX << 32) ^ (blockZ & 0xffffffffL);
+        return cache.computeIfAbsent(
+                key,
+                ignored -> evaluate(seed, blockX + 0.5, blockZ + 0.5, settings)
+        );
+    }
+
+    private static void validateKnownRemnantBlock(ArrakisTerrainSettings settings) {
+        long seed = -5_640_511_200_611_798_902L;
+        int blockX = 3_067;
+        int blockY = 96;
+        int blockZ = 106;
+        Map<Long, Evaluation> cache = new HashMap<>();
+        Evaluation column = evaluationAt(seed, blockX, blockZ, settings, cache);
+        RockFaceExposure.Sample face = column.surfaceErosion().face();
+        double outwardX = column.erosion().candidate()
+                ? column.erosion().outwardNormalX()
+                : face.outwardNormalX();
+        double outwardZ = column.erosion().candidate()
+                ? column.erosion().outwardNormalZ()
+                : face.outwardNormalZ();
+        int inwardX = Math.abs(outwardX) >= Math.abs(outwardZ)
+                ? (outwardX >= 0.0 ? -1 : 1)
+                : 0;
+        int inwardZ = inwardX == 0 ? (outwardZ >= 0.0 ? -1 : 1) : 0;
+        StringBuilder support = new StringBuilder();
+        for (int step = 1; step <= 12; step++) {
+            support.append(rawRockOccupies(
+                    evaluationAt(
+                            seed,
+                            blockX + inwardX * step,
+                            blockZ + inwardZ * step,
+                            settings,
+                            cache
+                    ),
+                    blockY
+            ) ? '1' : '0');
+        }
+        boolean kept = OrphanRemnantFilter.keeps(
+                blockX,
+                blockY,
+                blockZ,
+                column.erosion(),
+                column.surfaceErosion(),
+                settings.erosion().orphanRemnants(),
+                (x, y, z) -> rawRockOccupies(
+                        evaluationAt(seed, x, z, settings, cache), y
+                )
+        );
+        require(rawRockOccupies(column, blockY),
+                "known screenshot remnant block no longer reproduces as raw rock");
+        require(!kept,
+                "known screenshot remnant block still passes bounded inward support: "
+                        + support);
+    }
+
+    private static boolean rawRockOccupies(Evaluation evaluation, int worldY) {
+        if (worldY <= MacroGeologyField.BASE_SURFACE_Y
+                || worldY > evaluation.fissureTopY()) {
+            return false;
+        }
+        LithologyField.Sample material = evaluation.lithology().sample(worldY);
+        if (evaluation.fracture().calciteExposure(
+                worldY,
+                evaluation.originalTopY(),
+                evaluation.fissureTopY()
+        )) {
+            material = new LithologyField.Sample(
+                    LithologyField.Material.CALCITE,
+                    LithologyField.ResistanceClass.MEDIUM,
+                    material.limestoneHost(),
+                    false,
+                    false,
+                    true
+            );
+        }
+        return evaluation.erosion().occupies(worldY, material)
+                && evaluation.surfaceErosion().occupies(worldY, material);
+    }
+
+    private static void validateSeedZeroBasalShelf(ArrakisTerrainSettings settings) {
+        ArrakisTerrainSettings.SurfaceErosionSettings legacySurface =
+                copySurfaceSettings(settings.erosion().surface(), false);
+        ArrakisTerrainSettings legacySettings = copyTerrainErosionSettings(
+                settings,
+                copyErosionSettings(settings.erosion(), legacySurface)
+        );
+        Evaluation corrected = evaluate(0L, 3_053.5, 190.5, settings);
+        Evaluation legacy = evaluate(0L, 3_053.5, 190.5, legacySettings);
+        require(corrected.erosion().candidate() && corrected.surfaceErosion().active(),
+                "seed-0 screenshot wall no longer exercises both erosion passes");
+
+        int correctedOccupied = 0;
+        int legacyOccupied = 0;
+        int lastY = Math.min(corrected.fissureTopY(), MacroGeologyField.BASE_SURFACE_Y + 9);
+        for (int y = MacroGeologyField.BASE_SURFACE_Y + 1; y <= lastY; y++) {
+            if (rawRockOccupies(corrected, y)) {
+                correctedOccupied++;
+            }
+            if (rawRockOccupies(legacy, y)) {
+                legacyOccupied++;
+            }
+        }
+        require(correctedOccupied < legacyOccupied,
+                "seed-0 basal wall occupancy is unchanged by base-anchored erosion");
+        require(correctedOccupied <= 2,
+                "seed-0 basal wall still contains a broad erosion pedestal");
+        require(!rawRockOccupies(corrected, MacroGeologyField.BASE_SURFACE_Y + 2),
+                "seed-0 basal erosion does not reach the one-block contact layer");
+    }
+
+    private static ArrakisTerrainSettings copyTerrainErosionSettings(
+            ArrakisTerrainSettings settings,
+            ArrakisTerrainSettings.ErosionSettings erosion
+    ) {
+        return new ArrakisTerrainSettings(
+                settings.profileVersion(),
+                settings.basin(),
+                settings.foreland(),
+                settings.massif(),
+                settings.baseAlignment(),
+                settings.faults(),
+                settings.lithology(),
+                settings.additionalMaterials(),
+                settings.fractures(),
+                erosion,
+                settings.sandPasses(),
+                settings.brokenRock(),
+                settings.outerTransition(),
+                settings.nativeDunes()
+        );
+    }
+
+    private static void validateRejectedProfiles(JsonObject validProfile) {
+        JsonObject reversedBasin = validProfile.deepCopy();
+        reversedBasin.getAsJsonObject("basin")
+                .addProperty("pure_sand_radius", 2_500.0);
+        require(
+                ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, reversedBasin)
+                        .error()
+                        .isPresent(),
+                "reversed basin radii must be rejected"
+        );
+
+        JsonObject unboundedOrphanSearch = validProfile.deepCopy();
+        unboundedOrphanSearch.getAsJsonObject("erosion")
+                .getAsJsonObject("orphan_remnants")
+                .addProperty("lateral_search_radius", 10_000);
+        require(
+                ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, unboundedOrphanSearch)
+                        .error()
+                        .isPresent(),
+                "pathological orphan search radius must be rejected"
+        );
+
+        JsonObject invalidMaterial = validProfile.deepCopy();
+        invalidMaterial.getAsJsonObject("lithology")
+                .getAsJsonObject("materials")
+                .addProperty("background", "not a resource location");
+        require(
+                ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, invalidMaterial)
+                        .error()
+                        .isPresent(),
+                "invalid material identifiers must be rejected"
+        );
     }
 
     private static void validateResistanceOrder(ArrakisTerrainSettings settings) {
@@ -489,7 +747,7 @@ public final class EscarpmentErosionValidation {
                 1.0,
                 0.0,
                 orphan,
-                (x, testY, z) -> z == 0 && (x == 0 || x == -1)
+                (x, testY, z) -> z == 0 && x <= 0 && x >= -8
         );
         require(directlyAttached,
                 "directly inward-attached cliff rib was incorrectly removed");
@@ -504,12 +762,26 @@ public final class EscarpmentErosionValidation {
                 0.0,
                 orphan,
                 (x, testY, z) ->
-                        (x == 0 && z == 0)
-                                || (x == 0 && z == 1)
-                                || (x == -1 && z == 1)
+                         (x == 0 && z == 0)
+                                 || (x == 0 && z == 1)
+                                 || (z == 1 && x <= -1 && x >= -8)
         );
         require(laterallyAttached,
                 "short laterally-connected ledge was incorrectly removed");
+
+        boolean shallowPair = OrphanRemnantFilter.keeps(
+                0,
+                y,
+                0,
+                true,
+                80.0,
+                1.0,
+                0.0,
+                orphan,
+                (x, testY, z) -> z == 0 && (x == 0 || x == -1)
+        );
+        require(!shallowPair,
+                "two-column orphan remnant was incorrectly treated as cliff support");
 
         boolean protectedBase = OrphanRemnantFilter.keeps(
                 0,
@@ -641,6 +913,12 @@ public final class EscarpmentErosionValidation {
         require(deepSoftRemoved > deepVeryHardRemoved,
                 "soft wall did not recede farther than very-hard wall");
         require(distinctBands > 0, "synthetic face recession produced no coherent band");
+        validateBaseAnchoredErosionFloor(
+                insetWall,
+                erosion,
+                surface,
+                soft
+        );
 
         int fissureComparisons = 0;
         boolean fissureExtraRemoval = false;
@@ -766,6 +1044,201 @@ public final class EscarpmentErosionValidation {
                 fissureRepresentative.suggestedY(),
                 fissureRepresentative.fractureStrength(),
                 fissureRepresentative.removedBlocks()
+        );
+    }
+
+    private static void validateBaseAnchoredErosionFloor(
+            RockFaceExposure.Sample wall,
+            ArrakisTerrainSettings.ErosionSettings erosion,
+            ArrakisTerrainSettings.SurfaceErosionSettings surface,
+            LithologyField.Sample soft
+    ) {
+        RockFaceExposure.Sample contactWall = new RockFaceExposure.Sample(
+                wall.exposed(),
+                wall.exposure(),
+                wall.localRelief(),
+                wall.nearRelief(),
+                wall.steepness(),
+                wall.outwardNormalX(),
+                wall.outwardNormalZ(),
+                wall.lowY(),
+                wall.highY(),
+                wall.signedFaceDistance(),
+                0.0,
+                wall.highSide(),
+                wall.nearProbeDistance(),
+                wall.farProbeDistance()
+        );
+        ArrakisTerrainSettings.SurfaceErosionSettings legacySurface =
+                copySurfaceSettings(surface, false);
+        ArrakisTerrainSettings.SurfaceErosionSettings correctedSurface =
+                copySurfaceSettings(surface, true);
+        RockSurfaceErosionField.Column legacy = syntheticSurfaceColumn(
+                contactWall, erosion, legacySurface
+        );
+        RockSurfaceErosionField.Column corrected = syntheticSurfaceColumn(
+                contactWall, erosion, correctedSurface
+        );
+        int lowFaceY = MacroGeologyField.BASE_SURFACE_Y + 4;
+        require(legacy.occupies(lowFaceY, soft),
+                "legacy surface erosion unexpectedly reached below sampled low-side terrain");
+        require(!corrected.occupies(lowFaceY, soft),
+                "base-anchored surface erosion still starts above the sand contact");
+
+        ArrakisTerrainSettings.ErosionSettings legacyErosion =
+                copyErosionSettings(erosion, legacySurface);
+        ArrakisTerrainSettings.ErosionSettings correctedErosion =
+                copyErosionSettings(erosion, correctedSurface);
+        EscarpmentErosionField.Column legacyMajor = syntheticMajorColumn(legacyErosion);
+        EscarpmentErosionField.Column correctedMajor = syntheticMajorColumn(correctedErosion);
+        int lowerWallY = MacroGeologyField.BASE_SURFACE_Y + 3;
+        require(legacyMajor.occupies(lowerWallY, soft),
+                "legacy major erosion unexpectedly reached the basal wall");
+        require(!correctedMajor.occupies(lowerWallY, soft),
+                "base-anchored major erosion still begins at the old Y75 gate");
+        LithologyField.Sample veryHard = new LithologyField.Sample(
+                LithologyField.Material.DEEPSLATE,
+                LithologyField.ResistanceClass.VERY_HARD,
+                false,
+                false,
+                true,
+                false
+        );
+        require(!correctedMajor.occupies(lowerWallY, veryHard),
+                "very-hard basal lithology still forms a continuous erosion pedestal");
+        require(EscarpmentErosionField.retreatMultiplierAtY(
+                        LithologyField.ResistanceClass.VERY_HARD,
+                        correctedErosion,
+                        lowerWallY
+                ) == 1.0,
+                "basal resistance did not blend to the medium erosion baseline");
+        require(EscarpmentErosionField.retreatMultiplierAtY(
+                        LithologyField.ResistanceClass.VERY_HARD,
+                        correctedErosion,
+                        MacroGeologyField.BASE_SURFACE_Y + 20
+                ) == EscarpmentErosionField.retreatMultiplier(
+                        LithologyField.ResistanceClass.VERY_HARD,
+                        correctedErosion
+                ),
+                "normal high-wall lithology resistance did not return above the basal blend");
+
+        EscarpmentErosionField.Column inactiveMajor =
+                EscarpmentErosionField.Column.inactive(
+                        SEEDS[0],
+                        0.5,
+                        0.5,
+                        220,
+                        220,
+                        correctedErosion
+                );
+        boolean surfaceOnlyOrphan = OrphanRemnantFilter.keeps(
+                0,
+                MacroGeologyField.BASE_SURFACE_Y + 24,
+                0,
+                inactiveMajor,
+                corrected,
+                erosion.orphanRemnants(),
+                (x, testY, z) -> x == 0 && z == 0
+        );
+        require(!surfaceOnlyOrphan,
+                "surface-only carving still bypasses orphan-remnant cleanup");
+    }
+
+    private static ArrakisTerrainSettings.ErosionSettings copyErosionSettings(
+            ArrakisTerrainSettings.ErosionSettings settings,
+            ArrakisTerrainSettings.SurfaceErosionSettings surface
+    ) {
+        return new ArrakisTerrainSettings.ErosionSettings(
+                settings.enabled(),
+                settings.minimumRelief(),
+                settings.faceProbeDistance(),
+                settings.escarpmentStartStrength(),
+                settings.verticalFaceBias(),
+                settings.windExposureStrength(),
+                settings.fractureErosionStrength(),
+                settings.softRockMultiplier(),
+                settings.hardRockMultiplier(),
+                settings.veryHardRockMultiplier(),
+                settings.undercutStrength(),
+                settings.maxUndercutBlocks(),
+                settings.undercutFrequency(),
+                settings.brokenRockScale(),
+                surface,
+                settings.orphanRemnants()
+        );
+    }
+
+    private static EscarpmentErosionField.Column syntheticMajorColumn(
+            ArrakisTerrainSettings.ErosionSettings erosion
+    ) {
+        return new EscarpmentErosionField.Column(
+                true,
+                SEEDS[0],
+                0.5,
+                0.5,
+                220,
+                220,
+                220,
+                1.0,
+                140.0,
+                -6.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                220.0,
+                0.0,
+                6.0,
+                0.0,
+                0,
+                0.0,
+                18.0,
+                erosion
+        );
+    }
+
+    private static ArrakisTerrainSettings.SurfaceErosionSettings copySurfaceSettings(
+            ArrakisTerrainSettings.SurfaceErosionSettings settings,
+            boolean baseAnchored
+    ) {
+        return new ArrakisTerrainSettings.SurfaceErosionSettings(
+                settings.enabled(),
+                settings.strength(),
+                settings.scale(),
+                settings.detailScale(),
+                settings.maxRetreatBlocks(),
+                settings.fissureMultiplier(),
+                settings.smallRockStrength(),
+                settings.brokenRockStrength(),
+                settings.lithologyReliefStrength(),
+                baseAnchored
+        );
+    }
+
+    private static RockSurfaceErosionField.Column syntheticSurfaceColumn(
+            RockFaceExposure.Sample wall,
+            ArrakisTerrainSettings.ErosionSettings erosion,
+            ArrakisTerrainSettings.SurfaceErosionSettings surface
+    ) {
+        return new RockSurfaceErosionField.Column(
+                true,
+                SEEDS[0],
+                0.5,
+                0.5,
+                220,
+                220,
+                wall,
+                1.0,
+                1.0,
+                1.0,
+                0.0,
+                160.0,
+                Math.max(4, surface.maxRetreatBlocks()),
+                Math.max(6.0, surface.scale()),
+                Math.max(2.0, surface.detailScale()),
+                erosion,
+                surface,
+                MassifFractureField.NONE
         );
     }
 

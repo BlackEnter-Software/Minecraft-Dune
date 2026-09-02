@@ -2,26 +2,36 @@ package com.blackenter.minecraftdune.worldgen.geology;
 
 import com.blackenter.minecraftdune.MinecraftDune;
 import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisChunkGenerator;
+import net.minecraft.Util;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ChunkResult;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
- * Tick-spread pregeneration for native Arrakis geology.
+ * Bounded asynchronous pregeneration for native Arrakis geology.
  *
  * <p>The job only asks Minecraft to generate/load chunks to FULL status. The registered
  * {@link ArrakisChunkGenerator} creates the geology during normal chunk generation. There
@@ -37,13 +47,9 @@ public final class MacroGeologyGenerationManager {
      */
     public static final int CHUNKS_PER_TILE = MacroGeologyCommand.TEST_REGION_SIZE / 16;
 
-    /**
-     * Conservative development limits. Native generation is much cheaper than the 0.5.7
-     * post-placement pass, but one unusually expensive chunk is still allowed to consume
-     * the tick by itself.
-     */
-    private static final int MAX_CHUNKS_PER_TICK = 8;
-    private static final long MAX_JOB_NANOS_PER_TICK = 30_000_000L;
+    private static final int MAX_IN_FLIGHT_CHUNKS = 2;
+    private static final int MAX_REQUESTS_PER_TICK = 1;
+    private static final float BACKOFF_TICK_MILLIS = 40.0F;
 
     private static GenerationJob activeJob;
 
@@ -80,7 +86,8 @@ public final class MacroGeologyGenerationManager {
         ));
 
         activeJob = new GenerationJob(
-                source,
+                source.getServer(),
+                feedbackPlayer(source),
                 source.getLevel().dimension(),
                 "initial radius 100 Minecraft chunks from (0,0)",
                 chunks
@@ -140,12 +147,13 @@ public final class MacroGeologyGenerationManager {
                 () -> Component.literal(String.format(
                         Locale.ROOT,
                         "Native Arrakis pregeneration: %s. %d/%d chunks (%.1f%%), "
-                                + "%d remaining, %.1f s elapsed.",
+                                + "%d queued, %d in flight, %.1f s elapsed.",
                         job.description,
                         job.processedChunks,
                         job.totalChunks,
                         percent,
                         job.remaining.size(),
+                        job.inFlight.size(),
                         elapsedSeconds
                 )),
                 false
@@ -165,6 +173,7 @@ public final class MacroGeologyGenerationManager {
         int processed = job.processedChunks;
         int total = job.totalChunks;
         activeJob = null;
+        job.cancelPending();
 
         source.sendSuccess(
                 () -> Component.literal(
@@ -191,40 +200,27 @@ public final class MacroGeologyGenerationManager {
 
         ServerLevel level = server.getLevel(job.dimension);
         if (level == null) {
-            job.source.sendFailure(Component.literal(
-                    "Native Arrakis pregeneration stopped because its dimension "
-                            + "is no longer loaded."
-            ));
-            activeJob = null;
+            failJob(job, "its dimension is no longer loaded");
             return;
         }
 
-        long tickStart = System.nanoTime();
-        int processedThisTick = 0;
+        if (job.failure != null) {
+            failJob(job, job.failure);
+            return;
+        }
 
-        while (!job.remaining.isEmpty()
-                && processedThisTick < MAX_CHUNKS_PER_TICK) {
-            ChunkPos chunk = job.remaining.removeFirst();
-
-            // FULL status runs the ordinary chunk-generation pipeline. For an Arrakis Dev
-            // world that pipeline now invokes ArrakisChunkGenerator.fillFromNoise(), where
-            // the macro geology is written directly into ChunkAccess.
-            level.getChunkSource().getChunk(
-                    chunk.x,
-                    chunk.z,
-                    ChunkStatus.FULL,
-                    true
-            );
-
-            job.processedChunks++;
-            processedThisTick++;
-
-            if (System.nanoTime() - tickStart >= MAX_JOB_NANOS_PER_TICK) {
-                break;
+        if (server.getCurrentSmoothedTickTime() < BACKOFF_TICK_MILLIS) {
+            int requestedThisTick = 0;
+            while (!job.remaining.isEmpty()
+                    && job.inFlight.size() < MAX_IN_FLIGHT_CHUNKS
+                    && requestedThisTick < MAX_REQUESTS_PER_TICK) {
+                ChunkPos chunk = job.remaining.removeFirst();
+                requestChunk(job, level, chunk);
+                requestedThisTick++;
             }
         }
 
-        if (!job.remaining.isEmpty()) {
+        if (!job.remaining.isEmpty() || !job.inFlight.isEmpty()) {
             return;
         }
 
@@ -233,16 +229,101 @@ public final class MacroGeologyGenerationManager {
         GenerationJob completed = job;
         activeJob = null;
 
-        completed.source.sendSuccess(
-                () -> Component.literal(String.format(
+        sendFeedback(
+                completed,
+                Component.literal(String.format(
                         Locale.ROOT,
                         "Native Arrakis pregeneration complete: %s; %d chunks, %.1f s.",
                         completed.description,
                         completed.totalChunks,
                         elapsedSeconds
                 )),
+                false
+        );
+    }
+
+    @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        GenerationJob job = activeJob;
+        if (job != null && job.server() == event.getServer()) {
+            activeJob = null;
+            job.cancelPending();
+        }
+    }
+
+    private static void requestChunk(
+            GenerationJob job,
+            ServerLevel level,
+            ChunkPos chunk
+    ) {
+        CompletableFuture<ChunkResult<ChunkAccess>> request = CompletableFuture
+                .supplyAsync(
+                        () -> level.getChunkSource().getChunkFuture(
+                                chunk.x,
+                                chunk.z,
+                                ChunkStatus.FULL,
+                                true
+                        ),
+                        Util.backgroundExecutor()
+                )
+                .thenCompose(Function.identity());
+        job.inFlight.put(chunk.toLong(), request);
+        request.whenCompleteAsync(
+                (result, error) -> completeChunkRequest(job, chunk, result, error),
+                job.server()
+        );
+    }
+
+    private static void completeChunkRequest(
+            GenerationJob job,
+            ChunkPos chunk,
+            ChunkResult<ChunkAccess> result,
+            Throwable error
+    ) {
+        job.inFlight.remove(chunk.toLong());
+        if (activeJob != job) {
+            return;
+        }
+
+        if (error != null) {
+            MinecraftDune.LOGGER.error("Native Arrakis pregeneration failed for chunk {}", chunk, error);
+            job.failure = "chunk " + chunk + " failed: " + error.getClass().getSimpleName();
+            return;
+        }
+        if (result == null || !result.isSuccess()) {
+            String detail = result == null ? "no result" : result.getError();
+            job.failure = "chunk " + chunk + " failed: " + detail;
+            return;
+        }
+
+        job.processedChunks++;
+    }
+
+    private static void failJob(GenerationJob job, String detail) {
+        activeJob = null;
+        job.cancelPending();
+        sendFeedback(
+                job,
+                Component.literal("Native Arrakis pregeneration stopped because " + detail + "."),
                 true
         );
+    }
+
+    private static UUID feedbackPlayer(CommandSourceStack source) {
+        return source.getEntity() instanceof ServerPlayer player ? player.getUUID() : null;
+    }
+
+    private static void sendFeedback(GenerationJob job, Component message, boolean failure) {
+        ServerPlayer player = job.feedbackPlayer == null
+                ? null
+                : job.server().getPlayerList().getPlayer(job.feedbackPlayer);
+        if (player != null) {
+            player.sendSystemMessage(message);
+        } else if (failure) {
+            MinecraftDune.LOGGER.warn(message.getString());
+        } else {
+            MinecraftDune.LOGGER.info(message.getString());
+        }
     }
 
     private static int startTileRadius(
@@ -273,7 +354,8 @@ public final class MacroGeologyGenerationManager {
         int tileCount = tilesWide * tilesWide;
 
         activeJob = new GenerationJob(
-                source,
+                source.getServer(),
+                feedbackPlayer(source),
                 source.getLevel().dimension(),
                 description,
                 chunks
@@ -430,22 +512,28 @@ public final class MacroGeologyGenerationManager {
     }
 
     private static final class GenerationJob {
-        private final CommandSourceStack source;
+        private final MinecraftServer server;
+        private final UUID feedbackPlayer;
         private final ResourceKey<Level> dimension;
         private final String description;
         private final ArrayDeque<ChunkPos> remaining;
+        private final Map<Long, CompletableFuture<ChunkResult<ChunkAccess>>> inFlight =
+                new HashMap<>();
         private final int totalChunks;
         private final long startNanoseconds;
 
         private int processedChunks;
+        private String failure;
 
         private GenerationJob(
-                CommandSourceStack source,
+                MinecraftServer server,
+                UUID feedbackPlayer,
                 ResourceKey<Level> dimension,
                 String description,
                 List<ChunkPos> chunks
         ) {
-            this.source = source;
+            this.server = server;
+            this.feedbackPlayer = feedbackPlayer;
             this.dimension = dimension;
             this.description = description;
             this.remaining = new ArrayDeque<>(chunks);
@@ -454,7 +542,14 @@ public final class MacroGeologyGenerationManager {
         }
 
         private MinecraftServer server() {
-            return source.getServer();
+            return server;
+        }
+
+        private void cancelPending() {
+            for (CompletableFuture<?> request : inFlight.values()) {
+                request.cancel(false);
+            }
+            inFlight.clear();
         }
     }
 }

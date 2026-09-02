@@ -14,6 +14,7 @@ import com.blackenter.minecraftdune.worldgen.geology.RockFaceExposure;
 import com.blackenter.minecraftdune.worldgen.geology.RockSurfaceErosionField;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.util.Mth;
@@ -33,8 +34,6 @@ import net.minecraft.world.level.levelgen.blending.Blender;
 import net.minecraft.world.level.levelgen.flat.FlatLevelGeneratorSettings;
 import net.minecraft.world.level.levelgen.structure.StructureSet;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -60,6 +59,8 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
 
     private static final int FIRST_NATIVE_Y =
             MacroGeologyField.BASE_SURFACE_Y + 1;
+    private static final int QUERY_CACHE_LIMIT = 64;
+    private static final int CHUNK_CACHE_LIMIT = 1_024;
 
     private final FlatLevelGeneratorSettings flatSettings;
     private final ArrakisTerrainSettings terrainSettings;
@@ -147,12 +148,20 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             return flatHeight;
         }
 
-        Map<Long, TerrainColumn> terrainCache = new HashMap<>(16);
-        TerrainColumn terrain = terrainColumnCached(x, z, terrainCache);
+        long startNanos = System.nanoTime();
+        TerrainGenerationMetrics.Evaluation metrics = TerrainGenerationMetrics.evaluation();
+        TerrainEvaluationContext evaluation = new TerrainEvaluationContext(QUERY_CACHE_LIMIT, metrics);
+        TerrainColumn terrain = evaluation.column(x, z);
         int nativeHeight = Mth.clamp(
-                highestFilteredOccupiedY(x, z, terrain, terrainCache) + 1,
+                highestFilteredOccupiedY(x, z, terrain, evaluation) + 1,
                 level.getMinBuildHeight(),
                 level.getMaxBuildHeight()
+        );
+        TerrainGenerationMetrics.recordQuery(
+                "base-height",
+                System.nanoTime() - startNanos,
+                metrics,
+                evaluation.size()
         );
         return Math.max(flatHeight, nativeHeight);
     }
@@ -174,8 +183,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             return column;
         }
 
-        Map<Long, TerrainColumn> terrainCache = new HashMap<>(16);
-        TerrainColumn terrain = terrainColumnCached(x, z, terrainCache);
+        long startNanos = System.nanoTime();
+        TerrainGenerationMetrics.Evaluation metrics = TerrainGenerationMetrics.evaluation();
+        TerrainEvaluationContext evaluation = new TerrainEvaluationContext(QUERY_CACHE_LIMIT, metrics);
+        TerrainColumn terrain = evaluation.column(x, z);
         int minimumY = height.getMinBuildHeight();
         int maximumY = height.getMaxBuildHeight() - 1;
 
@@ -200,7 +211,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                         y,
                         terrain,
                         material,
-                        terrainCache
+                        evaluation
                 )) {
                     column.setBlock(
                             y,
@@ -228,6 +239,12 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 maximumY,
                 column::setBlock
         );
+        TerrainGenerationMetrics.recordQuery(
+                "base-column",
+                System.nanoTime() - startNanos,
+                metrics,
+                evaluation.size()
+        );
         return column;
     }
 
@@ -236,6 +253,8 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             return chunk;
         }
 
+        long startNanos = System.nanoTime();
+        TerrainGenerationMetrics.Evaluation metrics = TerrainGenerationMetrics.evaluation();
         ChunkPos chunkPos = chunk.getPos();
         int minimumX = chunkPos.x << 4;
         int minimumZ = chunkPos.z << 4;
@@ -243,18 +262,14 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         int maximumY = chunk.getMaxBuildHeight() - 1;
         BlockPos.MutableBlockPos position =
                 new BlockPos.MutableBlockPos();
-        Map<Long, TerrainColumn> terrainCache = new HashMap<>(384);
+        TerrainEvaluationContext evaluation = new TerrainEvaluationContext(CHUNK_CACHE_LIMIT, metrics);
 
         for (int localZ = 0; localZ < 16; localZ++) {
             int worldZ = minimumZ + localZ;
 
             for (int localX = 0; localX < 16; localX++) {
                 int worldX = minimumX + localX;
-                TerrainColumn terrain = terrainColumnCached(
-                        worldX,
-                        worldZ,
-                        terrainCache
-                );
+                TerrainColumn terrain = evaluation.column(worldX, worldZ);
 
                 if (terrain.hasNativeRock()) {
                     int foundationTopY = findFoundationTopY(
@@ -280,7 +295,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                                 y,
                                 terrain,
                                 material,
-                                terrainCache
+                                evaluation
                         )) {
                             position.set(worldX, y, worldZ);
                             chunk.setBlockState(
@@ -326,6 +341,12 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             }
         }
 
+        TerrainGenerationMetrics.recordChunk(
+                chunkPos,
+                System.nanoTime() - startNanos,
+                metrics,
+                evaluation.size()
+        );
         return chunk;
     }
 
@@ -426,7 +447,6 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 fracture,
                 erosion
         );
-
         return new TerrainColumn(
                 rockTopY,
                 originalRockTopY,
@@ -438,22 +458,6 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 surfaceErosion,
                 basalTalusApron
         );
-    }
-
-    private TerrainColumn terrainColumnCached(
-            int worldX,
-            int worldZ,
-            Map<Long, TerrainColumn> terrainCache
-    ) {
-        long key = ((long) worldX << 32) ^ (worldZ & 0xffffffffL);
-        TerrainColumn cached = terrainCache.get(key);
-        if (cached != null) {
-            return cached;
-        }
-
-        TerrainColumn terrain = terrainColumn(worldX, worldZ);
-        terrainCache.put(key, terrain);
-        return terrain;
     }
 
     private boolean rawRockOccupies(
@@ -477,7 +481,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             int worldY,
             TerrainColumn terrain,
             LithologyField.Sample material,
-            Map<Long, TerrainColumn> terrainCache
+            TerrainEvaluationContext evaluation
     ) {
         if (!terrain.erosion().occupies(worldY, material)
                 || !terrain.surfaceErosion().occupies(worldY, material)) {
@@ -489,13 +493,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 worldY,
                 worldZ,
                 terrain.erosion(),
+                terrain.surfaceErosion(),
                 terrainSettings.erosion().orphanRemnants(),
                 (supportX, supportY, supportZ) -> rawRockOccupies(
-                        terrainColumnCached(
-                                supportX,
-                                supportZ,
-                                terrainCache
-                        ),
+                        evaluation.column(supportX, supportZ),
                         supportY
                 )
         );
@@ -505,7 +506,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             int worldX,
             int worldZ,
             TerrainColumn terrain,
-            Map<Long, TerrainColumn> terrainCache
+            TerrainEvaluationContext evaluation
     ) {
         int filteredRockTopY = MacroGeologyField.BASE_SURFACE_Y;
         for (int y = terrain.rockTopY();
@@ -518,7 +519,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                     y,
                     terrain,
                     material,
-                    terrainCache
+                    evaluation
             )) {
                 filteredRockTopY = y;
                 break;
@@ -696,6 +697,42 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
     @FunctionalInterface
     private interface BlockWriter {
         void set(int y, BlockState state);
+    }
+
+    /** Per-operation primitive cache with a hard cardinality limit. */
+    private final class TerrainEvaluationContext {
+        private final Long2ObjectOpenHashMap<TerrainColumn> columns;
+        private final int maximumEntries;
+        private final TerrainGenerationMetrics.Evaluation metrics;
+
+        private TerrainEvaluationContext(
+                int maximumEntries,
+                TerrainGenerationMetrics.Evaluation metrics
+        ) {
+            this.maximumEntries = maximumEntries;
+            this.metrics = metrics;
+            columns = new Long2ObjectOpenHashMap<>(maximumEntries);
+        }
+
+        private TerrainColumn column(int worldX, int worldZ) {
+            long key = ChunkPos.asLong(worldX, worldZ);
+            TerrainColumn cached = columns.get(key);
+            if (cached != null) {
+                metrics.cacheHit();
+                return cached;
+            }
+
+            metrics.cacheMiss();
+            TerrainColumn terrain = terrainColumn(worldX, worldZ);
+            if (columns.size() < maximumEntries) {
+                columns.put(key, terrain);
+            }
+            return terrain;
+        }
+
+        private int size() {
+            return columns.size();
+        }
     }
 
     private record TerrainColumn(

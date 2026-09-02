@@ -188,11 +188,12 @@
               "fissure_multiplier": 1.55,
               "small_rock_strength": 0.42,
               "broken_rock_strength": 0.58,
-              "lithology_relief_strength": 0.65
+              "lithology_relief_strength": 0.65,
+              "base_anchored_erosion": true
             },
             "orphan_remnants": {
               "enabled": true,
-              "inward_support_depth": 1,
+              "inward_support_depth": 8,
               "lateral_search_radius": 2,
               "minimum_height_above_base": 5,
               "minimum_face_relief": 24.0

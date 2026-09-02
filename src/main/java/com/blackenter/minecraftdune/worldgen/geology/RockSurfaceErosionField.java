@@ -252,13 +252,17 @@ public final class RockSurfaceErosionField {
             if (worldY > fissureRockTopY) {
                 return false;
             }
-            if (!active || worldY <= MacroGeologyField.BASE_SURFACE_Y + 2) {
+            int protectedTopY = settings.baseAnchoredErosion()
+                    ? MacroGeologyField.BASE_SURFACE_Y
+                    : MacroGeologyField.BASE_SURFACE_Y + 2;
+            if (!active || worldY <= protectedTopY) {
                 return true;
             }
 
-            double retreatMultiplier = EscarpmentErosionField.retreatMultiplier(
+            double retreatMultiplier = EscarpmentErosionField.retreatMultiplierAtY(
                     lithology.resistance(),
-                    erosion
+                    erosion,
+                    worldY
             );
             double lithologyRelief = GeologyNoise.clamp(
                     1.0 + (
@@ -309,12 +313,12 @@ public final class RockSurfaceErosionField {
             // interval. faceInset is a bounded near-probe estimate of how far this column lies
             // behind the physical edge; comparing it with a coherent recession field prevents
             // erosion from tunnelling arbitrarily into solid interior rock.
+            double faceFloorY = settings.baseAnchoredErosion()
+                    ? MacroGeologyField.BASE_SURFACE_Y
+                    : face.lowY();
             if (faceErosionStrength > 0.01
                     && face.highSide()
-                    && worldY > Math.max(
-                            MacroGeologyField.BASE_SURFACE_Y + 2,
-                            face.lowY()
-                    )
+                    && worldY > faceFloorY
                     && worldY <= Math.min(fissureRockTopY, face.highY())) {
                 double verticalPattern = 0.5 + 0.5 * GeologyNoise.value3(
                         worldSeed ^ VERTICAL_SALT,
@@ -322,9 +326,12 @@ public final class RockSurfaceErosionField {
                         worldY / Math.max(5.0, coarseScale * 0.82),
                         worldZ / coarseScale
                 );
+                double fullFaceErosionY = settings.baseAnchoredErosion()
+                        ? MacroGeologyField.BASE_SURFACE_Y + 2.0
+                        : faceFloorY + Math.max(2.0, maximumRetreat);
                 double lowerFaceGate = GeologyNoise.smoothStep(
-                        face.lowY(),
-                        face.lowY() + Math.max(2.0, maximumRetreat),
+                        faceFloorY,
+                        fullFaceErosionY,
                         worldY
                 );
                 double recessionResponse = GeologyNoise.smoothStep(
@@ -332,6 +339,16 @@ public final class RockSurfaceErosionField {
                         0.55,
                         faceErosionStrength
                 );
+                if (settings.baseAnchoredErosion()) {
+                    // Match the major escarpment pass at the toe. The boost ends well below
+                    // the upper face, retaining the 0.5.14.8 massif silhouette.
+                    double basalFaceBoost = 1.0 - GeologyNoise.smoothStep(
+                            MacroGeologyField.BASE_SURFACE_Y + 3.0,
+                            MacroGeologyField.BASE_SURFACE_Y + 19.0,
+                            worldY
+                    );
+                    recessionResponse = Math.max(recessionResponse, basalFaceBoost);
+                }
                 double recession = maximumRetreat
                         * recessionResponse
                         * lithologyRelief

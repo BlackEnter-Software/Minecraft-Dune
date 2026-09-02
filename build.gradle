@@ -129,6 +129,12 @@ tasks.register('validateArrakisTerrain', JavaExec) {
     mainClass = 'com.blackenter.minecraftdune.worldgen.geology.EscarpmentErosionValidation'
 }
 
+tasks.register('validateDunePrototypeState', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.blackenter.minecraftdune.worldgen.prototype.DunePrototypeStateValidation'
+}
+
 tasks.named('test', Test).configure {
     // The lightweight terrain harness is a deterministic JavaExec main, not a JUnit suite.
     failOnNoDiscoveredTests = false
@@ -136,6 +142,7 @@ tasks.named('test', Test).configure {
 
 tasks.named('check').configure {
     dependsOn tasks.named('validateArrakisTerrain')
+    dependsOn tasks.named('validateDunePrototypeState')
 }
 
 idea {
