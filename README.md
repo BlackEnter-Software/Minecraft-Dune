@@ -2,15 +2,18 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.8.1 - Remnants**
+Current development version: **0.5.14.8.2 - Front-Shell Cleanup**
 
-Current development branch: `tuning/0.5.14.8-basal-erosion-talus`. Remnants extends basal
-erosion down to Y60 while keeping the Y64 desert datum, checks inward remnant support over
-12 blocks, and reduces the talus to a curved, coherently varied gravel/sand apron anchored
-to actual cliff contact. Connected rock formations and protected fault cores are retained.
-The serialized terrain profile remains `5148`; existing worlds keep their saved settings.
+Current development branch: `main`. This revision adds a two-pass, 2 + 2-block cleanup of
+surviving desert-facing Shield-Wall shell columns after erosion and existing remnant filtering.
+It removes a selected shell column through its full height, while preserving regional faults,
+strong competing formations, sand passages, and the wall behind the four-block bound. Macro
+morphology, erosion, actual contact, relief probing and talus are unchanged. The serialized
+terrain profile remains `5148`; existing worlds that omit the optional group keep their saved
+terrain behavior.
 Use a **new Arrakis Dev Seed-0 world** to test the changes. See the
-[basal tuning report](docs/BASAL_EROSION_TALUS_TUNING_REPORT.md) and the
+[front-shell cleanup report](docs/SHIELD_WALL_FRONT_SHELL_0.5.14.8.2.md), the
+[basal tuning report](docs/BASAL_EROSION_TALUS_TUNING_REPORT.md), and the
 [earlier hardening report](docs/HARDENING_0.5.14.8_REPORT.md).
 
 Operators can use `/dune terrain inspect` at their current position, or
@@ -30,6 +33,7 @@ The project currently contains:
 - erosion permission coupled to physical scarps while preserving absolute regional-fault cores;
 - coherent two-scale Shield Wall scarp roughness and along-fault wall-width variation;
 - removal-only orphan-remnant suppression for detached exposed cliff needles/slabs;
+- bounded post-erosion removal of obsolete desert-facing Shield-Wall shell columns;
 - smooth basalt, red sandstone and terracotta as coherent resistance-tiered lithologies;
 - serialized terrain-base alignment: the Shield Wall sits four blocks lower while full fault cores expose the Y=64 sand floor;
 - corrected Shield-Wall basal contact with a short gravity-driven gravel/sand talus apron;

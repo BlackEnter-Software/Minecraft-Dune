@@ -10,6 +10,7 @@ import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings.Eros
 import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings.FaultMorphologySettings;
 import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings.FaultSettings;
 import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings.ForelandSettings;
+import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings.FrontShellCleanupSettings;
 import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings.FractureSettings;
 import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings.LithologySettings;
 import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings.MassifSettings;
@@ -219,6 +220,12 @@ final class ArrakisTerrainSettingsValidator {
                 orphan.minimumHeightAboveBase(), 0, 512);
         validation.nonNegative("erosion.orphan_remnants.minimum_face_relief",
                 orphan.minimumFaceRelief(), 512.0);
+
+        FrontShellCleanupSettings frontShell = settings.frontShellCleanup();
+        validation.integer("front_shell_cleanup.pass1_depth", frontShell.pass1Depth(), 0, 4);
+        validation.integer("front_shell_cleanup.pass2_depth", frontShell.pass2Depth(), 0, 4);
+        validation.integer("front_shell_cleanup maximum retreat",
+                frontShell.maximumRetreat(), 0, 4);
 
         SurfaceErosionSettings surface = erosion.surface();
         validation.nonNegative("erosion.surface.strength", surface.strength(), 4.0);

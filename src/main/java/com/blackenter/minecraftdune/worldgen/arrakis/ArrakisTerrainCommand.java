@@ -72,6 +72,7 @@ public final class ArrakisTerrainCommand {
         var contact = c.basal().actual();
         var orphan = settings.erosion().orphanRemnants();
         var component = evaluator.componentCleanup(x, z);
+        var frontShell = c.frontShell();
         var skirt = c.skirt();
         int filteredTop = evaluator.highestFilteredRockY(x, z);
         var material = c.materialSampleAt(y);
@@ -88,6 +89,8 @@ public final class ArrakisTerrainCommand {
                 + "Lithology at Y%d: %s/%s; filtered surface=%s%n"
                 + "Orphan: enabled=%s inward=%d lateral=%d protects-through-Y=%d min-relief=%.1f; raw=%s kept=%s%n"
                 + "Component cleanup: candidate=%s removed=%s search-radius=%d component-columns=%d reaches-support=%s reaches-search-boundary=%s reason=%s fault-edge-enabled=%s%n"
+                + "Front shell: enabled=%s wall=%s massif-owned=%s fault-owned=%s other-owned=%s signed-structural-distance=%.2f outward-normal=(%.3f,%.3f)%n"
+                + "Front shell passes: pass1-eligible=%s pass1-removed=%s pass2-eligible=%s pass2-removed=%s pre-clean-top=%d post-clean-top=%d reason=%s%n"
                 + "Structural: valid=%s signed=%.2f inward-normal=(%.3f,%.3f)%n"
                 + "Actual contact: enabled=%s searched=%d found=%s signed=%.2f X/Z=%d/%d rock-top=%d reason=%s source=%s%n"
                 + "Wall: top=%d relief=%d probe-blocks=%d query-band=Y%d..%d%n"
@@ -115,6 +118,11 @@ public final class ArrakisTerrainCommand {
                 component.candidate(), component.removed(), orphan.componentSearchRadius(),
                 component.componentColumns(), component.reachesSupport(), component.reachesSearchBoundary(), component.reason(),
                 orphan.faultEdgeCleanupEnabled(),
+                frontShell.enabled(), frontShell.wall(), frontShell.massifOwned(), frontShell.faultOwned(),
+                frontShell.otherOwned(), frontShell.signedStructuralDistance(), frontShell.outwardNormalX(),
+                frontShell.outwardNormalZ(), frontShell.pass1Eligible(), frontShell.pass1Removed(),
+                frontShell.pass2Eligible(), frontShell.pass2Removed(), frontShell.preCleanTopY(),
+                frontShell.postCleanTopY(), frontShell.reason(),
                 structural.valid(), structural.signedDistance(), structural.inwardX(), structural.inwardZ(),
                 contact.enabled(), contact.searchedBlocks(), contact.found(), contact.signedDistance(),
                 contact.x(), contact.z(), contact.rockTopY(), contact.reason(), c.basal().source(),

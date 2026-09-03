@@ -17,6 +17,7 @@ src/main/java/com/blackenter/minecraftdune/
 │  │  ├─ LithologyBlockPalette.java
 │  │  ├─ MassifFractureField.java
 │  │  ├─ EscarpmentErosionField.java
+│  │  ├─ ShieldWallFrontShellCleanup.java
 │  │  └─ MacroGeologyCommand.java
 │  ├─ dune/
 │  │  └─ NativeTransverseDuneField.java
@@ -63,7 +64,8 @@ no terrain cache crosses worlds or generation operations.
 Current composition (actual-contact mode is explicitly opt-in):
 
 ```text
-macro geometry + lithology -> fractures -> major/surface erosion -> orphan-filtered rock
+macro geometry + lithology -> fractures -> major/surface erosion -> orphan/component filters
+two-pass front-shell cleanup -> final pre-talus rock
 final pre-talus rock -> bounded directional contact + connected relief probe -> basal apron
 legacy mode: structural scarp contact + macro relief -> basal apron
 rock + local scree + basal apron + dunes -> native writer / base-column / height query
@@ -90,6 +92,7 @@ src/test/java/com/blackenter/minecraftdune/worldgen/geology/
 ├─ ArrakisProfileValidation.java
 ├─ BasalRemnantValidation.java
 ├─ ActualTalusContactValidation.java
+├─ ShieldWallFrontShellCleanupValidation.java
 └─ EscarpmentErosionValidation.java
 src/test/java/com/blackenter/minecraftdune/worldgen/arrakis/
 ├─ BasalContactPipelineValidation.java

@@ -1,5 +1,31 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.5.14.8.2 - Front-Shell Cleanup
+
+- Confirmed the regular inner-wall pillars are connected survivors of the smooth structural
+  massif ramp after erosion, not generic bounded orphan components.
+- Added optional top-level `front_shell_cleanup`, disabled by default for serialized-world
+  compatibility and enabled in the development preset with two deterministic 2-block passes.
+- The new removal-only stage runs after major/surface erosion and both existing remnant filters,
+  but before final rock contact, wall-relief probing, talus and dunes.
+- Each pass starts at actual surviving desert-facing rock and works toward the massif. Pass 2
+  re-evaluates pass-1 occupancy; total horizontal retreat is capped at four blocks.
+- A selected shell column is removed through its full native-rock height and foundation root.
+  The cleanup does not merely shorten tall pillars by a few Y levels.
+- Inner-wall inward is radially outward; outer-wall inward is radially inward. The cleanup uses
+  the opposite direction as its desert-facing outward normal and has fixtures for both walls.
+- Existing physical-massif and rock weights determine massif ownership. Regional-fault geometry,
+  sand passages, and stronger foreland/Broken Rock/transition ownership protect intersections.
+- Extended `/dune terrain inspect` with shared front-shell orientation, ownership, pass decision,
+  outward normal, and pre/post-clean top data.
+- Added synthetic and Seed-0 deterministic coverage for both passes, tall columns, retained wall
+  and buttress rock, fault/formation exclusions, outer-wall direction, disabled profiles, and
+  cache/query-order independence.
+- Macro geology, the 36/48-block scarp ramps, erosion strengths, vertical offset, orphan settings,
+  actual-contact search, wall-relief probe, talus, sand skirt and gravel grading are unchanged.
+- Mod version is `0.5.14.8.2`; terrain profile remains `5148`. Existing chunks are not rewritten.
+  See [the implementation report](docs/SHIELD_WALL_FRONT_SHELL_0.5.14.8.2.md).
+
 ## Unreleased — basal support and actual-contact talus
 
 - Base-anchored orphan filtering now protects only through Y64; Y65–69 uses the existing

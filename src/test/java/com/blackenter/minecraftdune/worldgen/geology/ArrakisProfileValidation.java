@@ -22,6 +22,16 @@ public final class ArrakisProfileValidation {
                 .lithology().talus().actualContactEnabled(), "missing actual contact flag changed historical talus");
         require(settings.profileVersion() == 5148, "active profile_version must be 5148");
         require(settings.erosion().enabled(), "active preset erosion must be enabled");
+        require(settings.frontShellCleanup().enabled()
+                        && settings.frontShellCleanup().pass1Depth() == 2
+                        && settings.frontShellCleanup().pass2Depth() == 2
+                        && settings.frontShellCleanup().maximumRetreat() == 4,
+                "active preset must opt into the bounded 2+2 front-shell cleanup");
+        JsonObject historicalShell = profile.json().deepCopy();
+        historicalShell.remove("front_shell_cleanup");
+        require(!ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, historicalShell).getOrThrow()
+                        .frontShellCleanup().enabled(),
+                "missing front-shell group changed a saved profile");
 
         JsonObject legacy5142Profile = profile.json().deepCopy();
         legacy5142Profile.addProperty("profile_version", 5142);
@@ -34,6 +44,7 @@ public final class ArrakisProfileValidation {
         legacyMassif.remove("scarp_detail_scale");
         legacyMassif.remove("scarp_detail_strength");
         legacy5142Profile.remove("base_alignment");
+        legacy5142Profile.remove("front_shell_cleanup");
         JsonObject legacyTalus = legacy5142Profile
                 .getAsJsonObject("lithology")
                 .getAsJsonObject("talus");
@@ -68,6 +79,8 @@ public final class ArrakisProfileValidation {
                 "missing orphan_remnants must retain old erosion occupancy");
         require(!legacy5142.erosion().surface().baseAnchoredErosion(),
                 "missing base-anchored face erosion must retain the old erosion floor");
+        require(!legacy5142.frontShellCleanup().enabled(),
+                "missing front-shell cleanup must retain historical rock occupancy");
 
         JsonObject oldProfile = legacy5142Profile.deepCopy();
         oldProfile.addProperty("profile_version", 513);
@@ -130,6 +143,19 @@ public final class ArrakisProfileValidation {
                         .isPresent(),
                 "pathological orphan search radius must be rejected"
         );
+
+        JsonObject unboundedFrontShell = validProfile.deepCopy();
+        unboundedFrontShell.getAsJsonObject("front_shell_cleanup")
+                .addProperty("pass2_depth", 5);
+        require(ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, unboundedFrontShell)
+                        .error().isPresent(),
+                "front-shell pass escaped its four-block bound");
+        JsonObject excessiveCombinedShell = validProfile.deepCopy();
+        excessiveCombinedShell.getAsJsonObject("front_shell_cleanup")
+                .addProperty("pass1_depth", 3);
+        require(ArrakisTerrainSettings.CODEC.parse(JsonOps.INSTANCE, excessiveCombinedShell)
+                        .error().isPresent(),
+                "combined front-shell retreat exceeded four blocks");
 
         JsonObject invalidMaterial = validProfile.deepCopy();
         invalidMaterial.getAsJsonObject("lithology")

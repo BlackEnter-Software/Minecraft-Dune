@@ -20,6 +20,7 @@ public record ArrakisTerrainSettings(
         AdditionalMaterialSettings additionalMaterials,
         FractureSettings fractures,
         ErosionSettings erosion,
+        FrontShellCleanupSettings frontShellCleanup,
         SandPassSettings sandPasses,
         BrokenRockSettings brokenRock,
         OuterTransitionSettings outerTransition,
@@ -146,6 +147,9 @@ public record ArrakisTerrainSettings(
                     3
             );
 
+    public static final FrontShellCleanupSettings DEFAULT_FRONT_SHELL_CLEANUP =
+            new FrontShellCleanupSettings(false, 2, 2);
+
     /**
      * Missing erosion data stays disabled so a serialized 0.5.13 generator does not change
      * morphology at the border of newly generated chunks. The 0.5.14 source preset stores
@@ -231,6 +235,7 @@ public record ArrakisTerrainSettings(
             DEFAULT_ADDITIONAL_MATERIALS,
             DEFAULT_FRACTURES,
             DEFAULT_EROSION,
+            DEFAULT_FRONT_SHELL_CLEANUP,
             new SandPassSettings(
                     1000.0,
                     1320.0,
@@ -313,6 +318,11 @@ public record ArrakisTerrainSettings(
                                     DEFAULT_EROSION
                             )
                             .forGetter(ArrakisTerrainSettings::erosion),
+                    FrontShellCleanupSettings.CODEC.optionalFieldOf(
+                                    "front_shell_cleanup",
+                                    DEFAULT_FRONT_SHELL_CLEANUP
+                            )
+                            .forGetter(ArrakisTerrainSettings::frontShellCleanup),
                     SandPassSettings.CODEC.fieldOf("sand_passes")
                             .forGetter(ArrakisTerrainSettings::sandPasses),
                     BrokenRockSettings.CODEC.fieldOf("broken_rock")
@@ -880,6 +890,27 @@ public record ArrakisTerrainSettings(
                         Codec.intRange(3, 5).optionalFieldOf("component_search_radius", 3)
                                 .forGetter(OrphanRemnantSettings::componentSearchRadius)
                 ).apply(instance, OrphanRemnantSettings::new));
+    }
+
+    /** Optional post-erosion horizontal peel of the massif-owned Shield-Wall front shell. */
+    public record FrontShellCleanupSettings(
+            boolean enabled,
+            int pass1Depth,
+            int pass2Depth
+    ) {
+        public static final Codec<FrontShellCleanupSettings> CODEC =
+                RecordCodecBuilder.create(instance -> instance.group(
+                        Codec.BOOL.optionalFieldOf("enabled", false)
+                                .forGetter(FrontShellCleanupSettings::enabled),
+                        Codec.intRange(0, 4).optionalFieldOf("pass1_depth", 2)
+                                .forGetter(FrontShellCleanupSettings::pass1Depth),
+                        Codec.intRange(0, 4).optionalFieldOf("pass2_depth", 2)
+                                .forGetter(FrontShellCleanupSettings::pass2Depth)
+                ).apply(instance, FrontShellCleanupSettings::new));
+
+        public int maximumRetreat() {
+            return pass1Depth + pass2Depth;
+        }
     }
 
     /**

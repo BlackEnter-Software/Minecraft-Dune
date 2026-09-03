@@ -13,6 +13,7 @@ import com.blackenter.minecraftdune.worldgen.geology.OrphanRemnantFilter;
 import com.blackenter.minecraftdune.worldgen.geology.RockFaceExposure;
 import com.blackenter.minecraftdune.worldgen.geology.RockSurfaceErosionField;
 import com.blackenter.minecraftdune.worldgen.geology.ScarpMorphologyField;
+import com.blackenter.minecraftdune.worldgen.geology.ShieldWallFrontShellCleanup;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
@@ -54,6 +55,9 @@ public final class ArrakisTerrainEvaluator {
     public TerrainColumn column(int worldX, int worldZ) {
         ColumnEntry entry = entry(worldX, worldZ);
         if (entry.complete == null) {
+            // This is the last destructive rock stage. Everything below consumes its final
+            // footprint, so actual contact and wall relief cannot anchor to a removed shell.
+            ShieldWallFrontShellCleanup.Sample frontShell = frontShellCleanup(worldX, worldZ);
             var basal = BasalTalusApronField.evaluate(worldSeed, worldX, worldZ,
                     entry.rock.geology(), terrainSettings, new BasalTalusApronField.RockLookup() {
                         @Override public boolean footPresent(int x, int z) {
@@ -89,7 +93,8 @@ public final class ArrakisTerrainEvaluator {
                             ? TalusShapeVariation.sample(worldSeed, worldX + 0.5, worldZ + 0.5).skirtReach()
                             : BasalSandSkirt.OUTWARD_REACH);
             entry.complete = new TerrainColumn(entry.rock, basal, skirt, residual,
-                    terrainSettings.lithology().talus().basalSandSkirtEnabled(), componentCleanup(worldX, worldZ).removed());
+                    terrainSettings.lithology().talus().basalSandSkirtEnabled(),
+                    componentCleanup(worldX, worldZ).removed(), frontShell);
         }
         return entry.complete;
     }
@@ -173,8 +178,11 @@ public final class ArrakisTerrainEvaluator {
     private static final class ColumnEntry {
         final PreTalusColumn rock;
         int filteredTop = Integer.MIN_VALUE;
+        int preFrontShellTop = Integer.MIN_VALUE;
         byte talusWall;
         BoundedBasalComponentCleanup.Sample component;
+        ShieldWallFrontShellCleanup.Column frontShellContext;
+        ShieldWallFrontShellCleanup.Sample frontShell;
         int orphanTop = Integer.MIN_VALUE;
         byte[] orphanOccupancy;
         TerrainColumn complete;
@@ -315,6 +323,18 @@ public final class ArrakisTerrainEvaluator {
             PreTalusColumn terrain,
             LithologyField.Sample material
     ) {
+        return preFrontShellRockOccupies(worldX, worldZ, worldY, terrain, material)
+                && !frontShellCleanup(worldX, worldZ).removed();
+    }
+
+    /** Post-orphan/component rock supplied to the front-shell cleanup, never its own result. */
+    private boolean preFrontShellRockOccupies(
+            int worldX,
+            int worldZ,
+            int worldY,
+            PreTalusColumn terrain,
+            LithologyField.Sample material
+    ) {
         return orphanFilteredRockOccupies(worldX, worldZ, worldY, terrain, material)
                 && (worldY < FIRST_NATIVE_Y
                     || !terrainSettings.erosion().orphanRemnants().basalComponentCleanupEnabled()
@@ -388,6 +408,74 @@ public final class ArrakisTerrainEvaluator {
             if (postOrphanRockOccupies(x, y, z)) return entry.orphanTop = y;
         }
         return entry.orphanTop = 64;
+    }
+
+    private int highestPreFrontShellRockY(int x, int z) {
+        ColumnEntry entry = entry(x, z);
+        if (entry.preFrontShellTop != Integer.MIN_VALUE) return entry.preFrontShellTop;
+        var rock = entry.rock;
+        for (int y = rock.rockTopY(); y >= FIRST_NATIVE_Y; y--) {
+            if (preFrontShellRockOccupies(x, z, y, rock, rock.materialSampleAt(y))) {
+                return entry.preFrontShellTop = y;
+            }
+        }
+        return entry.preFrontShellTop = MacroGeologyField.BASE_SURFACE_Y;
+    }
+
+    /** Shared ownership/orientation context for generation, diagnostics, and validation. */
+    private ShieldWallFrontShellCleanup.Column frontShellContext(int x, int z) {
+        ColumnEntry entry = entry(x, z);
+        if (entry.frontShellContext != null) return entry.frontShellContext;
+        var rock = entry.rock;
+        var geology = rock.geology();
+        var structural = ScarpMorphologyField.nearestMassifLowSideContact(
+                worldSeed,
+                x + 0.5,
+                z + 0.5,
+                geology.radiusBlocks(),
+                geology.effectiveRadiusBlocks(),
+                terrainSettings.massif()
+        );
+        double radius = geology.radiusBlocks();
+        double radialX = radius > 1.0 ? (x + 0.5) / radius : 0.0;
+        double radialZ = radius > 1.0 ? (z + 0.5) / radius : 0.0;
+        double orientation = structural.inwardX() * radialX + structural.inwardZ() * radialZ;
+        ShieldWallFrontShellCleanup.Wall wall = !structural.valid()
+                ? ShieldWallFrontShellCleanup.Wall.NONE
+                : orientation >= 0.0
+                    ? ShieldWallFrontShellCleanup.Wall.INNER
+                    : ShieldWallFrontShellCleanup.Wall.OUTER;
+        double signed = structural.signedDistance();
+        boolean inBand = structural.valid() && signed >= 0.0
+                && signed <= structural.scarpWidth() + 1.0;
+        double massif = geology.physicalMassifWeight();
+        double competingFormation = Math.max(
+                geology.smallFormationMask(),
+                Math.max(geology.brokenRockWeight(), geology.sandRockTransitionWeight())
+        );
+        boolean massifOwned = massif > 0.015 && geology.rockFormationMask() > 0.015;
+        boolean faultOwned = geology.faultCarveMask() > 0.0;
+        boolean otherOwned = geology.sandCorridorMask() > 0.0
+                || competingFormation > Math.max(0.05, massif);
+        return entry.frontShellContext = new ShieldWallFrontShellCleanup.Column(
+                highestPreFrontShellRockY(x, z) >= FIRST_NATIVE_Y,
+                highestPreFrontShellRockY(x, z),
+                inBand,
+                wall,
+                massifOwned,
+                faultOwned,
+                otherOwned,
+                signed,
+                structural.inwardX(),
+                structural.inwardZ()
+        );
+    }
+
+    public ShieldWallFrontShellCleanup.Sample frontShellCleanup(int x, int z) {
+        ColumnEntry entry = entry(x, z);
+        if (entry.frontShell != null) return entry.frontShell;
+        return entry.frontShell = ShieldWallFrontShellCleanup.sample(
+                x, z, terrainSettings.frontShellCleanup(), this::frontShellContext);
     }
 
     /** A surviving one-layer erosion floor, NOT rock with any final body above it. */
@@ -468,11 +556,13 @@ public final class ArrakisTerrainEvaluator {
     }
 
     public record TerrainColumn(PreTalusColumn rock, BasalTalusApronField.Evaluation basal,
-            BasalSandSkirt.Sample skirt, boolean residualY65, boolean rockPriority, boolean componentRemoved) {
+            BasalSandSkirt.Sample skirt, boolean residualY65, boolean rockPriority, boolean componentRemoved,
+            ShieldWallFrontShellCleanup.Sample frontShell) {
         public TerrainColumn(PreTalusColumn rock, BasalTalusApronField.Evaluation basal) {
-            this(rock, basal, BasalSandSkirt.shape(false, Double.POSITIVE_INFINITY, false), false, false, false);
+            this(rock, basal, BasalSandSkirt.shape(false, Double.POSITIVE_INFINITY, false), false, false, false,
+                    ShieldWallFrontShellCleanup.disabled(rock.rockTopY()));
         }
-        public int localTalusThickness() { return componentRemoved ? 0 : erosion().talusThickness(); }
+        public int localTalusThickness() { return componentRemoved || frontShell.removed() ? 0 : erosion().talusThickness(); }
         public int rockTopY() { return rock.rockTopY(); }
         public int originalRockTopY() { return rock.originalRockTopY(); }
         public int fissureRockTopY() { return rock.fissureRockTopY(); }

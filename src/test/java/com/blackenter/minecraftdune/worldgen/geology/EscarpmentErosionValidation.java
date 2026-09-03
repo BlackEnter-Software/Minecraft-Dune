@@ -221,6 +221,7 @@ public final class EscarpmentErosionValidation {
                 settings.additionalMaterials(),
                 settings.fractures(),
                 erosion,
+                settings.frontShellCleanup(),
                 settings.sandPasses(),
                 settings.brokenRock(),
                 settings.outerTransition(),

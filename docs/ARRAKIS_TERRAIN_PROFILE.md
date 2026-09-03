@@ -1,4 +1,36 @@
-# Arrakis terrain profile — parameter reference (0.5.14.8.1 - Remnants)
+# Arrakis terrain profile — parameter reference (0.5.14.8.2 - Front-Shell Cleanup)
+
+## Current front-shell cleanup
+
+The development preset adds an optional top-level object:
+
+```json
+"front_shell_cleanup": {
+  "enabled": true,
+  "pass1_depth": 2,
+  "pass2_depth": 2
+}
+```
+
+- `enabled`: default **false**. When true, a final removal-only rock stage peels obsolete
+  desert-facing Shield-Wall shell columns after erosion and existing orphan/component cleanup.
+- `pass1_depth`: integer 0–4, preset **2**. Horizontal depth examined from the actual surviving
+  front during the first pass.
+- `pass2_depth`: integer 0–4, preset **2**. Additional horizontal depth examined after applying
+  pass 1. `pass1_depth + pass2_depth` may not exceed four.
+
+Depth is horizontal, not vertical: an eligible 60-block-high shell column is removed whole.
+The structural scarp provides wall identity, normal, and a conservative ramp band; actual
+post-filter occupancy decides exposure. Positive signed structural distance points into the
+massif. On the inner wall the inward normal points away from the basin; on the outer wall it
+points toward the massif center. Cleanup moves opposite that normal, toward the local desert.
+
+Eligibility requires physical-massif and final rock ownership. Any regional-fault influence or
+sand-pass influence protects the column; a foreland, Broken Rock, or transition weight stronger
+than the physical massif also protects it. This is deliberately conservative at intersections.
+The stage does not change macro morphology, either structural ramp, erosion, contact search,
+wall relief, or talus. Missing `front_shell_cleanup` decodes to disabled, so profile `5148`
+remains compatible. The mod version is `0.5.14.8.2`.
 
 ## Current tuning: deeper basal erosion and smaller varied talus
 

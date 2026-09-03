@@ -16,6 +16,7 @@ public final class BasalTuningValidation {
     /** Reconstruct exactly the serialized development profile at 47874b9. */
     public static ArrakisTerrainSettings previousSettings(ArrakisTerrainSettings settings) {
         var json = encode(settings);
+        json.remove("front_shell_cleanup");
         json.getAsJsonObject("erosion").getAsJsonObject("surface").remove("basal_erosion_depth");
         var orphan = json.getAsJsonObject("erosion").getAsJsonObject("orphan_remnants");
         orphan.remove("component_search_radius");
@@ -62,7 +63,8 @@ public final class BasalTuningValidation {
                         && now.skirt().outwardReach() >= 16 && now.skirt().outwardReach() <= 20,
                         "active deposit dimensions escaped bounds");
                 if (now.geology().faultCarveMask() > .85 || now.geology().sandCorridorMask() > .25) {
-                    require(!e.componentCleanup(x,z).removed() && !now.basalTalusApron().active()
+                    require(!e.componentCleanup(x,z).removed() && !e.frontShellCleanup(x,z).removed()
+                            && !now.basalTalusApron().active()
                             && !now.skirt().active(), "protected fault core/corridor changed");
                 }
             }
@@ -73,6 +75,7 @@ public final class BasalTuningValidation {
                     require(e.column(x,z).skirt().equals(reverse.column(x,z).skirt())
                             && e.column(x,z).basal().equals(reverse.column(x,z).basal())
                             && e.componentCleanup(x,z).equals(reverse.componentCleanup(x,z))
+                            && e.frontShellCleanup(x,z).equals(reverse.frontShellCleanup(x,z))
                             && ArrakisTerrainEvaluatorValidation.fingerprint(e,x,z)
                                 == ArrakisTerrainEvaluatorValidation.fingerprint(reverse,x,z), "tuning depends on cache/query order");
                     for (int y = 60; y <= 64; y++) require(e.nativeFoundationOccupies(x,y,z)
@@ -113,7 +116,9 @@ public final class BasalTuningValidation {
         }
         String report = ArrakisTerrainCommand.describe(e,0,settings,3001,64,464);
         require(report.contains("floor=Y60 depth=4") && report.contains("search-radius=5")
-                && report.contains("organic-talus=true"), "inspector omitted tuning parameters");
+                && report.contains("organic-talus=true") && report.contains("Front shell: enabled=true")
+                && report.contains("pass1-eligible=") && report.contains("post-clean-top="),
+                "inspector omitted tuning parameters");
     }
 
     private static void validateCodec(ArrakisTerrainSettings settings) {

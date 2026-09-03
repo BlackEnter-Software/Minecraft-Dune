@@ -207,6 +207,11 @@
               "minimum_face_relief": 24.0
             }
           },
+          "front_shell_cleanup": {
+            "enabled": true,
+            "pass1_depth": 2,
+            "pass2_depth": 2
+          },
           "sand_passes": {
             "start_radius": 1500.0,
             "full_radius": 2000.0,

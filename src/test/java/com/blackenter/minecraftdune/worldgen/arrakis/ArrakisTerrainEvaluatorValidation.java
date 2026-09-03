@@ -3,6 +3,7 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
 import com.blackenter.minecraftdune.worldgen.geology.ArrakisProfileValidation;
 import com.blackenter.minecraftdune.worldgen.geology.BasalTalusApronField;
+import com.blackenter.minecraftdune.worldgen.geology.ShieldWallFrontShellCleanupValidation;
 
 /** Golden production-occupancy checks, including additional materials, rooting and deposits. */
 public final class ArrakisTerrainEvaluatorValidation {
@@ -21,7 +22,9 @@ public final class ArrakisTerrainEvaluatorValidation {
     };
 
     public static void main(String[] args) throws Exception {
+        ShieldWallFrontShellCleanupValidation.validate();
         ArrakisTerrainSettings active = ArrakisProfileValidation.loadProfile().settings();
+        ShieldWallFrontShellCleanupValidation.validateProfile(active);
         // These four golden fingerprints describe saved profiles, not the new opt-in tuning.
         ArrakisTerrainSettings settings = BasalTuningValidation.previousSettings(active);
         var previousSettings = BasalFinishingValidation.withoutFinishing(settings);
@@ -72,7 +75,8 @@ public final class ArrakisTerrainEvaluatorValidation {
         require(evaluator.rawRockOccupies(block, 96) && !evaluator.rockOccupies(3067, 96, 106),
                 "shared evaluator lost the photographed orphan regression");
         String report = ArrakisTerrainCommand.describe(evaluator, SEEDS[1], settings, 3067, 96, 106);
-        require(report.contains("raw=true kept=false") && report.contains("XYZ=3067/96/106"),
+        require(report.contains("raw=true kept=false") && report.contains("XYZ=3067/96/106")
+                        && report.contains("Front shell: enabled=false"),
                 "inspection output disagrees with production occupancy");
         var seedZero = new ArrakisTerrainEvaluator(0L, settings, 64);
         require(seedZero.highestFilteredRockY(3053, 190) == 65,

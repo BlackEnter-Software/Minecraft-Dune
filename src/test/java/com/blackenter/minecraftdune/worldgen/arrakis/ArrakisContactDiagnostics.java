@@ -12,6 +12,10 @@ import java.util.function.IntPredicate;
 public final class ArrakisContactDiagnostics {
     public static void main(String[] args) throws Exception {
         var settings = ArrakisProfileValidation.loadProfile().settings();
+        if (java.util.Arrays.asList(args).contains("--front-shell")) {
+            summarizeFrontShell(settings);
+            return;
+        }
         if (java.util.Arrays.asList(args).contains("--basal-tuning")) {
             var old = new ArrakisTerrainEvaluator(0,BasalTuningValidation.previousSettings(settings),1024);
             var now = new ArrakisTerrainEvaluator(0,settings,1024);
@@ -164,6 +168,39 @@ public final class ArrakisContactDiagnostics {
         }
         System.out.printf("Optional component survey: columns=%d basal-candidates=%d removed-columns=%d; no population assertion.%n",
                 examined, candidates, removed);
+    }
+
+    private static void summarizeFrontShell(ArrakisTerrainSettings settings) {
+        var evaluator = new ArrakisTerrainEvaluator(0L, settings, 1024);
+        var visited = new java.util.HashSet<Long>();
+        int examined = 0, eligible = 0, pass1 = 0, pass2 = 0;
+        int reported = 0;
+        for (int direction = 0; direction < 128; direction++) {
+            double angle = direction * Math.PI / 64.0;
+            for (int radius = 2800; radius <= 4250; radius++) {
+                int x = (int) Math.floor(Math.cos(angle) * radius);
+                int z = (int) Math.floor(Math.sin(angle) * radius);
+                long key = ChunkPos.asLong(x, z);
+                if (!visited.add(key)) continue;
+                examined++;
+                var shell = evaluator.frontShellCleanup(x, z);
+                if (shell.pass1Eligible()) eligible++;
+                if (shell.pass1Removed()) pass1++;
+                if (shell.pass2Removed()) pass2++;
+                if (shell.removed() && reported++ < 16) {
+                    System.out.printf(Locale.ROOT,
+                            "Seed-0 front-shell fixture X/Z=%d/%d wall=%s pass=%d top=%d signed=%.2f outward=(%.3f,%.3f)%n",
+                            x, z, shell.wall(), shell.pass1Removed() ? 1 : 2, shell.preCleanTopY(),
+                            shell.signedStructuralDistance(), shell.outwardNormalX(), shell.outwardNormalZ());
+                }
+            }
+        }
+        System.out.printf("Front-shell angular survey: columns=%d eligible=%d pass1=%d pass2=%d removed=%d.%n",
+                examined, eligible, pass1, pass2, pass1 + pass2);
+        for (int[] point : new int[][] {{3057,150},{3059,150},{3060,150},{3050,190},{4098,0},{4096,0},{4095,0}}) {
+            var shell = evaluator.frontShellCleanup(point[0], point[1]);
+            System.out.printf("Front-shell fixed probe %d/%d: %s%n", point[0], point[1], shell);
+        }
     }
 
     private static void trace(ArrakisTerrainSettings settings) {
