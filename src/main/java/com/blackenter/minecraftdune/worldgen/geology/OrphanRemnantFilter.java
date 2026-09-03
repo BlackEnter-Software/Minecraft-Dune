@@ -3,6 +3,7 @@ package com.blackenter.minecraftdune.worldgen.geology;
 import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
 
 /**
+ * Legacy profiles only (through 5148); profile 6000 never invokes this filter.
  * Final support/connectivity cleanup for exposed erosion survivors.
  *
  * <p>The escarpment fields are intentionally removal-only and can leave a narrow resistant

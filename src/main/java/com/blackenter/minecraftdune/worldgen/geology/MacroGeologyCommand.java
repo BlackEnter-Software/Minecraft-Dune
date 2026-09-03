@@ -115,6 +115,13 @@ public final class MacroGeologyCommand {
                 activeTerrainSettings(source);
         double sampleX = Math.floor(x) + 0.5;
         double sampleZ = Math.floor(z) + 0.5;
+        if (settings.isBuriedRock()) {
+            var evaluator = new com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainEvaluator(worldSeed, settings, 64);
+            String report = com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainCommand.describe(evaluator,
+                    worldSeed, settings, (int) Math.floor(x), (int) Math.floor(source.getPosition().y), (int) Math.floor(z));
+            source.sendSuccess(() -> Component.literal(report), false);
+            return 1;
+        }
 
         MacroGeologyField.Sample sample =
                 MacroGeologyField.sample(
@@ -361,6 +368,14 @@ public final class MacroGeologyCommand {
         CommandSourceStack source = context.getSource();
         ArrakisTerrainSettings settings =
                 activeTerrainSettings(source);
+        if (settings.isBuriedRock()) {
+            var b = settings.buriedRock();
+            source.sendSuccess(() -> Component.literal("Arrakis profile 6000 — Buried Rock\n"
+                    + "rock_surface=" + b.rockSurface() + "\nsediment=" + b.sediment()
+                    + "\nfault_displacement=" + b.faults() + "\nerosion=" + b.erosion() + "\ntalus=" + b.talus()
+                    + "\nLithology uses world-Y minus uplift/throw; legacy cleanup is bypassed."), false);
+            return 1;
+        }
 
         source.sendSuccess(
                 () -> Component.literal(String.format(

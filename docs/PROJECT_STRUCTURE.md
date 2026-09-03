@@ -7,12 +7,20 @@ src/main/java/com/blackenter/minecraftdune/
 │  ├─ arrakis/
 │  │  ├─ ArrakisChunkGenerator.java
 │  │  ├─ ArrakisTerrainEvaluator.java
+│  │  ├─ BuriedRockTerrain.java
+│  │  ├─ BuriedTerrainColumn.java
+│  │  ├─ BuriedRockSettings.java
 │  │  ├─ ArrakisTerrainSettings.java
 │  │  ├─ ArrakisTerrainSettingsValidator.java
 │  │  ├─ ArrakisTerrainCommand.java
 │  │  └─ TerrainGenerationMetrics.java
 │  ├─ geology/
 │  │  ├─ MacroGeologyField.java
+│  │  ├─ RawRockSurfaceField.java
+│  │  ├─ GeologicalFaultField.java
+│  │  ├─ SedimentSurfaceField.java
+│  │  ├─ RockErosionField.java
+│  │  ├─ TalusColluviumField.java
 │  │  ├─ LithologyField.java
 │  │  ├─ LithologyBlockPalette.java
 │  │  ├─ MassifFractureField.java
@@ -44,6 +52,16 @@ src/main/java/com/blackenter/minecraftdune/
 must not reference client classes, so the mod can later run on a dedicated
 server.
 
+## Current profile-6000 architecture
+
+`ArrakisTerrainEvaluator` dispatches profile 6000 to `BuriedRockTerrain`: raw rock/uplift/throw
+and independent sediment, then analytical external exposure, fixed erosion, causal colluvium
+and `BuriedTerrainColumn` composition. Chunk/base-column writers consume the same composer;
+height queries use its final roof. Only legacy profiles can access the old column/repair cache.
+See [the full dependency graph and migration report](BURIED_ROCK_TERRAIN_0.6.0-dev.1.md).
+`validateBuriedRock` is reached by both `test` and `check`; all old validators remain on the
+frozen 5148 fixture. The following occupancy architecture is legacy-only.
+
 Native terrain classes under `worldgen` must remain deterministic from the world seed,
 serialized profile, and absolute coordinates. `DuneSimulation` is the frozen finite laboratory;
 the native generator does not run it per chunk. `EscarpmentErosionField` is a removal-only
@@ -53,7 +71,7 @@ talus directly to `ChunkAccess`. The final column composer keeps full dune block
 and omits only an overlapping fractional dune layer; shallow one- or two-block rock outcrops
 remain protected by the occupancy field.
 
-## Current hardening architecture
+## Legacy 5148 hardening architecture
 
 `ArrakisChunkGenerator` retains Minecraft hooks, seed initialization, palette lookup,
 foundation detection and native column/chunk writes. `ArrakisTerrainEvaluator` owns

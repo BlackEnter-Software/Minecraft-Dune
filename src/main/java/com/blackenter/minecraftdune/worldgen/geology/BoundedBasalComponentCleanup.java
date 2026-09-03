@@ -1,6 +1,7 @@
 package com.blackenter.minecraftdune.worldgen.geology;
 
 /**
+ * Legacy profiles only (through 5148); bypassed by profile 6000.
  * Bounded horizontal component classification over post-orphan rock, before deposits.
  * The universal Y64 substrate and residual Y65 floor do not connect otherwise detached
  * posts. Above that floor, ANY same-height connection (including diagonal columns) counts.

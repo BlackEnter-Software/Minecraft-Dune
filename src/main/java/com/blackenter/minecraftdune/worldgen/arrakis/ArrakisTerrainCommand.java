@@ -47,10 +47,11 @@ public final class ArrakisTerrainCommand {
         // Never force-load a chunk for diagnostics. This is an observed, post-generation
         // hard layer, not a reconstruction of the flat substrate before native rock writes.
         var loaded = level.getChunkSource().getChunkNow(x >> 4, z >> 4);
-        String observed = loaded == null ? "not loaded (no chunk requested)"
+        String observed = generator.terrainSettings().isBuriedRock() ? "not applicable (continuous geology)"
+                : loaded == null ? "not loaded (no chunk requested)"
                 : Integer.toString(ArrakisChunkGenerator.findFoundationTopY(
                         loaded, new BlockPos.MutableBlockPos(), x, z, level.getMinBuildHeight()));
-        String report = analytical + "\nObserved hard layer at/below Y64: " + observed
+        String report = analytical + (generator.terrainSettings().isBuriedRock() ? "" : "\nObserved hard layer at/below Y64: " + observed)
                 + "\nAnalytical prediction only; existing chunks/player edits may differ.";
         source.sendSuccess(() -> Component.literal(report), false);
         source.sendSuccess(() -> Component.literal("[Copy terrain report]")
@@ -59,9 +60,39 @@ public final class ArrakisTerrainCommand {
         return 1;
     }
 
-    /** Shared with offline diagnostics; this formats results, never reimplements terrain math. */
-    static String describe(ArrakisTerrainEvaluator evaluator, long seed,
+    private static String describeBuried(ArrakisTerrainEvaluator evaluator, long seed,
             ArrakisTerrainSettings settings, int x, int y, int z) {
+        var c = evaluator.buriedColumn(x, z);
+        var raw = c.raw();
+        var erosion = c.erosion();
+        var face = erosion.face();
+        var material = c.lithology().sample(y);
+        return String.format(Locale.ROOT,
+                "Arrakis seed=%d profile=%d buried-rock XYZ=%d/%d/%d%n"
+                + "Regional rock=%.2f Shield-Wall uplift=%.2f other uplift=%.2f fault throw=%.2f structural displacement=%.2f%n"
+                + "R0=%.2f S=%.2f Re=%.2f sediment thickness=%.2f H=%.2f highest block=%d%n"
+                + "External face: exposed=%s relief=%.2f strength=%.3f outward=(%.3f,%.3f)%n"
+                + "Erosion: incision=%.2f major=%.2f surface=%.2f removed=%.2f horizontal recession=%.2f%n"
+                + "Fault: index=%d signed-distance=%.2f side=%d damage=%.3f; fracture strength=%.3f depth=%.2f%n"
+                + "Talus: active=%s Y=%d..%d source=%d/%d%n"
+                + "Lithology roof=%s; queried Y=%d geological-Y=%.2f material=%s resistance=%s composed=%s%n"
+                + "Legacy repair stack: bypassed; cached columns=%d",
+                seed, settings.profileVersion(), x, y, z,
+                raw.regionalRockTop(), raw.shieldWallUplift(), raw.otherUplift(), raw.fault().displacement(), raw.structuralDisplacement(),
+                raw.rockTop(), c.sediment().surfaceY(), erosion.rockTop(), c.sedimentThickness(), c.finalSurface(), c.highestOccupiedY(),
+                face.exposed(), face.localRelief(), face.exposure(), face.outwardNormalX(), face.outwardNormalZ(),
+                erosion.incision(), erosion.majorRemoval(), erosion.surfaceRemoval(), erosion.removedAmount(), erosion.horizontalRecession(),
+                raw.fault().faultIndex(), raw.fault().signedDistance(), raw.fault().side(), raw.fault().damage(),
+                c.fracture().strength(), c.fracture().carveDepth(), c.talus().active(), c.talus().bottomY(), c.talus().topY(),
+                c.talus().sourceX(), c.talus().sourceZ(),
+                c.lithology().sample(c.rockTopY()).material(), y, c.lithology().geologicalY(y),
+                material.material(), material.resistance(), c.cellAt(y, -64).kind(), evaluator.size());
+    }
+
+    /** Shared with offline diagnostics; this formats results, never reimplements terrain math. */
+    public static String describe(ArrakisTerrainEvaluator evaluator, long seed,
+            ArrakisTerrainSettings settings, int x, int y, int z) {
+        if (settings.isBuriedRock()) return describeBuried(evaluator, seed, settings, x, y, z);
         var c = evaluator.column(x, z);
         var g = c.geology();
         var face = c.face();

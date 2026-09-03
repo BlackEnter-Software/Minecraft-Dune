@@ -63,6 +63,16 @@ public final class MacroGeologyField {
             double worldZ,
             ArrakisTerrainSettings settings
     ) {
+        return evaluate(worldSeed, worldX, worldZ, settings, settings.isBuriedRock()).geography();
+    }
+
+    /** Shared macro mathematics used as displacement, never a rock-existence predicate. */
+    public static StructuralSample structure(long seed, double x, double z, ArrakisTerrainSettings settings) {
+        return evaluate(seed, x, z, settings, true);
+    }
+
+    private static StructuralSample evaluate(long worldSeed, double worldX, double worldZ,
+            ArrakisTerrainSettings settings, boolean structural) {
         ArrakisTerrainSettings.BasinSettings basinSettings = settings.basin();
         ArrakisTerrainSettings.ForelandSettings forelandSettings = settings.foreland();
         ArrakisTerrainSettings.MassifSettings massifSettings = settings.massif();
@@ -74,7 +84,7 @@ public final class MacroGeologyField {
         double radius = Math.hypot(worldX, worldZ);
 
         if (radius <= basinSettings.pureSandRadius()) {
-            return emptySample(radius, radius, 0.0, Province.CENTRAL_BASIN, 1.0);
+            return new StructuralSample(emptySample(radius, radius, 0.0, Province.CENTRAL_BASIN, 1.0), 0, 0);
         }
 
         double boundaryWarp = fbm(
@@ -86,7 +96,7 @@ public final class MacroGeologyField {
         double effectiveRadius = radius + boundaryWarp;
 
         if (effectiveRadius >= transitionSettings.openErgFullRadius()) {
-            return new Sample(
+            return new StructuralSample(new Sample(
                     radius,
                     effectiveRadius,
                     boundaryWarp,
@@ -106,7 +116,7 @@ public final class MacroGeologyField {
                     1.0,
                     BASE_SURFACE_Y,
                     Province.OPEN_ERG
-            );
+            ), 0, 0);
         }
 
         double centralBasin = 1.0 - smoothStep(
@@ -350,7 +360,7 @@ public final class MacroGeologyField {
                 physicalMassifEnvelope,
                 massifShape,
                 massifRelief,
-                settings.baseAlignment()
+                structural ? ArrakisTerrainSettings.DEFAULT_BASE_ALIGNMENT : settings.baseAlignment()
         );
 
         double sandCorridorMask = sandCorridorMask(
@@ -360,7 +370,7 @@ public final class MacroGeologyField {
                 radius,
                 settings.sandPasses()
         );
-        FaultNetworkSample fault = faultNetworkSample(
+        FaultNetworkSample fault = structural ? new FaultNetworkSample(0, 0, 0) : faultNetworkSample(
                 worldSeed,
                 worldX,
                 worldZ,
@@ -642,7 +652,7 @@ public final class MacroGeologyField {
                 openErg
         );
 
-        return new Sample(
+        return new StructuralSample(new Sample(
                 radius,
                 effectiveRadius,
                 boundaryWarp,
@@ -662,8 +672,12 @@ public final class MacroGeologyField {
                 duneSuitability,
                 baseElevation,
                 dominantProvince
-        );
+        ), massifHeight * (1.0 - sandCorridorMask),
+                Math.max(smallFormationHeight, Math.max(outlierHeight, transitionRockHeight))
+                        * (1.0 - sandCorridorMask));
     }
+
+    public record StructuralSample(Sample geography, double shieldWallUplift, double otherUplift) {}
 
     static double massifHeightWithBasalContact(
             double physicalMassifEnvelope,
@@ -728,6 +742,64 @@ public final class MacroGeologyField {
         );
     }
 
+    /** Identical warped trace for legacy cuts and profile-6000 structural displacement. */
+    public static FaultTrace faultTrace(long worldSeed, double worldX, double worldZ,
+            int fault, ArrakisTerrainSettings.FaultSettings settings) {
+        long step = (long) fault * 0x9E3779B97F4A7C15L;
+        long faultSalt = FAULT_SALT + step;
+
+        double direction = seedPhase(worldSeed, faultSalt);
+        double directionX = Math.cos(direction);
+        double directionZ = Math.sin(direction);
+        double along = worldX * directionX + worldZ * directionZ;
+        double perpendicular = -worldX * directionZ + worldZ * directionX;
+
+        double offsetUnit = seedSignedUnit(
+                worldSeed,
+                FAULT_SALT + (long) fault * 0xD1B54A32D192ED03L
+        );
+        double offset = Math.copySign(
+                350.0 + 650.0 * Math.abs(offsetUnit),
+                offsetUnit == 0.0 ? 1.0 : offsetUnit
+        );
+
+        // Centerline warp is evaluated mainly along the fault, so the trace itself bends.
+        double broadWarp = settings.broadWarpStrength() * valueNoise(
+                worldSeed ^ (FAULT_BROAD_WARP_SALT + step),
+                along / settings.broadWarpScale(),
+                fault * 17.125
+        );
+        double mediumWarp = settings.mediumWarpStrength() * valueNoise(
+                worldSeed ^ (FAULT_MEDIUM_WARP_SALT + step),
+                along / settings.mediumWarpScale(),
+                fault * 29.75
+        );
+        double sineWarp = settings.sineWarpStrength() * Math.sin(
+                along / settings.sineWarpScale()
+                        + seedPhase(
+                        worldSeed,
+                        ANGLE_PHASE_A_SALT + (long) fault * 101L
+                )
+        );
+        double secondarySine = settings.sineWarpStrength() * 0.35 * Math.sin(
+                along / (settings.sineWarpScale() * 0.43)
+                        + seedPhase(
+                        worldSeed,
+                        ANGLE_PHASE_B_SALT + (long) fault * 173L
+                )
+        );
+
+        double centerline = offset
+                + broadWarp
+                + mediumWarp
+                + sineWarp
+                + secondarySine;
+
+        return new FaultTrace(perpendicular - centerline, along, direction);
+    }
+
+    public record FaultTrace(double signedDistance, double along, double strike) {}
+
     private static FaultNetworkSample faultNetworkSample(
             long worldSeed,
             double worldX,
@@ -756,56 +828,9 @@ public final class MacroGeologyField {
 
         for (int fault = 0; fault < settings.count(); fault++) {
             long step = (long) fault * 0x9E3779B97F4A7C15L;
-            long faultSalt = FAULT_SALT + step;
-
-            double direction = seedPhase(worldSeed, faultSalt);
-            double directionX = Math.cos(direction);
-            double directionZ = Math.sin(direction);
-            double along = worldX * directionX + worldZ * directionZ;
-            double perpendicular = -worldX * directionZ + worldZ * directionX;
-
-            double offsetUnit = seedSignedUnit(
-                    worldSeed,
-                    FAULT_SALT + (long) fault * 0xD1B54A32D192ED03L
-            );
-            double offset = Math.copySign(
-                    350.0 + 650.0 * Math.abs(offsetUnit),
-                    offsetUnit == 0.0 ? 1.0 : offsetUnit
-            );
-
-            // Centerline warp is evaluated mainly along the fault, so the trace itself bends.
-            double broadWarp = settings.broadWarpStrength() * valueNoise(
-                    worldSeed ^ (FAULT_BROAD_WARP_SALT + step),
-                    along / settings.broadWarpScale(),
-                    fault * 17.125
-            );
-            double mediumWarp = settings.mediumWarpStrength() * valueNoise(
-                    worldSeed ^ (FAULT_MEDIUM_WARP_SALT + step),
-                    along / settings.mediumWarpScale(),
-                    fault * 29.75
-            );
-            double sineWarp = settings.sineWarpStrength() * Math.sin(
-                    along / settings.sineWarpScale()
-                            + seedPhase(
-                            worldSeed,
-                            ANGLE_PHASE_A_SALT + (long) fault * 101L
-                    )
-            );
-            double secondarySine = settings.sineWarpStrength() * 0.35 * Math.sin(
-                    along / (settings.sineWarpScale() * 0.43)
-                            + seedPhase(
-                            worldSeed,
-                            ANGLE_PHASE_B_SALT + (long) fault * 173L
-                    )
-            );
-
-            double centerline = offset
-                    + broadWarp
-                    + mediumWarp
-                    + sineWarp
-                    + secondarySine;
-
-            double distance = Math.abs(perpendicular - centerline);
+            FaultTrace trace = faultTrace(worldSeed, worldX, worldZ, fault, settings);
+            double along = trace.along();
+            double distance = Math.abs(trace.signedDistance());
             ScarpMorphologyField.FaultProfile profile =
                     ScarpMorphologyField.faultProfile(
                             worldSeed,

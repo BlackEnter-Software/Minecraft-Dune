@@ -99,9 +99,15 @@ public final class ArrakisProfileValidation {
     }
 
     public static Profile loadProfile() throws IOException {
-        Path path = Path.of(
-                "src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json"
-        );
+        // Frozen 5148 baseline: cleanup and historical fingerprints stay build-blocking.
+        return load(Path.of("src/test/resources/terrain/arrakis_5148.json"));
+    }
+
+    public static Profile loadDevelopmentProfile() throws IOException {
+        return load(Path.of("src/main/resources/data/minecraftdune/worldgen/world_preset/arrakis_dev.json"));
+    }
+
+    private static Profile load(Path path) throws IOException {
         try (Reader reader = Files.newBufferedReader(path)) {
             JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
             JsonObject terrain = root.getAsJsonObject("dimensions")

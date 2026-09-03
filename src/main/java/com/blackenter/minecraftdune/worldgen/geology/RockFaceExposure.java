@@ -110,6 +110,22 @@ public final class RockFaceExposure {
         return MacroGeologyField.sample(worldSeed, worldX, worldZ, settings).baseElevation();
     }
 
+    /** Profile 6000 samples max(rock, sediment), never block air or geological ownership masks. */
+    public static Sample external(double x, double z, double rockTop, double sedimentTop,
+            double nearProbe, double farProbe, double minimumRelief, HeightLookup externalHeight) {
+        if (rockTop < sedimentTop) return Sample.NONE;
+        nearProbe = Math.min(nearProbe, farProbe);
+        return fromHeights(rockTop,
+                externalHeight.top(x - nearProbe, z), externalHeight.top(x + nearProbe, z),
+                externalHeight.top(x, z - nearProbe), externalHeight.top(x, z + nearProbe),
+                externalHeight.top(x - farProbe, z), externalHeight.top(x + farProbe, z),
+                externalHeight.top(x, z - farProbe), externalHeight.top(x, z + farProbe),
+                nearProbe, farProbe, minimumRelief);
+    }
+
+    @FunctionalInterface
+    public interface HeightLookup { double top(double x, double z); }
+
     /** Package-visible synthetic-height entry point used by deterministic validation. */
     static Sample fromHeights(
             double currentTop,

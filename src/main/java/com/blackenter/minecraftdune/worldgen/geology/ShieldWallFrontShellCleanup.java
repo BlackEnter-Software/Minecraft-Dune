@@ -3,6 +3,7 @@ package com.blackenter.minecraftdune.worldgen.geology;
 import com.blackenter.minecraftdune.worldgen.arrakis.ArrakisTerrainSettings;
 
 /**
+ * Legacy profiles only (through 5148); bypassed by profile 6000.
  * Two bounded, removal-only passes over the post-orphan Shield-Wall front shell.
  *
  * <p>The structural scarp supplies only orientation and a narrow ownership band. Actual

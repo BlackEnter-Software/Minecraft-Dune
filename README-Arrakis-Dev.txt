@@ -1,6 +1,22 @@
 Minecraft: Dune — Arrakis Dev
 ==============================
 
+Buried Rock — 0.6.0-dev.1 / profile 6000
+---------------------------------------
+
+Create a FRESH Arrakis Dev world. Rock is continuous from above Y=-64 bedrock to its
+eroded roof. Shield-Wall uplift and signed fault throw move that geology and its strata.
+Independent sediment buries lower rock and grades the central basin to Y64. One fixed
+analytical recession pass and erosion-derived colluvium replace the old occupancy/repair
+stack. The full column composer also drives height/base-column queries.
+
+Saved profile 5148 worlds retain legacy behavior. Do not change their profile number.
+See docs/BURIED_ROCK_TERRAIN_0.6.0-dev.1.md for settings, limitations and Seed-0 test points.
+Use /dune terrain inspect and /dune geology profile for authoritative diagnostics.
+True overhangs/caves are deferred; no in-client visual parity is claimed yet.
+
+The following 0.5.14 description is retained for LEGACY profiles only.
+
 Escarpment and differential erosion — 0.5.14
 ---------------------------------------------
 

@@ -24,9 +24,13 @@ public record ArrakisTerrainSettings(
         SandPassSettings sandPasses,
         BrokenRockSettings brokenRock,
         OuterTransitionSettings outerTransition,
-        NativeDuneSettings nativeDunes
+        NativeDuneSettings nativeDunes,
+        BuriedRockSettings buriedRock
 ) {
-    public static final int CURRENT_PROFILE_VERSION = 5148;
+    public static final int CURRENT_PROFILE_VERSION = 6000;
+    public static final int LEGACY_PROFILE_VERSION = 5148;
+
+    public boolean isBuriedRock() { return profileVersion == CURRENT_PROFILE_VERSION; }
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -176,7 +180,7 @@ public record ArrakisTerrainSettings(
             );
 
     public static final ArrakisTerrainSettings DEFAULT = new ArrakisTerrainSettings(
-            CURRENT_PROFILE_VERSION,
+            LEGACY_PROFILE_VERSION,
             new BasinSettings(800.0, 970.0),
             new ForelandSettings(
                     1150.0,
@@ -278,7 +282,8 @@ public record ArrakisTerrainSettings(
                     0.16,
                     0.12,
                     0.68
-            )
+            ),
+            BuriedRockSettings.DEFAULT
     );
 
     private static final Codec<ArrakisTerrainSettings> RAW_CODEC =
@@ -330,7 +335,9 @@ public record ArrakisTerrainSettings(
                     OuterTransitionSettings.CODEC.fieldOf("outer_transition")
                             .forGetter(ArrakisTerrainSettings::outerTransition),
                     NativeDuneSettings.CODEC.fieldOf("native_dunes")
-                            .forGetter(ArrakisTerrainSettings::nativeDunes)
+                            .forGetter(ArrakisTerrainSettings::nativeDunes),
+                    BuriedRockSettings.CODEC.optionalFieldOf("buried_rock", BuriedRockSettings.DEFAULT)
+                            .forGetter(ArrakisTerrainSettings::buriedRock)
             ).apply(instance, ArrakisTerrainSettings::new));
 
     public static final Codec<ArrakisTerrainSettings> CODEC = RAW_CODEC.flatXmap(

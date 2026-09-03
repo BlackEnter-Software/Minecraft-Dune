@@ -33,9 +33,8 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Native Arrakis Dev terrain generator.
  *
- * <p>The normal flat Arrakis base remains unchanged. Macro relief, 3D lithology, massif-top
- * fissures, per-Y escarpment occupancy, supported talus and native dunes are written directly
- * into ChunkAccess during generation.</p>
+ * <p>Profile 6000 replaces the complete flat column with continuous geology, sediment and
+ * erosion-derived deposits. The old native-rock pipeline remains isolated for legacy worlds.</p>
  */
 public final class ArrakisChunkGenerator extends FlatLevelSource {
     public static final MapCodec<ArrakisChunkGenerator> CODEC =
@@ -137,6 +136,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 random
         );
         if (!worldSeedInitialized) {
+            if (terrainSettings.isBuriedRock()) throw new IllegalStateException("Arrakis seed must be initialized before height queries");
             return flatHeight;
         }
 
@@ -144,7 +144,10 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         TerrainGenerationMetrics.Evaluation metrics = TerrainGenerationMetrics.evaluation();
         ArrakisTerrainEvaluator evaluation = new ArrakisTerrainEvaluator(
                 worldSeed, terrainSettings, ArrakisTerrainEvaluator.QUERY_CACHE_LIMIT, metrics);
-        int nativeHeight = Mth.clamp(
+        int nativeHeight = terrainSettings.isBuriedRock()
+                ? evaluation.buriedColumn(x, z).baseHeight(level.getMinBuildHeight(), level.getMaxBuildHeight(),
+                        cell -> type.isOpaque().test(buriedState(cell)))
+                : Mth.clamp(
                 evaluation.highestOccupiedY(x, z) + 1,
                 level.getMinBuildHeight(),
                 level.getMaxBuildHeight()
@@ -155,7 +158,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 metrics,
                 evaluation.size()
         );
-        return Math.max(flatHeight, nativeHeight);
+        return terrainSettings.isBuriedRock() ? nativeHeight : Math.max(flatHeight, nativeHeight);
     }
 
     @Override
@@ -165,23 +168,24 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             LevelHeightAccessor height,
             RandomState random
     ) {
-        NoiseColumn column = super.getBaseColumn(
-                x,
-                z,
-                height,
-                random
-        );
         if (!worldSeedInitialized) {
-            return column;
+            if (terrainSettings.isBuriedRock()) throw new IllegalStateException("Arrakis seed must be initialized before base-column queries");
+            return super.getBaseColumn(x, z, height, random);
         }
 
         long startNanos = System.nanoTime();
         TerrainGenerationMetrics.Evaluation metrics = TerrainGenerationMetrics.evaluation();
         ArrakisTerrainEvaluator evaluation = new ArrakisTerrainEvaluator(
                 worldSeed, terrainSettings, ArrakisTerrainEvaluator.QUERY_CACHE_LIMIT, metrics);
-        TerrainColumn terrain = evaluation.column(x, z);
         int minimumY = height.getMinBuildHeight();
         int maximumY = height.getMaxBuildHeight() - 1;
+        if (terrainSettings.isBuriedRock()) {
+            NoiseColumn column = evaluation.buriedColumn(x, z).toNoiseColumn(minimumY, maximumY + 1, this::buriedState);
+            TerrainGenerationMetrics.recordQuery("base-column", System.nanoTime() - startNanos, metrics, evaluation.size());
+            return column;
+        }
+        NoiseColumn column = super.getBaseColumn(x, z, height, random);
+        TerrainColumn terrain = evaluation.column(x, z);
 
         if (terrain.hasNativeRock()) {
             int foundationTopY = findFoundationTopY(
@@ -243,6 +247,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
 
     private ChunkAccess applyNativeTerrain(ChunkAccess chunk) {
         if (!worldSeedInitialized) {
+            if (terrainSettings.isBuriedRock()) throw new IllegalStateException("Arrakis seed must be initialized before terrain generation");
             return chunk;
         }
 
@@ -263,6 +268,13 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
 
             for (int localX = 0; localX < 16; localX++) {
                 int worldX = minimumX + localX;
+                if (terrainSettings.isBuriedRock()) {
+                    writeBuriedColumn(evaluation.buriedColumn(worldX, worldZ), minimumY, maximumY, (y, state) -> {
+                        position.set(worldX, y, worldZ);
+                        chunk.setBlockState(position, state, false);
+                    });
+                    continue;
+                }
                 TerrainColumn terrain = evaluation.column(worldX, worldZ);
 
                 if (terrain.hasNativeRock()) {
@@ -335,6 +347,9 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             }
         }
 
+        if (terrainSettings.isBuriedRock()) {
+            Heightmap.primeHeightmaps(chunk, java.util.EnumSet.of(Heightmap.Types.WORLD_SURFACE_WG, Heightmap.Types.OCEAN_FLOOR_WG));
+        }
         TerrainGenerationMetrics.recordChunk(
                 chunkPos,
                 System.nanoTime() - startNanos,
@@ -344,8 +359,24 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
         return chunk;
     }
 
+    /** Both production writers consume this exact composition, including air above the roof. */
+    private void writeBuriedColumn(BuriedTerrainColumn terrain, int minimumY, int maximumY, BlockWriter writer) {
+        terrain.compose(minimumY, maximumY + 1, (y, cell) -> writer.set(y, buriedState(cell)));
+    }
+
+    private BlockState buriedState(BuriedTerrainColumn.Cell cell) {
+        return switch (cell.kind()) {
+            case AIR -> Blocks.AIR.defaultBlockState();
+            case BEDROCK -> Blocks.BEDROCK.defaultBlockState();
+            case ROCK, TALUS -> lithologyPalette.state(cell.material());
+            case SAND -> ModBlocks.SAND.get().defaultBlockState();
+            case SANDSTONE -> Blocks.SANDSTONE.defaultBlockState();
+            case SAND_LAYER -> ModBlocks.SAND_LAYER.get().defaultBlockState().setValue(DuneSandLayerBlock.LAYERS, cell.layers());
+        };
+    }
+
     /**
-     * Finds the highest existing hard-rock layer in the flat Arrakis base column. Native
+     * Legacy only. Finds the highest existing hard-rock layer in the flat Arrakis base column. Native
      * geology then replaces every softer layer above it (currently sandstone + sand) with
      * coherent native lithology before continuing upward into the visible formation. This
      * roots rock bodies in the underlying crust instead of leaving a sand pocket beneath them.

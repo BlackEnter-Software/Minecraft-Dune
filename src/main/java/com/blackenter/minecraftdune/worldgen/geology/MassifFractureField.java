@@ -92,6 +92,20 @@ public final class MassifFractureField {
             return NONE;
         }
 
+        return network(worldSeed, worldX, worldZ, resistance, settings, activation);
+    }
+
+    /** Geological joint network: existence does not depend on a visible massif or Y64 root. */
+    public static Sample structural(long seed, double x, double z, LithologyField.ResistanceClass resistance,
+            ArrakisTerrainSettings.FractureSettings settings) {
+        return settings.enabled() && settings.density() > 0
+                ? network(seed, x, z, resistance, settings, 1.0) : NONE;
+    }
+
+    private static Sample network(long worldSeed, double worldX, double worldZ,
+            LithologyField.ResistanceClass resistance, ArrakisTerrainSettings.FractureSettings settings,
+            double activation) {
+
         double traceSpacing = Math.max(96.0, settings.cellSize());
         double minimumBranchLength = Math.max(12.0, settings.minimumLength());
         double maximumBranchLength = Math.max(

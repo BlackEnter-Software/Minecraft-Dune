@@ -225,7 +225,8 @@ public final class EscarpmentErosionValidation {
                 settings.sandPasses(),
                 settings.brokenRock(),
                 settings.outerTransition(),
-                settings.nativeDunes()
+                settings.nativeDunes(),
+                settings.buriedRock()
         );
     }
 

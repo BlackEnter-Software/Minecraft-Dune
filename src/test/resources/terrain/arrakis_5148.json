@@ -33,58 +33,7 @@
           "structure_overrides": []
         },
         "terrain": {
-          "profile_version": 6000,
-          "buried_rock": {
-            "rock_surface": {
-              "regional_y": 36,
-              "amplitude": 14,
-              "scale": 1200,
-              "detail_amplitude": 4,
-              "detail_scale": 280,
-              "uplift_scale": 1.15,
-              "other_relief_scale": 1,
-              "minimum_y": -48,
-              "maximum_y": 300
-            },
-            "sediment": {
-              "datum": 64,
-              "relief": 3,
-              "scale": 2400,
-              "compaction_depth": 8
-            },
-            "fault_displacement": {
-              "maximum_throw": 32,
-              "transition_width": 12,
-              "influence_width": 220,
-              "damage_width": 40
-            },
-            "erosion": {
-              "enabled": true,
-              "minimum_relief": 18,
-              "probe_distance": 18,
-              "maximum_recession": 6,
-              "wind_strength": 0.42,
-              "fracture_strength": 0.58,
-              "soft_multiplier": 1.35,
-              "hard_multiplier": 0.58,
-              "very_hard_multiplier": 0.28,
-              "surface_strength": 0.34,
-              "coarse_scale": 18,
-              "detail_scale": 6,
-              "surface_retreat": 4,
-              "incision_scale": 1,
-              "fault_weakness": 0.7,
-              "edge_threshold": 0.32
-            },
-            "talus": {
-              "enabled": true,
-              "yield": 0.4,
-              "maximum_thickness": 4,
-              "reach": 16,
-              "minimum_erosion": 0.75,
-              "minimum_relief": 8
-            }
-          },
+          "profile_version": 5148,
           "basin": {
             "pure_sand_radius": 1500.0,
             "transition_end_radius": 2000.0
@@ -120,6 +69,9 @@
             "scarp_detail_scale": 42.0,
             "scarp_detail_strength": 2.5
           },
+          "base_alignment": {
+            "massif_vertical_offset": -4.0
+          },
           "faults": {
             "count": 6,
             "start_radius": 1400.0,
@@ -134,7 +86,14 @@
             "medium_warp_strength": 90.0,
             "sine_warp_scale": 780.0,
             "sine_warp_strength": 75.0,
-            "sandy_floor_threshold": 0.56
+            "sandy_floor_threshold": 0.56,
+            "rocky_floor_height": 0.0,
+            "morphology": {
+              "wall_width": 14.0,
+              "toe_depth": 4.0,
+              "wall_variation_scale": 90.0,
+              "wall_variation": 3.0
+            }
           },
           "lithology": {
             "unit_horizontal_scale": 260.0,
@@ -166,8 +125,23 @@
               "deepslate": "minecraft:deepslate",
               "talus": "minecraft:gravel",
               "granite_fraction": 0.28,
-              "deepslate_top_y": -20.0,
+              "deepslate_top_y": 72.0,
               "deepslate_warp_strength": 8.0
+            },
+            "talus": {
+              "local_scree_enabled": true,
+              "minimum_fracture_strength": 0.44,
+              "maximum_thickness": 7,
+              "spread": 18.0,
+              "basal_apron_enabled": true,
+              "actual_contact_enabled": true,
+              "basal_sand_skirt_enabled": true,
+              "ravine_contact_enabled": true,
+              "organic_apron_enabled": true,
+              "basal_apron_max_height": 4,
+              "basal_apron_spread": 10.0,
+              "basal_apron_inset": 4.0,
+              "basal_apron_sand_start": 0.80
             }
           },
           "additional_materials": {
@@ -193,6 +167,50 @@
             "calcite_wall_thickness": 1.5,
             "resistance_width_influence": 0.3,
             "resistance_depth_influence": 0.22
+          },
+          "erosion": {
+            "enabled": true,
+            "minimum_relief": 18.0,
+            "face_probe_distance": 18.0,
+            "escarpment_start_strength": 0.32,
+            "vertical_face_bias": 0.84,
+            "wind_exposure_strength": 0.42,
+            "fracture_erosion_strength": 0.58,
+            "soft_rock_multiplier": 1.35,
+            "hard_rock_multiplier": 0.58,
+            "very_hard_rock_multiplier": 0.28,
+            "undercut_strength": 0.72,
+            "max_undercut_blocks": 6,
+            "undercut_frequency": 0.24,
+            "broken_rock_scale": 0.72,
+            "surface": {
+              "enabled": true,
+              "strength": 0.34,
+              "scale": 18.0,
+              "detail_scale": 6.0,
+              "max_retreat_blocks": 4,
+              "fissure_multiplier": 1.55,
+              "small_rock_strength": 0.42,
+              "broken_rock_strength": 0.58,
+              "lithology_relief_strength": 0.65,
+              "base_anchored_erosion": true,
+              "basal_erosion_depth": 4
+            },
+            "orphan_remnants": {
+              "enabled": true,
+              "basal_component_cleanup_enabled": true,
+              "fault_edge_cleanup_enabled": true,
+              "component_search_radius": 5,
+              "inward_support_depth": 12,
+              "lateral_search_radius": 2,
+              "minimum_height_above_base": 5,
+              "minimum_face_relief": 24.0
+            }
+          },
+          "front_shell_cleanup": {
+            "enabled": true,
+            "pass1_depth": 2,
+            "pass2_depth": 2
           },
           "sand_passes": {
             "start_radius": 1500.0,

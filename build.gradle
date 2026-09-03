@@ -155,12 +155,21 @@ tasks.register('diagnoseArrakisContact', JavaExec) {
     systemProperty 'minecraftdune.terrainMetrics', 'true'
 }
 
+tasks.register('validateBuriedRock', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.blackenter.minecraftdune.worldgen.arrakis.BuriedRockTerrainValidation'
+    systemProperty 'minecraftdune.terrainMetrics', providers.gradleProperty('terrainMetrics').getOrElse('false')
+}
+
 tasks.named('test', Test).configure {
+    dependsOn tasks.named('validateBuriedRock')
     // The lightweight terrain harness is a deterministic JavaExec main, not a JUnit suite.
     failOnNoDiscoveredTests = false
 }
 
 tasks.named('check').configure {
+    dependsOn tasks.named('validateBuriedRock')
     dependsOn tasks.named('validateArrakisTerrain')
     dependsOn tasks.named('validateDunePrototypeState')
     dependsOn tasks.named('validateArrakisEvaluator')

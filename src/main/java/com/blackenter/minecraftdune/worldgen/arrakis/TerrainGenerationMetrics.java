@@ -14,6 +14,9 @@ import java.util.concurrent.atomic.LongAdder;
  * evaluation work and never participate in terrain decisions.</p>
  */
 final class TerrainGenerationMetrics {
+    enum Stage { RAW_ROCK, FAULT, SEDIMENT, LITHOLOGY_COLUMN, EXPOSURE, EROSION, TALUS, COMPOSITION }
+    private static final LongAdder[] STAGES = java.util.Arrays.stream(Stage.values())
+            .map(stage -> new LongAdder()).toArray(LongAdder[]::new);
     private static final boolean ENABLED = Boolean.getBoolean("minecraftdune.terrainMetrics");
     private static final long SLOW_CHUNK_NANOS = TimeUnit.MILLISECONDS.toNanos(
             Long.getLong("minecraftdune.slowChunkMillis", 50L)
@@ -84,6 +87,7 @@ final class TerrainGenerationMetrics {
     }
 
     private static void add(Evaluation evaluation) {
+        for (Stage stage : Stage.values()) STAGES[stage.ordinal()].add(evaluation.stages[stage.ordinal()]);
         COLUMN_EVALUATIONS.add(evaluation.cacheMisses);
         CACHE_HITS.add(evaluation.cacheHits);
         CACHE_BYPASSES.add(evaluation.cacheBypasses);
@@ -99,6 +103,9 @@ final class TerrainGenerationMetrics {
     private static void logSummaryIfDue() {
         long operations = CHUNKS.sum() + QUERIES.sum();
         if (operations % SUMMARY_INTERVAL == 0L) {
+            StringBuilder stages = new StringBuilder();
+            for (Stage stage : Stage.values()) stages.append(stage).append('=').append(STAGES[stage.ordinal()].sum()).append(' ');
+            MinecraftDune.LOGGER.info("Arrakis field evaluations: {}", stages);
             MinecraftDune.LOGGER.info(
                     "Arrakis terrain metrics: {} chunks, {} external queries, {} column evaluations, {} cache hits; "
                             + "{} evaluations/chunk, {}% hit rate, {} full chunk caches, {} uncached evaluations, worst {} ms",
@@ -122,6 +129,10 @@ final class TerrainGenerationMetrics {
         private int cacheHits;
         private int cacheMisses;
         private int cacheBypasses;
+        private final long[] stages = new long[Stage.values().length];
+
+        void stage(Stage stage) { if (enabled) stages[stage.ordinal()]++; }
+        long count(Stage stage) { return stages[stage.ordinal()]; }
 
         private Evaluation() {
             this(true);

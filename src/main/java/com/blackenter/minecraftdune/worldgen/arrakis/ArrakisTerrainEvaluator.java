@@ -34,6 +34,7 @@ public final class ArrakisTerrainEvaluator {
     private final Long2ObjectLinkedOpenHashMap<ColumnEntry> columns;
     private final int maximumEntries;
     private final TerrainGenerationMetrics.Evaluation metrics;
+    private final BuriedRockTerrain buriedTerrain;
 
     public ArrakisTerrainEvaluator(long worldSeed, ArrakisTerrainSettings settings, int maximumEntries) {
         this(worldSeed, settings, maximumEntries, TerrainGenerationMetrics.evaluation());
@@ -49,6 +50,13 @@ public final class ArrakisTerrainEvaluator {
         this.maximumEntries = maximumEntries;
         this.metrics = metrics;
         columns = new Long2ObjectLinkedOpenHashMap<>(maximumEntries);
+        buriedTerrain = settings.isBuriedRock() ? new BuriedRockTerrain(worldSeed, settings, maximumEntries, metrics) : null;
+    }
+
+    /** Profile 6000's authoritative rock/sediment/deposit composition; no legacy repair stages. */
+    public BuriedTerrainColumn buriedColumn(int x, int z) {
+        if (buriedTerrain == null) throw new IllegalStateException("Buried geology requires profile 6000");
+        return buriedTerrain.column(x, z);
     }
 
     /** Only this final stage requests deposits. Support and contact queries never call it. */
@@ -128,6 +136,7 @@ public final class ArrakisTerrainEvaluator {
     }
 
     private ColumnEntry entry(int worldX, int worldZ) {
+        if (buriedTerrain != null) throw new IllegalStateException("Legacy terrain/repair queries are unavailable in profile 6000");
         // Both full signed coordinates, not chunk coordinates. One bound for both stages.
         long key = ChunkPos.asLong(worldX, worldZ);
         ColumnEntry cached = columns.getAndMoveToLast(key);
@@ -147,7 +156,7 @@ public final class ArrakisTerrainEvaluator {
         return result;
     }
 
-    public int size() { return columns.size(); }
+    public int size() { return buriedTerrain == null ? columns.size() : buriedTerrain.size(); }
 
     int completedColumns() {
         int count = 0;
@@ -157,6 +166,7 @@ public final class ArrakisTerrainEvaluator {
 
     /** Final pre-talus rock only; foundation at/below Y64 is written separately. */
     public boolean rockOccupies(int worldX, int worldY, int worldZ) {
+        if (buriedTerrain != null) return worldY > -64 && worldY <= buriedTerrain.rockTopY(worldX, worldZ);
         PreTalusColumn terrain = preTalusColumn(worldX, worldZ);
         return worldY >= FIRST_NATIVE_Y && worldY <= terrain.rockTopY()
                 && filteredRockOccupies(worldX, worldZ, worldY, terrain,
@@ -164,6 +174,7 @@ public final class ArrakisTerrainEvaluator {
     }
 
     public int highestFilteredRockY(int worldX, int worldZ) {
+        if (buriedTerrain != null) return buriedTerrain.rockTopY(worldX, worldZ);
         ColumnEntry entry = entry(worldX, worldZ);
         if (entry.filteredTop != Integer.MIN_VALUE) return entry.filteredTop;
         var terrain = entry.rock;
@@ -190,6 +201,7 @@ public final class ArrakisTerrainEvaluator {
     }
 
     public int highestOccupiedY(int worldX, int worldZ) {
+        if (buriedTerrain != null) return buriedColumn(worldX, worldZ).highestOccupiedY();
         TerrainColumn terrain = column(worldX, worldZ);
         int talusTopY = terrain.localTalusThickness() > 0
                 ? terrain.talusBaseY() + terrain.localTalusThickness() - 1

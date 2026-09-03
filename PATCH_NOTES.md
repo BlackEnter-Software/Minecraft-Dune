@@ -1,5 +1,39 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.6.0-dev.1 - Buried Rock
+
+- Added terrain profile `6000`: continuous buried geological rock exists beneath the entire
+  desert; the Shield Wall is tectonic uplift of the same body, not special rock above Y64.
+- Kept the smooth warped 36/48-block structural ramps, secondary formations, sand corridors
+  and dune mathematics. Added subdued regional buried relief and initial uplift scale 1.15.
+- Added an independent absolute sediment surface with a level central basin. Rock is buried
+  or exposed by its intersection with sediment, not by a massif-existence flag.
+- Reused deterministic fault traces as signed structural throw and damage zones; no new-profile
+  fault floor targets Y64. Lithology now follows uplift/throw through geological coordinates.
+- Changed the new preset's basement transition to geological Y=-20; other lithology tuning and
+  optional Create limestone registry fallback remain. Legacy settings keep their old values.
+- Adapted the established relief, wind, fracture, resistance and deterministic weathering noise
+  into one fixed analytical roof-recession pass. The resulting geology is solid below Re;
+  volumetric undercuts and caves are deferred, and visual parity is not claimed.
+- Added causal bounded downslope colluvium using eroded rock supply, final source elevation,
+  gravel/source clasts and limited distal sand. No source means no cliff-derived deposit.
+- Bypassed orphan filtering, bounded components, front-shell cleanup, contact-search aprons
+  and basal sand skirts for 6000. These remain isolated for saved 5148 worlds.
+- Unified actual chunk and base-column writes around the same full-column composer; height
+  queries honor the requested Minecraft heightmap predicate, including thin sand layers.
+  Base-column buffers cover all 384 Y levels instead of just the old flat substrate.
+  Preserved bottom bedrock at Y=-64 and re-prime
+  generation heightmaps after replacing the temporary flat substrate.
+- Updated terrain/geology inspection, new JSON settings documentation and stage metrics.
+- Added build-blocking buried-rock continuity, burial, uplift, shifted-strata, fault, exposure,
+  talus, composition, legacy-isolation and cache/chunk-order tests. Existing historical tests
+  and fingerprints remain, using a frozen copy of the original 5148 preset; no tests removed.
+- Mod version is `0.6.0-dev.1`; new worlds select profile `6000`. Existing worlds are not
+  migrated or rewritten. Fresh worlds are required for testing this architecture.
+- Animals, animations, spawn restrictions, cameras/screenshots, layered sand, the finite dune
+  laboratory, dependencies and runClient JVM/ZGC settings are unchanged.
+- See [architecture, tuning, limitations and reference coordinates](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.1.md).
+
 ## Minecraft: Dune 0.5.14.8.2 - Front-Shell Cleanup
 
 - Confirmed the regular inner-wall pillars are connected survivors of the smooth structural

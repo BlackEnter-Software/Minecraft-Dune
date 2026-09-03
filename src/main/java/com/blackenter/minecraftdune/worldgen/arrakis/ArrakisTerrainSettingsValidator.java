@@ -28,6 +28,15 @@ final class ArrakisTerrainSettingsValidator {
     }
 
     static DataResult<ArrakisTerrainSettings> validate(ArrakisTerrainSettings settings) {
+        if (settings.profileVersion() > ArrakisTerrainSettings.LEGACY_PROFILE_VERSION && !settings.isBuriedRock()) {
+            return DataResult.error(() -> "Unsupported terrain profile: " + settings.profileVersion() + "; expected legacy <=5148 or 6000");
+        }
+        if (settings.isBuriedRock() && (settings.frontShellCleanup().enabled()
+                || settings.erosion().enabled() || settings.erosion().surface().enabled()
+                || settings.erosion().orphanRemnants().enabled()
+                || settings.lithology().talus().basalApronEnabled() || settings.lithology().talus().basalSandSkirtEnabled())) {
+            return DataResult.error(() -> "Profile 6000 uses buried_rock.erosion/talus; legacy erosion, shell cleanup and basal deposits must be disabled");
+        }
         Validation validation = new Validation();
         validation.integer("profile_version", settings.profileVersion(), 0, 999_999);
 

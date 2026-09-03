@@ -1,6 +1,6 @@
 package com.blackenter.minecraftdune.worldgen.geology;
 
-/** Static material blending around the existing actual contact, never a terrain/contact solver. */
+/** Legacy profiles only (through 5148): static blending around actual contact. Never used by 6000. */
 public final class BasalSandSkirt {
     public static final int INWARD_OVERLAP = 4;
     public static final int OUTWARD_REACH = 24;

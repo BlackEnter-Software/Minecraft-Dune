@@ -2,19 +2,16 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.8.2 - Front-Shell Cleanup**
+Current development version: **0.6.0-dev.1 — Buried Rock**
 
-Current development branch: `main`. This revision adds a two-pass, 2 + 2-block cleanup of
-surviving desert-facing Shield-Wall shell columns after erosion and existing remnant filtering.
-It removes a selected shell column through its full height, while preserving regional faults,
-strong competing formations, sand passages, and the wall behind the four-block bound. Macro
-morphology, erosion, actual contact, relief probing and talus are unchanged. The serialized
-terrain profile remains `5148`; existing worlds that omit the optional group keep their saved
-terrain behavior.
-Use a **new Arrakis Dev Seed-0 world** to test the changes. See the
-[front-shell cleanup report](docs/SHIELD_WALL_FRONT_SHELL_0.5.14.8.2.md), the
-[basal tuning report](docs/BASAL_EROSION_TALUS_TUNING_REPORT.md), and the
-[earlier hardening report](docs/HARDENING_0.5.14.8_REPORT.md).
+Current development branch: `main`. The active terrain profile is **6000**: continuous
+subsurface geology, tectonic Shield-Wall uplift, signed fault displacement and an independent
+sediment surface. Analytical external exposure drives one fixed roof-recession pass, followed
+by erosion-derived colluvium. Rock fills the entire column below its eroded roof; there is no
+remnant/front-shell cleanup or basal concealment in this path. Saved profile 5148 worlds keep
+their legacy generator. Use a **fresh Arrakis Dev Seed-0 world**; never relabel an old save 6000.
+See the [architecture, settings and validation report](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.1.md).
+This first heightfield version still needs in-client visual tuning; true undercuts are deferred.
 
 Operators can use `/dune terrain inspect` at their current position, or
 `/dune terrain inspect 3053 65 190`, to copy a report from the same analytical evaluator
@@ -24,19 +21,15 @@ The project currently contains:
 
 - the animated Desert Hare and the smaller exported Muad'dib desert mouse;
 - the selectable **Arrakis Dev** desert world preset;
-- native deterministic macro geology generated as part of the Arrakis chunk pipeline;
+- continuous deterministic buried geology and uplift generated directly in the chunk pipeline;
 - coherent 3D lithology with geological resistance roles and optional Create limestone;
 - deterministic through-going massif fissures, dead-end branches and variable calcite bands;
-- lithology-aware 3D escarpments, bounded undercuts and localized gravel/source-clast talus;
-- height-detected, lithology-aware erosion down ordinary massif faces, fissures and smaller rocks;
-- steep structural Shield Wall and regional-fault scarps decoupled from broad province fades;
-- erosion permission coupled to physical scarps while preserving absolute regional-fault cores;
-- coherent two-scale Shield Wall scarp roughness and along-fault wall-width variation;
-- removal-only orphan-remnant suppression for detached exposed cliff needles/slabs;
-- bounded post-erosion removal of obsolete desert-facing Shield-Wall shell columns;
+- lithology-aware roof recession, structural fracture incision and gravel/source-clast colluvium;
+- rock/sediment-envelope exposure independent of future caves or generated neighbor chunks;
+- smooth warped structural ramps reused as uplift of the continuous geological body;
+- a separate legacy 5148 path retaining historical occupancy, undercuts and cleanup behavior;
 - smooth basalt, red sandstone and terracotta as coherent resistance-tiered lithologies;
-- serialized terrain-base alignment: the Shield Wall sits four blocks lower while full fault cores expose the Y=64 sand floor;
-- corrected Shield-Wall basal contact with a short gravity-driven gravel/sand talus apron;
+- strata following tectonic/fault displacement, including beneath the basin;
 - native transverse far-erg dunes with full and sixteenth-layer sand surfaces;
 - an operator-only deterministic dune prototype for the Arrakis Dev world;
 - live in-game tuning commands for the dune prototype;
@@ -65,7 +58,15 @@ other development/test mods can be installed manually.
 
 ## Arrakis Dev world
 
-**Create a new Arrakis Dev world for clean 0.5.14 escarpment/erosion testing.**
+**Create a new Arrakis Dev world for profile-6000 buried-rock testing.**
+
+Y64 is the graded basin sediment datum, not the geological root. Bottom bedrock remains at
+Y=-64; coherent rock fills from -63 through Re, sediment fills any interval up to its independent
+surface S, and bounded erosion-derived debris may overlie both. Surface height is max(Re,S,C).
+The active JSON uses `buried_rock` controls; the old flat substrate is overwritten entirely.
+`/dune geology profile` shows the new settings; `/dune terrain inspect` reports R0/S/Re/H.
+
+### Historical 0.5.14 substrate and migration (legacy worlds only)
 
 The `minecraftdune:arrakis_dev` generator codec stores its serialized `terrain` profile.
 Version 0.5.14 adds an optional `erosion` section after the existing `lithology` and
@@ -74,7 +75,7 @@ disabled, so it does not silently change new chunks at an old world border. Exis
 are never rewritten; create a new world (or regenerate closed-world region files) for clean
 visual comparisons.
 
-The native generator retains the same base stratigraphy:
+The legacy generator retains this base stratigraphy; it is not the profile-6000 geological model:
 
 | Y range | Base material |
 |---:|---|
@@ -102,7 +103,11 @@ A finalization gate also covers autonomous patrol, event, structure, and spawner
 Commands, spawn eggs, buckets, dispensers, and breeding remain usable. Lakes, structures,
 caves, and biome features stay disabled. The Nether and End retain normal vanilla generation.
 
-## Lithology, massif fissures, and escarpments — 0.5.14
+## Historical lithology, massif fissures, and escarpments — 0.5.14
+
+The occupancy/undercut behavior below describes legacy profiles. Profile 6000 reuses the
+materials, fractures and useful erosion mathematics with structurally shifted geology and
+a solid eroded roof instead; see the linked buried-rock report above.
 
 Native rock now reads as coherent geological units rather than uniform stone or per-block
 speckle. Stone, sandstone, red sandstone, terracotta, tuff, calcite, andesite, diorite,

@@ -1,6 +1,18 @@
-# Arrakis terrain profile — parameter reference (0.5.14.8.2 - Front-Shell Cleanup)
+# Arrakis terrain profile — parameter reference (0.6.0-dev.1 — Buried Rock)
 
-## Current front-shell cleanup
+## Current profile 6000
+
+The active development JSON now selects `profile_version: 6000`. New controls are grouped
+under `buried_rock.rock_surface`, `buried_rock.sediment`, `buried_rock.fault_displacement`,
+`buried_rock.erosion` and `buried_rock.talus`. Every parameter, default and geological role is
+documented in the [buried-rock parameter reference](BURIED_ROCK_TERRAIN_0.6.0-dev.1.md#settings).
+
+Rock and sediment are independent absolute surfaces. Existing geometry/dune/material controls
+are reused, but legacy repair groups are absent from the active preset and cannot run in 6000.
+Saved 5148 worlds retain their old path; create a new world rather than editing a saved profile
+number. The reference below is retained for legacy interpretation, **not current 6000 tuning**.
+
+## Legacy 5148 front-shell cleanup
 
 The development preset adds an optional top-level object:
 

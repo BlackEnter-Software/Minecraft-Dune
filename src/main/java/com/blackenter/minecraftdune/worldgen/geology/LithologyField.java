@@ -59,6 +59,12 @@ public final class LithologyField {
         );
     }
 
+    /** Strata, sheets and intrusions share the same displaced geological Y coordinate. */
+    public static Column column(long seed, double x, double z, ArrakisTerrainSettings.LithologySettings settings,
+            ArrakisTerrainSettings.AdditionalMaterialSettings additional, double structuralDisplacement) {
+        return new Column(seed, x, z, settings, additional, structuralDisplacement);
+    }
+
     public enum ResistanceClass {
         SOFT("soft", 1.18),
         MEDIUM("medium", 1.0),
@@ -144,6 +150,7 @@ public final class LithologyField {
         private final double sheetGate;
         private final double calciteGate;
         private final double calciteBandOffset;
+        private final double structuralDisplacement;
 
         private Column(
                 long worldSeed,
@@ -152,11 +159,18 @@ public final class LithologyField {
                 ArrakisTerrainSettings.LithologySettings settings,
                 ArrakisTerrainSettings.AdditionalMaterialSettings additionalMaterials
         ) {
+            this(worldSeed, worldX, worldZ, settings, additionalMaterials, 0.0);
+        }
+
+        private Column(long worldSeed, double worldX, double worldZ,
+                ArrakisTerrainSettings.LithologySettings settings,
+                ArrakisTerrainSettings.AdditionalMaterialSettings additionalMaterials, double structuralDisplacement) {
             this.worldSeed = worldSeed;
             this.worldX = worldX;
             this.worldZ = worldZ;
             this.settings = settings;
             this.additionalMaterials = additionalMaterials;
+            this.structuralDisplacement = structuralDisplacement;
 
             double strataWarpScale = Math.max(1.0, settings.strataWarpScale());
             strataWarp = settings.strataWarpStrength() * GeologyNoise.value2(
@@ -189,6 +203,12 @@ public final class LithologyField {
         }
 
         public Sample sample(double worldY) {
+            return sampleGeological(geologicalY(worldY));
+        }
+
+        public double geologicalY(double worldY) { return worldY - structuralDisplacement; }
+
+        private Sample sampleGeological(double worldY) {
             double horizontalScale = Math.max(1.0, settings.unitHorizontalScale());
             double verticalScale = Math.max(1.0, settings.unitVerticalScale());
             double intrusionScale = Math.max(1.0, settings.intrusionScale());
