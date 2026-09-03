@@ -1,5 +1,50 @@
 # Arrakis terrain profile — parameter reference (0.5.14.2)
 
+## Current hardening addition: fault shoulders and ravine talus
+
+Two further optional flags default to `false`; the development preset opts in:
+
+- `erosion.orphan_remnants.fault_edge_cleanup_enabled`: allows the existing bounded
+  component classifier on fault shoulders with carve mask <=0.85. Full cores and sand
+  corridors stay protected. Radius 3, maximum four columns, all-height connections and
+  conservative support/boundary retention are unchanged. This does NOT remove a small
+  projection which is still connected to the broader toe (including 3050/70/190).
+- `lithology.talus.ravine_contact_enabled`: after the existing massif search fails to
+  qualify a contact, permits four local cardinal wall rays on fault shoulders. Each ray
+  remains bounded to 32 cells, with the unchanged 24-cell connected wall-relief probe.
+  It uses final pre-talus rock, not a nominal radius, and stops at protected core/pass
+  cells. Qualified existing massif contacts always win. The same gravel shape and
+  4-inward/24-outward/four-layer sand skirt consume the new actual contact.
+
+The inspector now labels contact `source=massif` or `source=ravine` and shows the fault-edge
+cleanup opt-in. No macro, erosion, face, lithology, fracture, fault-geometry or dune settings
+changed. Version/profile stay `0.5.14.8` / `5148`; old saved profiles keep both flags false.
+Create a NEW Arrakis Dev Seed-0 world for the next visual check. Existing worlds are not
+migrated, and even their newly generated chunks retain their serialized options.
+See [the fault-edge/ravine report](FAULT_EDGE_RAVINE_FINISHING_REPORT.md).
+
+## Prior bounded-component and sand-skirt finishing pass
+
+Two optional booleans default to `false` and are explicitly `true` in the development preset:
+
+- `erosion.orphan_remnants.basal_component_cleanup_enabled`: post-orphan/pre-contact bounded
+  component cleanup, radius 3, at most four connected columns. There is no pillar-height
+  exemption. Connections above the residual Y65 floor, including diagonals and high ledges,
+  protect connected ribs/buttresses; search-boundary and fault structures are retained.
+- `lithology.talus.basal_sand_skirt_enabled`: actual-contact material skirt, up to four layers
+  (Y61–64), four blocks inward and 24 outward. Depth is `ceil(4*(1-smoothstep(outward/24)))`.
+  Existing contact/source/path/fault gates apply. Real cliff rock and visible gravel take
+  precedence. A Y65 mantle is allowed only over a confirmed single-layer erosion residue,
+  never over initially one-layer native foreland rock or an empty Y65 desert cell.
+
+Neither changes existing erosion strengths or the contact search/probe. Missing flags preserve
+the previous generation fingerprint. Version/profile remain `0.5.14.8` / `5148`, following the
+explicit opt-in compatibility convention. A new development world is required to get the flags.
+The retired uncommitted experiment's `micro_trim_enabled` and `sand_concealment_enabled`
+keys are ignored, not aliases for the replacement. Worlds saved with those keys decode but
+do not reproduce the discarded experimental finishing behavior in newly generated chunks.
+See [the finishing report](BASAL_FINISHING_REPORT.md) for exact rules, tests and limitations.
+
 ## Current hardening addition: actual-contact talus
 
 `lithology.talus.actual_contact_enabled` is an optional boolean, default `false`.

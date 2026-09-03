@@ -135,6 +135,8 @@
               "spread": 18.0,
               "basal_apron_enabled": true,
               "actual_contact_enabled": true,
+              "basal_sand_skirt_enabled": true,
+              "ravine_contact_enabled": true,
               "basal_apron_max_height": 6,
               "basal_apron_spread": 12.0,
               "basal_apron_inset": 4.0,
@@ -194,6 +196,8 @@
             },
             "orphan_remnants": {
               "enabled": true,
+              "basal_component_cleanup_enabled": true,
+              "fault_edge_cleanup_enabled": true,
               "inward_support_depth": 8,
               "lateral_search_radius": 2,
               "minimum_height_above_base": 5,

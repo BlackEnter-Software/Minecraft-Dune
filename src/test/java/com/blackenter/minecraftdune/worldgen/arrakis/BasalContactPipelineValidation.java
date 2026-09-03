@@ -51,7 +51,8 @@ public final class BasalContactPipelineValidation {
                         "fault core left sand datum");
             }
             if (c.geology().faultCarveMask() > 0.85 || c.geology().sandCorridorMask() > 0.25) {
-                require(!c.basalTalusApron().active() && !c.basal().actual().found(), "talus filled suppressed core");
+                require(!c.basalTalusApron().active() && !c.basal().actual().found()
+                        && !c.skirt().active(), "basal material filled suppressed core");
             }
         }
         var core = evaluator.column(3042, 199);
@@ -61,11 +62,14 @@ public final class BasalContactPipelineValidation {
         require(lowCleanup.rawRockOccupies(lowCleanup.preTalusColumn(3052, 96), 68)
                 && !lowCleanup.rockOccupies(3052, 68, 96), "fixed unsupported basal remnant was not removed");
 
-        // Existing targeted tooth is *not* fixed by basal protection: its face relief is below 24.
+        // The shoulder is now examined, but this photographed tooth has a toe connection.
+        // A component-only pass must not amputate it to satisfy a visual preference.
         var tooth = evaluator.column(3050, 190);
         require(tooth.face().localRelief() < settings.erosion().orphanRemnants().minimumFaceRelief()
                 && evaluator.rockOccupies(3050, 70, 190) && !tooth.talusOccupiesY(70),
                 "reported tooth classification changed; inspect before adjusting its policy");
+        require(evaluator.componentCleanup(3050,190).candidate()
+                && evaluator.componentCleanup(3050,190).reachesSupport(), "toe connection no longer protected");
         String report = ArrakisTerrainCommand.describe(evaluator, 0, settings, 3050, 70, 190);
         require(report.contains("protects-through-Y=64") && !report.contains("\r"), "inspector floor/newlines wrong");
     }

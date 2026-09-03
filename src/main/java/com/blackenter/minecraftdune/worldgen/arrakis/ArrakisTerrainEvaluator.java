@@ -2,6 +2,8 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 
 import com.blackenter.minecraftdune.worldgen.dune.NativeTransverseDuneField;
 import com.blackenter.minecraftdune.worldgen.geology.BasalTalusApronField;
+import com.blackenter.minecraftdune.worldgen.geology.BoundedBasalComponentCleanup;
+import com.blackenter.minecraftdune.worldgen.geology.BasalSandSkirt;
 import com.blackenter.minecraftdune.worldgen.geology.EscarpmentErosionField;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
 import com.blackenter.minecraftdune.worldgen.geology.MacroGeologyField;
@@ -10,7 +12,7 @@ import com.blackenter.minecraftdune.worldgen.geology.OrphanRemnantFilter;
 import com.blackenter.minecraftdune.worldgen.geology.RockFaceExposure;
 import com.blackenter.minecraftdune.worldgen.geology.RockSurfaceErosionField;
 import com.blackenter.minecraftdune.worldgen.geology.ScarpMorphologyField;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
 
@@ -27,7 +29,7 @@ public final class ArrakisTerrainEvaluator {
 
     private final long worldSeed;
     private final ArrakisTerrainSettings terrainSettings;
-    private final Long2ObjectOpenHashMap<ColumnEntry> columns;
+    private final Long2ObjectLinkedOpenHashMap<ColumnEntry> columns;
     private final int maximumEntries;
     private final TerrainGenerationMetrics.Evaluation metrics;
 
@@ -44,7 +46,7 @@ public final class ArrakisTerrainEvaluator {
         this.terrainSettings = java.util.Objects.requireNonNull(settings);
         this.maximumEntries = maximumEntries;
         this.metrics = metrics;
-        columns = new Long2ObjectOpenHashMap<>(maximumEntries);
+        columns = new Long2ObjectLinkedOpenHashMap<>(maximumEntries);
     }
 
     /** Only this final stage requests deposits. Support and contact queries never call it. */
@@ -71,8 +73,19 @@ public final class ArrakisTerrainEvaluator {
                             return side.valid() && Math.abs(side.signedDistance()) <= side.scarpWidth()
                                     + 2 * BasalTalusApronField.CONTACT_SEARCH_LIMIT;
                         }
+                        @Override public boolean ravineSourceAllowed(int x, int z) {
+                            var r = preTalusColumn(x, z);
+                            return r.geology().faultCarveMask() > 0 && allowed(x, z)
+                                    && r.geology().physicalMassifWeight() > 0.18
+                                    && r.face().exposed() && r.face().lowY() <= 70
+                                    && r.face().localRelief() > 12;
+                        }
                     });
-            entry.complete = new TerrainColumn(entry.rock, basal);
+            boolean residual = residualBasalY65(worldX, worldZ);
+            var skirt = BasalSandSkirt.sample(terrainSettings.lithology().talus().basalSandSkirtEnabled(),
+                    basal, residual, basal.apron().materialAt(65) == BasalTalusApronField.Material.GRAVEL);
+            entry.complete = new TerrainColumn(entry.rock, basal, skirt, residual,
+                    terrainSettings.lithology().talus().basalSandSkirtEnabled(), componentCleanup(worldX, worldZ).removed());
         }
         return entry.complete;
     }
@@ -106,15 +119,20 @@ public final class ArrakisTerrainEvaluator {
     private ColumnEntry entry(int worldX, int worldZ) {
         // Both full signed coordinates, not chunk coordinates. One bound for both stages.
         long key = ChunkPos.asLong(worldX, worldZ);
-        ColumnEntry cached = columns.get(key);
+        ColumnEntry cached = columns.getAndMoveToLast(key);
         if (cached != null) {
             metrics.cacheHit();
             return cached;
         }
         metrics.cacheMiss();
         ColumnEntry result = new ColumnEntry(terrainColumn(worldX, worldZ));
-        if (columns.size() < maximumEntries) columns.put(key, result);
-        else metrics.cacheBypass();
+        // Four local wall rays can fill the cache early in a chunk. Keep the current
+        // working set rather than pinning those first columns and recomputing every
+        // later component for every Y. Eviction only changes work, never decisions.
+        if (maximumEntries > 0) {
+            if (columns.size() == maximumEntries) columns.removeFirst();
+            columns.put(key, result);
+        } else metrics.cacheBypass();
         return result;
     }
 
@@ -150,14 +168,17 @@ public final class ArrakisTerrainEvaluator {
         final PreTalusColumn rock;
         int filteredTop = Integer.MIN_VALUE;
         byte talusWall;
+        BoundedBasalComponentCleanup.Sample component;
+        int orphanTop = Integer.MIN_VALUE;
+        byte[] orphanOccupancy;
         TerrainColumn complete;
         ColumnEntry(PreTalusColumn rock) { this.rock = rock; }
     }
 
     public int highestOccupiedY(int worldX, int worldZ) {
         TerrainColumn terrain = column(worldX, worldZ);
-        int talusTopY = terrain.erosion().talusThickness() > 0
-                ? terrain.talusBaseY() + terrain.erosion().talusThickness() - 1
+        int talusTopY = terrain.localTalusThickness() > 0
+                ? terrain.talusBaseY() + terrain.localTalusThickness() - 1
                 : MacroGeologyField.BASE_SURFACE_Y;
         return Math.max(Math.max(highestFilteredRockY(worldX, worldZ), talusTopY),
                 Math.max(terrain.basalTalusApron().topY(), terrain.highestDuneY()));
@@ -288,6 +309,15 @@ public final class ArrakisTerrainEvaluator {
             PreTalusColumn terrain,
             LithologyField.Sample material
     ) {
+        return orphanFilteredRockOccupies(worldX, worldZ, worldY, terrain, material)
+                && (worldY < FIRST_NATIVE_Y
+                    || !terrainSettings.erosion().orphanRemnants().basalComponentCleanupEnabled()
+                    || !componentCleanup(worldX, worldZ).removesY(worldY));
+    }
+
+    /** Only the existing orphan stage; component support never samples itself or deposits. */
+    boolean orphanFilteredRockOccupies(int worldX, int worldZ, int worldY,
+            PreTalusColumn terrain, LithologyField.Sample material) {
         if (!terrain.erosion().occupies(worldY, material)
                 || !terrain.surfaceErosion().occupies(worldY, material)) {
             return false;
@@ -305,6 +335,80 @@ public final class ArrakisTerrainEvaluator {
                         supportY
                 )
         );
+    }
+
+    private boolean componentContext(int x, int z) {
+        var rock = preTalusColumn(x, z);
+        var orphan = terrainSettings.erosion().orphanRemnants();
+        var face = rock.face();
+        return orphan.enabled() && orphan.basalComponentCleanupEnabled()
+                && rock.surfaceErosion().settings().baseAnchoredErosion()
+                && (rock.erosion().candidate() || rock.surfaceErosion().active())
+                && face.exposed() && face.lowY() <= 70
+                && face.localRelief() > 12 && rock.geology().physicalMassifWeight() > 0.18
+                // Only the opted-in fault shoulder may be classified. The bounded graph
+                // still retains every component connected to real wall/toe or core rock.
+                && rock.geology().sandCorridorMask() <= 0.25
+                && (rock.geology().faultCarveMask() == 0
+                    || orphan.faultEdgeCleanupEnabled() && rock.geology().faultCarveMask() <= 0.85);
+    }
+
+    public BoundedBasalComponentCleanup.Sample componentCleanup(int x, int z) {
+        ColumnEntry entry = entry(x, z);
+        if (entry.component != null) return entry.component;
+        return entry.component = BoundedBasalComponentCleanup.sample(x, z, new BoundedBasalComponentCleanup.RockLookup() {
+            public int topY(int sx, int sz) { return highestOrphanRockY(sx, sz); }
+            public boolean occupied(int sx, int sy, int sz) { return postOrphanRockOccupies(sx, sy, sz); }
+            public boolean cleanupAllowed(int sx, int sz) { return componentContext(sx, sz); }
+        });
+    }
+
+    private boolean postOrphanRockOccupies(int x, int y, int z) {
+        ColumnEntry entry = entry(x, z);
+        var rock = entry.rock;
+        if (y < FIRST_NATIVE_Y || y > rock.rockTopY()) return false;
+        if (entry.orphanOccupancy == null) entry.orphanOccupancy = new byte[rock.rockTopY() - FIRST_NATIVE_Y + 1];
+        int index = y - FIRST_NATIVE_Y;
+        byte cached = entry.orphanOccupancy[index];
+        if (cached == 0) entry.orphanOccupancy[index] = cached = (byte) (orphanFilteredRockOccupies(
+                x, z, y, rock, rock.materialSampleAt(y)) ? 2 : 1);
+        return cached == 2;
+    }
+
+    private int highestOrphanRockY(int x, int z) {
+        ColumnEntry entry = entry(x, z);
+        if (entry.orphanTop != Integer.MIN_VALUE) return entry.orphanTop;
+        for (int y = entry.rock.rockTopY(); y >= FIRST_NATIVE_Y; y--) {
+            if (postOrphanRockOccupies(x, y, z)) return entry.orphanTop = y;
+        }
+        return entry.orphanTop = 64;
+    }
+
+    /** A surviving one-layer erosion floor, NOT rock with any final body above it. */
+    public boolean residualBasalY65(int x, int z) {
+        var c = preTalusColumn(x, z);
+        return c.originalRockTopY() > 65 && c.face().exposed() && c.face().lowY() <= 65
+                && (c.erosion().candidate() || c.surfaceErosion().active())
+                && highestFilteredRockY(x, z) == 65 && rockOccupies(x, 65, z);
+    }
+
+    /** Real cliff rock wins; roots below Y65 and classified thin erosion residue may be concealed. */
+    public boolean realCliffRock(int x, int y, int z, TerrainColumn column) {
+        return rockOccupies(x, y, z) && !(y == 65 && column.residualY65());
+    }
+
+    public String preSkirtOwner(int x, int y, int z) {
+        if (y <= 64) return "SUBSTRATE_OR_FOUNDATION_ROOT";
+        if (!rockOccupies(x, y, z)) return "NO_NATIVE_ROCK";
+        return y == 65 && residualBasalY65(x, z) ? "BASAL_EROSION_RESIDUE" : "FINAL_CLIFF_ROCK";
+    }
+
+    public BasalTalusApronField.Material basalMaterialAt(int x, int y, int z, TerrainColumn column) {
+        if (column.rockPriority() && realCliffRock(x, y, z, column)) return BasalTalusApronField.Material.NONE;
+        // Local scree is written first; never bury it with the basal sand skirt.
+        if (column.talusOccupiesY(y)) return BasalTalusApronField.Material.NONE;
+        var apron = column.basalTalusApron().materialAt(y);
+        return apron != BasalTalusApronField.Material.NONE ? apron : column.skirt().materialAt(y);
     }
 
     public boolean rawRockOccupies(TerrainColumn terrain, int worldY) {
@@ -348,7 +452,12 @@ public final class ArrakisTerrainEvaluator {
 
     }
 
-    public record TerrainColumn(PreTalusColumn rock, BasalTalusApronField.Evaluation basal) {
+    public record TerrainColumn(PreTalusColumn rock, BasalTalusApronField.Evaluation basal,
+            BasalSandSkirt.Sample skirt, boolean residualY65, boolean rockPriority, boolean componentRemoved) {
+        public TerrainColumn(PreTalusColumn rock, BasalTalusApronField.Evaluation basal) {
+            this(rock, basal, BasalSandSkirt.shape(false, Double.POSITIVE_INFINITY, false), false, false, false);
+        }
+        public int localTalusThickness() { return componentRemoved ? 0 : erosion().talusThickness(); }
         public int rockTopY() { return rock.rockTopY(); }
         public int originalRockTopY() { return rock.originalRockTopY(); }
         public int fissureRockTopY() { return rock.fissureRockTopY(); }
@@ -386,8 +495,8 @@ public final class ArrakisTerrainEvaluator {
 
         public int highestOccupiedY() {
             int duneTopY = highestDuneY();
-            int talusTopY = erosion().talusThickness() > 0
-                    ? talusBaseY() + erosion().talusThickness() - 1
+            int talusTopY = localTalusThickness() > 0
+                    ? talusBaseY() + localTalusThickness() - 1
                     : MacroGeologyField.BASE_SURFACE_Y;
             return Math.max(
                     Math.max(
@@ -420,9 +529,9 @@ public final class ArrakisTerrainEvaluator {
         }
 
         public boolean talusOccupiesY(int y) {
-            return erosion().talusThickness() > 0
+            return localTalusThickness() > 0
                     && y >= talusBaseY()
-                    && y < talusBaseY() + erosion().talusThickness();
+                    && y < talusBaseY() + localTalusThickness();
         }
     }
 }

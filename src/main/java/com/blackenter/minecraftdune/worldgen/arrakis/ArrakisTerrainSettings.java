@@ -58,6 +58,8 @@ public record ArrakisTerrainSettings(
                     12.0,
                     4.0,
                     0.62,
+                    false,
+                    false,
                     false
             );
 
@@ -136,7 +138,9 @@ public record ArrakisTerrainSettings(
                     1,
                     2,
                     5,
-                    24.0
+                    24.0,
+                    false,
+                    false
             );
 
     /**
@@ -678,7 +682,9 @@ public record ArrakisTerrainSettings(
             double basalApronSpread,
             double basalApronInset,
             double basalApronSandStart,
-            boolean actualContactEnabled
+            boolean actualContactEnabled,
+            boolean basalSandSkirtEnabled,
+            boolean ravineContactEnabled
     ) {
         public static final Codec<TalusSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -701,7 +707,11 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.optionalFieldOf("basal_apron_sand_start", 0.62)
                                 .forGetter(TalusSettings::basalApronSandStart),
                         Codec.BOOL.optionalFieldOf("actual_contact_enabled", false)
-                                .forGetter(TalusSettings::actualContactEnabled)
+                                .forGetter(TalusSettings::actualContactEnabled),
+                        Codec.BOOL.optionalFieldOf("basal_sand_skirt_enabled", false)
+                                .forGetter(TalusSettings::basalSandSkirtEnabled),
+                        Codec.BOOL.optionalFieldOf("ravine_contact_enabled", false)
+                                .forGetter(TalusSettings::ravineContactEnabled)
                 ).apply(instance, TalusSettings::new));
     }
 
@@ -840,7 +850,9 @@ public record ArrakisTerrainSettings(
             int inwardSupportDepth,
             int lateralSearchRadius,
             int minimumHeightAboveBase,
-            double minimumFaceRelief
+            double minimumFaceRelief,
+            boolean basalComponentCleanupEnabled,
+            boolean faultEdgeCleanupEnabled
     ) {
         public static final Codec<OrphanRemnantSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -853,7 +865,11 @@ public record ArrakisTerrainSettings(
                         Codec.INT.optionalFieldOf("minimum_height_above_base", 5)
                                 .forGetter(OrphanRemnantSettings::minimumHeightAboveBase),
                         Codec.DOUBLE.optionalFieldOf("minimum_face_relief", 24.0)
-                                .forGetter(OrphanRemnantSettings::minimumFaceRelief)
+                                .forGetter(OrphanRemnantSettings::minimumFaceRelief),
+                        Codec.BOOL.optionalFieldOf("basal_component_cleanup_enabled", false)
+                                .forGetter(OrphanRemnantSettings::basalComponentCleanupEnabled),
+                        Codec.BOOL.optionalFieldOf("fault_edge_cleanup_enabled", false)
+                                .forGetter(OrphanRemnantSettings::faultEdgeCleanupEnabled)
                 ).apply(instance, OrphanRemnantSettings::new));
     }
 

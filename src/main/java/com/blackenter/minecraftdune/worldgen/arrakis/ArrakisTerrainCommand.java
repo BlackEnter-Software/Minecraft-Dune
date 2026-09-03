@@ -1,6 +1,8 @@
 package com.blackenter.minecraftdune.worldgen.arrakis;
 
 import com.blackenter.minecraftdune.worldgen.geology.OrphanRemnantFilter;
+import com.blackenter.minecraftdune.worldgen.geology.BasalSandSkirt;
+import com.blackenter.minecraftdune.worldgen.geology.BoundedBasalComponentCleanup;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -70,6 +72,8 @@ public final class ArrakisTerrainCommand {
         var structural = c.basal().structural();
         var contact = c.basal().actual();
         var orphan = settings.erosion().orphanRemnants();
+        var component = evaluator.componentCleanup(x, z);
+        var skirt = c.skirt();
         int filteredTop = evaluator.highestFilteredRockY(x, z);
         var material = c.materialSampleAt(y);
         String surfaceMaterial = filteredTop <= 64 ? "none"
@@ -84,11 +88,14 @@ public final class ArrakisTerrainCommand {
                 + "Face: exposed=%s high-side=%s Y=%d..%d relief=%.2f inset=%.2f normal=(%.3f,%.3f)%n"
                 + "Lithology at Y%d: %s/%s; filtered surface=%s%n"
                 + "Orphan: enabled=%s inward=%d lateral=%d protects-through-Y=%d min-relief=%.1f; raw=%s kept=%s%n"
+                + "Component cleanup: candidate=%s removed=%s search-radius=%d component-columns=%d reaches-support=%s reaches-search-boundary=%s reason=%s fault-edge-enabled=%s%n"
                 + "Structural: valid=%s signed=%.2f inward-normal=(%.3f,%.3f)%n"
-                + "Actual contact: enabled=%s searched=%d found=%s signed=%.2f X/Z=%d/%d rock-top=%d reason=%s%n"
+                + "Actual contact: enabled=%s searched=%d found=%s signed=%.2f X/Z=%d/%d rock-top=%d reason=%s source=%s%n"
                 + "Wall: top=%d relief=%d probe-blocks=%d query-band=Y%d..%d%n"
                 + "Basal talus: active=%s height=%d outward=%.2f spread=%.2f; local talus=%d blocks from Y%d%n"
                 + "At queried Y: basal-material=%s local-talus=%s%n"
+                + "Sand skirt: active=%s actual-contact-distance=%.2f inward-overlap=%d outward-reach=%d local-depth=%d visible-Y65-mantle=%s material-at-query=%s%n"
+                + "Pre-skirt ownership: Y64=%s Y65=%s queried-Y=%s%n"
                 + "Dune units=%d dune-top=%d combined analytical top=%d cached-columns=%d",
                 seed, settings.profileVersion(), x, y, z, surface.settings().baseAnchoredErosion(),
                 g.dominantProvince().commandName(), g.radiusBlocks(), g.effectiveRadiusBlocks(),
@@ -105,13 +112,19 @@ public final class ArrakisTerrainCommand {
                 orphan.enabled(), orphan.inwardSupportDepth(), orphan.lateralSearchRadius(),
                 OrphanRemnantFilter.protectedThroughY(surface.settings().baseAnchoredErosion(), orphan), orphan.minimumFaceRelief(),
                 evaluator.rawRockOccupies(c, y), evaluator.rockOccupies(x, y, z),
+                component.candidate(), component.removed(), BoundedBasalComponentCleanup.SEARCH_RADIUS,
+                component.componentColumns(), component.reachesSupport(), component.reachesSearchBoundary(), component.reason(),
+                orphan.faultEdgeCleanupEnabled(),
                 structural.valid(), structural.signedDistance(), structural.inwardX(), structural.inwardZ(),
                 contact.enabled(), contact.searchedBlocks(), contact.found(), contact.signedDistance(),
-                contact.x(), contact.z(), contact.rockTopY(), contact.reason(),
+                contact.x(), contact.z(), contact.rockTopY(), contact.reason(), c.basal().source(),
                 contact.wallTopY(), contact.wallRelief(), contact.wallProbeBlocks(),
                 evaluator.talusWallQueryMinY(), evaluator.talusWallQueryMaxY(),
                 apron.active(), apron.height(), apron.outwardDistance(), apron.spread(),
-                major.talusThickness(), c.talusBaseY(), apron.materialAt(y), c.talusOccupiesY(y),
+                c.localTalusThickness(), c.talusBaseY(), evaluator.basalMaterialAt(x, y, z, c), c.talusOccupiesY(y),
+                skirt.active(), skirt.signedDistance(), BasalSandSkirt.INWARD_OVERLAP, BasalSandSkirt.OUTWARD_REACH,
+                skirt.depth(), skirt.visibleY65Mantle(), skirt.materialAt(y),
+                evaluator.preSkirtOwner(x, 64, z), evaluator.preSkirtOwner(x, 65, z), evaluator.preSkirtOwner(x, y, z),
                 c.duneSurfaceUnits(), c.highestDuneY(),
                 evaluator.highestOccupiedY(x, z), evaluator.size()).replace("\r\n", "\n");
     }

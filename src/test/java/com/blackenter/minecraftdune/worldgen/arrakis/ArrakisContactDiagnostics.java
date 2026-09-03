@@ -12,6 +12,63 @@ import java.util.function.IntPredicate;
 public final class ArrakisContactDiagnostics {
     public static void main(String[] args) throws Exception {
         var settings = ArrakisProfileValidation.loadProfile().settings();
+        if (java.util.Arrays.asList(args).contains("--ravine-attachment")) {
+            int contacts = 0, gaps = 0, north = 0, south = 0;
+            long start = System.nanoTime();
+            for (long seed : new long[] {0, -5640511200611798902L}) {
+                for (int z = 100; z <= 220; z++) {
+                    var e = new ArrakisTerrainEvaluator(seed, settings, 1024);
+                    for (int x = 3192; x <= 3208; x++) {
+                        var c = e.column(x,z); var a = c.basal().actual();
+                        if (!c.basal().source().equals("ravine") || !c.basalTalusApron().active() || a.signedDistance() > 0) continue;
+                        contacts++;
+                        if (seed == 0 && a.z() < z && north++ == 0) System.out.printf("North-wall fixture: %d/%d %s%n", x,z,a);
+                        if (seed == 0 && a.z() > z && south++ == 0) System.out.printf("South-wall fixture: %d/%d %s%n", x,z,a);
+                        int nx = a.x() + Integer.signum(x-a.x()), nz = a.z() + Integer.signum(z-a.z());
+                        if (!e.column(nx,nz).basalTalusApron().active()) {
+                            if (++gaps <= 8) System.out.printf("Ravine attachment gap seed=%d X/Z=%d/%d adjacent=%d/%d %s%n",
+                                    seed,x,z,nx,nz,a);
+                        }
+                    }
+                }
+            }
+            System.out.printf("Optional ravine attachment: contacts=%d gaps=%d north=%d south=%d elapsed-ms=%.1f%n",
+                    contacts,gaps,north,south,(System.nanoTime()-start)/1_000_000.0);
+            profileChunk(settings, 0L, 199, 12, true);
+            profileChunk(BasalFinishingValidation.withoutFaultFinishing(settings), 0L, 199, 12, true);
+            return;
+        }
+        if (java.util.Arrays.asList(args).contains("--fault-components")) {
+            for (int[] center : new int[][] {{3050,190},{3200,200},{3067,106},{3089,173},{3050,254}}) {
+                var e = new ArrakisTerrainEvaluator(0, settings, 1024);
+                for (int z = center[1]-3; z <= center[1]+3; z++) for (int x = center[0]-3; x <= center[0]+3; x++) {
+                    var c = e.preTalusColumn(x,z);
+                    var component = e.componentCleanup(x,z);
+                    if (center[0] != 3050 || center[1] != 190) { if (!component.removed()) continue; }
+                    System.out.printf("Fault component %d/%d raw-top=%d fault=%.3f face=%s low=%d relief=%.1f surface=%s component=%s%n",
+                            x,z,c.rockTopY(),c.geology().faultCarveMask(),c.face().exposed(),c.face().lowY(),
+                            c.face().localRelief(),c.surfaceErosion().active(),component);
+                }
+            }
+            return;
+        }
+        if (java.util.Arrays.asList(args).contains("--fault-edge")) {
+            var old = new ArrakisTerrainEvaluator(0, BasalFinishingValidation.withoutFaultFinishing(settings), 1024);
+            var current = new ArrakisTerrainEvaluator(0, settings, 1024);
+            for (int[] p : new int[][] {{3050,190},{3200,200},{3201,200},{3200,199},{3200,190},
+                    {3001,464},{4086,0},{3042,199}}) {
+                System.out.printf("Before X/Z=%d/%d top=%d component=%s contact=%s%n", p[0], p[1],
+                        old.highestFilteredRockY(p[0],p[1]), old.componentCleanup(p[0],p[1]), old.column(p[0],p[1]).basal());
+                System.out.println(ArrakisTerrainCommand.describe(current, 0, settings, p[0], 70, p[1]));
+            }
+            return;
+        }
+        if (java.util.Arrays.asList(args).contains("--components")) {
+            summarizeComponents(settings, 24, new long[] {0, -5640511200611798902L});
+            return;
+        }
+        describeRimOwnership(settings);
+        if (java.util.Arrays.asList(args).contains("--rim-only")) return;
         profileChunk(settings, 0L, 190, 12, false); // JVM warmup; not reported.
         profileChunk(settings, 0L, 190, 12, true);
         profileChunk(settings, -5640511200611798902L, 191, 6, true);
@@ -22,6 +79,10 @@ public final class ArrakisContactDiagnostics {
         profileChunk(settings, 0L, 409, 0, true);
         profileChunk(settings, 0L, 187, 29, true);
         profileChunk(settings, 0L, 191, -4, true);
+        var beforeFinishing = BasalFinishingValidation.withoutFinishing(settings);
+        profileChunk(beforeFinishing, -5640511200611798902L, 191, 6, true);
+        profileChunk(beforeFinishing, 0L, 187, 29, true);
+        profileChunk(beforeFinishing, 0L, 191, -4, true);
         var structuralJson = ArrakisTerrainSettings.CODEC.encodeStart(JsonOps.INSTANCE, settings)
                 .getOrThrow().getAsJsonObject();
         structuralJson.getAsJsonObject("lithology").getAsJsonObject("talus").addProperty("actual_contact_enabled", false);
@@ -41,6 +102,52 @@ public final class ArrakisContactDiagnostics {
         if (java.util.Arrays.asList(args).contains("--trace")) trace(settings);
         if (java.util.Arrays.asList(args).contains("--legacy-gap")) measureApronGap(settings, 0L);
         findLowRemnant(settings);
+        summarizeComponents(settings, 8, new long[] {0});
+    }
+
+    private static void describeRimOwnership(ArrakisTerrainSettings settings) {
+        var evaluator = new ArrakisTerrainEvaluator(0, settings, 1024);
+        for (int[] p : new int[][] {{2963,615},{3001,464},{2991,464},{2984,464},{2986,464},{2987,464},{2988,464},
+                {3043,200},{3050,254},{3050,190},{3053,190},{3002,464},{3005,464},{4086,0}}) {
+            var c = evaluator.column(p[0], p[1]);
+            if (p[0] == 2988) {
+                System.out.printf("Rim context: geology=%s face=%s major=%s surface=%s%n", c.geology(), c.face(),
+                        c.erosion().candidate(), c.surfaceErosion().active());
+                for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++) {
+                    System.out.printf("Rim neighbor %d/%d top=%d%n", p[0]+dx,p[1]+dz,
+                            evaluator.highestFilteredRockY(p[0]+dx,p[1]+dz));
+                }
+            }
+            for (int y : new int[] {64,65}) {
+                boolean nativeWrite = c.hasNativeRock() && y <= c.rockTopY()
+                        && evaluator.filteredRockOccupies(p[0],p[1],y,c,c.materialSampleAt(y));
+                System.out.printf("Rim: X/Z=%d/%d Y=%d native-write=%s lithology=%s basal=%s local-talus=%s final-top=%d contact=%.1f fault=%.3f face-low=%d owner=%s original=%d mantle=%s%n",
+                        p[0],p[1],y,nativeWrite,c.materialSampleAt(y).material(),evaluator.basalMaterialAt(p[0],y,p[1],c),
+                        c.talusOccupiesY(y),evaluator.highestFilteredRockY(p[0],p[1]),
+                        c.basal().actual().signedDistance(),c.geology().faultCarveMask(),c.face().lowY(),
+                        evaluator.preSkirtOwner(p[0],y,p[1]),c.originalRockTopY(),c.skirt().visibleY65Mantle());
+            }
+        }
+    }
+
+    private static void summarizeComponents(ArrakisTerrainSettings settings, int radius, long[] seeds) {
+        int examined = 0, candidates = 0, removed = 0;
+        for (long seed : seeds) for (int[] center : new int[][] {{3001, 464}, {3043, 200}, {3050, 254}, {2963, 615}, {3067, 106}}) {
+            for (int z = center[1] - radius; z <= center[1] + radius; z++) {
+                var evaluator = new ArrakisTerrainEvaluator(seed, settings, 1024);
+                for (int x = center[0] - radius; x <= center[0] + radius; x++) {
+                    examined++;
+                    var component = evaluator.componentCleanup(x, z);
+                    if (component.candidate()) candidates++;
+                    if (!component.removed()) continue;
+                    removed++;
+                    if (removed <= 12) System.out.printf("Component cleanup seed=%d X/Z=%d/%d fault=%.3f %s%n", seed, x, z,
+                            evaluator.preTalusColumn(x,z).geology().faultCarveMask(), component);
+                }
+            }
+        }
+        System.out.printf("Optional component survey: columns=%d basal-candidates=%d removed-columns=%d; no population assertion.%n",
+                examined, candidates, removed);
     }
 
     private static void trace(ArrakisTerrainSettings settings) {
@@ -102,8 +209,9 @@ public final class ArrakisContactDiagnostics {
         if (!report) return;
         TerrainGenerationMetrics.recordChunk(new ChunkPos(chunkX, chunkZ), elapsed, metrics, evaluator.size());
         System.out.printf(Locale.ROOT,
-                "Analytical-only chunk seed=%d actual=%s chunk=%d/%d: %.2f ms evaluations=%d hit=%.2f%% cached=%d bypass=%d rock-writes=%d%n",
-                seed, settings.lithology().talus().actualContactEnabled(), chunkX, chunkZ, elapsed / 1_000_000.0, metrics.misses(),
+                "Analytical-only chunk seed=%d actual=%s component=%s skirt=%s chunk=%d/%d: %.2f ms evaluations=%d hit=%.2f%% cached=%d bypass=%d rock-writes=%d%n",
+                seed, settings.lithology().talus().actualContactEnabled(), settings.erosion().orphanRemnants().basalComponentCleanupEnabled(),
+                settings.lithology().talus().basalSandSkirtEnabled(), chunkX, chunkZ, elapsed / 1_000_000.0, metrics.misses(),
                 100.0 * metrics.hits() / Math.max(1, metrics.hits() + metrics.misses()),
                 evaluator.size(), metrics.bypasses(), blocks);
     }

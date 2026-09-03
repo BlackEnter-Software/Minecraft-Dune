@@ -9,8 +9,10 @@ public final class ArrakisTerrainEvaluatorValidation {
     // Captured only after exact agreement with a temporary copy of 9789ea8's evaluator.
     // Includes every written rock Y, additional lithology, deposits and height queries.
     private static final long HISTORICAL_FINGERPRINT = 0x624F66B5A25A22A3L;
-    // Intentional basal support + opt-in contact delta; historical reconstruction is still asserted.
-    private static final long EXPECTED_FINGERPRINT = 0x4587DD069077360FL;
+    private static final long PRE_FINISHING_FINGERPRINT = 0x4587DD069077360FL;
+    private static final long PRE_RAVINE_FINGERPRINT = 0xE8504E17B09F878FL;
+    // Opt-in ravine deposits; all three earlier generation fingerprints remain checked.
+    private static final long EXPECTED_FINGERPRINT = 0x485AF85209E2DA18L;
     private static final long[] SEEDS = {0L, -5640511200611798902L, 7640891576956012809L};
     private static final int[][] POINTS = {
         {0, 0}, {1500, 0}, {657, 3306}, {2553, 1706}, {3053, 190}, {3067, 106},
@@ -20,14 +22,22 @@ public final class ArrakisTerrainEvaluatorValidation {
 
     public static void main(String[] args) throws Exception {
         ArrakisTerrainSettings settings = ArrakisProfileValidation.loadProfile().settings();
+        var previousSettings = BasalFinishingValidation.withoutFinishing(settings);
+        var preRavineSettings = BasalFinishingValidation.withoutFaultFinishing(settings);
         long hash = 0xCBF29CE484222325L;
         long historical = 0xCBF29CE484222325L;
+        long previous = 0xCBF29CE484222325L;
+        long preRavine = 0xCBF29CE484222325L;
         for (long seed : SEEDS) {
             for (int[] point : POINTS) {
                 ArrakisTerrainEvaluator evaluator = new ArrakisTerrainEvaluator(seed, settings, 1024);
                 long actual = fingerprint(evaluator, point[0], point[1]);
                 hash = mix(hash, actual);
-                historical = mix(historical, fingerprint(evaluator, point[0], point[1], seed, settings));
+                preRavine = mix(preRavine, fingerprint(new ArrakisTerrainEvaluator(seed, preRavineSettings, 1024),
+                        point[0], point[1]));
+                var previousEvaluator = new ArrakisTerrainEvaluator(seed, previousSettings, 1024);
+                previous = mix(previous, fingerprint(previousEvaluator, point[0], point[1]));
+                historical = mix(historical, fingerprint(previousEvaluator, point[0], point[1], seed, previousSettings));
                 for (int limit : new int[] {0, 1, 64}) {
                     ArrakisTerrainEvaluator limited = new ArrakisTerrainEvaluator(seed, settings, limit);
                     limited.column(-123, 456); // Saturate the one-entry cache before the target.
@@ -38,7 +48,11 @@ public final class ArrakisTerrainEvaluatorValidation {
             }
         }
         require(historical == HISTORICAL_FINGERPRINT, "changes beyond basal support/contact altered historical terrain");
+        require(previous == PRE_FINISHING_FINGERPRINT, "disabled finishing changed previous terrain");
+        require(preRavine == PRE_RAVINE_FINGERPRINT, "disabled fault finishing changed previous skirt/components");
         System.out.printf("Historical reconstruction=%016x; current=%016x.%n", historical, hash);
+        BasalFinishingValidation.validate(settings);
+        RavineFinishingValidation.validate(settings);
         require(hash == EXPECTED_FINGERPRINT, "production occupancy fingerprint changed");
         validateGenerationOrder(settings);
         validateCoordinateKeys(settings);
@@ -123,7 +137,7 @@ public final class ArrakisTerrainEvaluatorValidation {
             LithologyField.Sample material = c.materialSampleAt(y);
             boolean rock = occupied(evaluation, c, x, y, z, historical);
             hash = mix(hash, rock ? material.material().ordinal() + 1 : 0);
-            hash = mix(hash, c.basalTalusApron().materialAt(y).ordinal());
+            hash = mix(hash, evaluation.basalMaterialAt(x, y, z, c).ordinal());
             hash = mix(hash, c.talusOccupiesY(y)
                     ? c.erosion().talusMaterialAt(y, c.lithology()).ordinal() + 1 : 0);
         }

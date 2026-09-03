@@ -220,6 +220,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                 column::setBlock
         );
         writeBasalTalusApronColumn(
+                evaluation, x, z,
                 terrain,
                 minimumY,
                 maximumY,
@@ -309,6 +310,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
                         }
                 );
                 writeBasalTalusApronColumn(
+                        evaluation, worldX, worldZ,
                         terrain,
                         minimumY,
                         maximumY,
@@ -438,23 +440,24 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
     }
 
     private void writeBasalTalusApronColumn(
+            ArrakisTerrainEvaluator evaluation, int x, int z,
             TerrainColumn terrain,
             int minimumY,
             int maximumY,
             BlockWriter writer
     ) {
         BasalTalusApronField.Sample apron = terrain.basalTalusApron();
-        if (!apron.active()) {
+        if (!apron.active() && !terrain.skirt().active()) {
             return;
         }
 
         int firstY = Math.max(
                 minimumY,
-                MacroGeologyField.BASE_SURFACE_Y + 1
+                terrain.skirt().active() ? terrain.skirt().bottomY() : FIRST_NATIVE_Y
         );
-        int lastY = Math.min(maximumY, apron.topY());
+        int lastY = Math.min(maximumY, Math.max(apron.topY(), terrain.skirt().topY()));
         for (int y = firstY; y <= lastY; y++) {
-            BasalTalusApronField.Material material = apron.materialAt(y);
+            BasalTalusApronField.Material material = evaluation.basalMaterialAt(x, y, z, terrain);
             switch (material) {
                 case GRAVEL -> writer.set(
                         y,
@@ -476,7 +479,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             int maximumY,
             BlockWriter writer
     ) {
-        int thickness = terrain.erosion().talusThickness();
+        int thickness = terrain.localTalusThickness();
         if (thickness <= 0) {
             return;
         }

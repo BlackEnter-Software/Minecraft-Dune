@@ -131,6 +131,23 @@ public final class BasalTalusApronField {
 
     public static Evaluation evaluate(long seed, int x, int z, MacroGeologyField.Sample geology,
             ArrakisTerrainSettings settings, RockLookup rock) {
+        Evaluation massif = evaluateMassif(seed, x, z, geology, settings, rock);
+        var talus = settings.lithology().talus();
+        // Preserve every qualified existing contact. Only fault shoulders which lack one
+        // may use the local wall fallback; desert, full cores and passes stay excluded.
+        if (!talus.actualContactEnabled() || !talus.ravineContactEnabled() || !talus.basalApronEnabled()
+                || massif.actual().reason().equals("found")
+                || geology.faultCarveMask() <= 0 || geology.faultCarveMask() > 0.85
+                || geology.sandCorridorMask() > 0.25 || geology.physicalMassifWeight() <= 0.18
+                || !rock.allowed(x, z)) return massif;
+        ActualContact actual = findRavineContact(x, z, talus.basalApronInset(), rock);
+        return new Evaluation(actual.found()
+                ? shape(seed, x + 0.5, z + 0.5, settings, actual.signedDistance(), actual.wallTopY())
+                : Sample.NONE, massif.structural(), actual, "ravine");
+    }
+
+    private static Evaluation evaluateMassif(long seed, int x, int z, MacroGeologyField.Sample geology,
+            ArrakisTerrainSettings settings, RockLookup rock) {
         var talus = settings.lithology().talus();
         var structural = ScarpMorphologyField.nearestMassifLowSideContact(seed, x + 0.5, z + 0.5,
                 geology.radiusBlocks(), geology.effectiveRadiusBlocks(), settings.massif());
@@ -167,6 +184,34 @@ public final class BasalTalusApronField {
         } else {
             dz = structural.inwardZ() >= 0 ? 1 : -1;
         }
+        return findContact(x, z, dx, dz, inset, rock);
+    }
+
+    /** Four bounded raster rays, never a search across the protected fault channel. */
+    static ActualContact findRavineContact(int x, int z, double inset, RockLookup rock) {
+        if (!rock.allowed(x, z)) return ActualContact.missing(0, "suppressed-path");
+        ActualContact best = null;
+        int searched = 0;
+        for (int direction = 0; direction < 4; direction++) {
+            int dx = direction == 0 ? 1 : direction == 1 ? -1 : 0;
+            int dz = direction == 2 ? 1 : direction == 3 ? -1 : 0;
+            ActualContact candidate = findContact(x, z, dx, dz, inset, rock);
+            searched += candidate.searchedBlocks();
+            if (!candidate.found() || !candidate.reason().equals("found")
+                    || !rock.ravineSourceAllowed(candidate.x(), candidate.z())) continue;
+            // Nearest actual foot wins; world-coordinate tie break is stable across caches,
+            // ray enumeration and chunk boundaries. Relief is never pooled across walls.
+            if (best == null || Math.abs(candidate.signedDistance()) < Math.abs(best.signedDistance())
+                    || Math.abs(candidate.signedDistance()) == Math.abs(best.signedDistance())
+                        && (candidate.x() < best.x() || candidate.x() == best.x() && candidate.z() < best.z())) {
+                best = candidate;
+            }
+        }
+        return best == null ? ActualContact.missing(searched, "no-qualified-ravine-foot") : best;
+    }
+
+    private static ActualContact findContact(int x, int z, int dx, int dz,
+            double inset, RockLookup rock) {
         boolean inside = rock.footPresent(x, z);
         int direction = inside ? -1 : 1;
         int limit = inside ? Math.min(CONTACT_SEARCH_LIMIT, (int) Math.ceil(inset) + 1)
@@ -199,10 +244,15 @@ public final class BasalTalusApronField {
         int topY(int x, int z);
         boolean allowed(int x, int z);
         default boolean sourceAllowed(int x, int z) { return true; }
+        default boolean ravineSourceAllowed(int x, int z) { return false; }
     }
 
     public record Evaluation(Sample apron, ScarpMorphologyField.LowSideContact structural,
-            ActualContact actual) {}
+            ActualContact actual, String source) {
+        public Evaluation(Sample apron, ScarpMorphologyField.LowSideContact structural, ActualContact actual) {
+            this(apron, structural, actual, actual.enabled() ? "massif" : "legacy-structural");
+        }
+    }
 
     public record ActualContact(boolean enabled, int searchedBlocks, boolean found,
             double signedDistance, int x, int z, int rockTopY, int wallTopY,
