@@ -11,11 +11,11 @@
           "layers": [
             {
               "block": "minecraft:bedrock",
-              "height": 1
+              "height": 4
             },
             {
               "block": "minecraft:deepslate",
-              "height": 63
+              "height": 65
             },
             {
               "block": "minecraft:stone",
@@ -23,11 +23,11 @@
             },
             {
               "block": "minecraft:sandstone",
-              "height": 10
+              "height": 5
             },
             {
               "block": "minecraft:sand",
-              "height": 10
+              "height": 20
             }
           ],
           "structure_overrides": []
@@ -53,7 +53,7 @@
           },
           "massif": {
             "start_radius": 3000.0,
-            "full_radius": 3150.0,
+            "full_radius": 3500.0,
             "outer_start_radius": 4000.0,
             "outer_end_radius": 4500.0,
             "max_added_height": 200,
