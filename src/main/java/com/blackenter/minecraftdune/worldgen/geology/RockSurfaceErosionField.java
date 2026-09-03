@@ -253,7 +253,7 @@ public final class RockSurfaceErosionField {
                 return false;
             }
             int protectedTopY = settings.baseAnchoredErosion()
-                    ? MacroGeologyField.BASE_SURFACE_Y
+                    ? settings.erosionFloorY()
                     : MacroGeologyField.BASE_SURFACE_Y + 2;
             if (!active || worldY <= protectedTopY) {
                 return true;
@@ -314,7 +314,7 @@ public final class RockSurfaceErosionField {
             // behind the physical edge; comparing it with a coherent recession field prevents
             // erosion from tunnelling arbitrarily into solid interior rock.
             double faceFloorY = settings.baseAnchoredErosion()
-                    ? MacroGeologyField.BASE_SURFACE_Y
+                    ? settings.erosionFloorY()
                     : face.lowY();
             if (faceErosionStrength > 0.01
                     && face.highSide()
@@ -327,7 +327,7 @@ public final class RockSurfaceErosionField {
                         worldZ / coarseScale
                 );
                 double fullFaceErosionY = settings.baseAnchoredErosion()
-                        ? MacroGeologyField.BASE_SURFACE_Y + 2.0
+                        ? faceFloorY + 2.0
                         : faceFloorY + Math.max(2.0, maximumRetreat);
                 double lowerFaceGate = GeologyNoise.smoothStep(
                         faceFloorY,

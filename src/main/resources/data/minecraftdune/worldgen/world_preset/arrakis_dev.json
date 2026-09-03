@@ -137,10 +137,11 @@
               "actual_contact_enabled": true,
               "basal_sand_skirt_enabled": true,
               "ravine_contact_enabled": true,
-              "basal_apron_max_height": 6,
-              "basal_apron_spread": 12.0,
+              "organic_apron_enabled": true,
+              "basal_apron_max_height": 4,
+              "basal_apron_spread": 10.0,
               "basal_apron_inset": 4.0,
-              "basal_apron_sand_start": 0.62
+              "basal_apron_sand_start": 0.80
             }
           },
           "additional_materials": {
@@ -192,13 +193,15 @@
               "small_rock_strength": 0.42,
               "broken_rock_strength": 0.58,
               "lithology_relief_strength": 0.65,
-              "base_anchored_erosion": true
+              "base_anchored_erosion": true,
+              "basal_erosion_depth": 4
             },
             "orphan_remnants": {
               "enabled": true,
               "basal_component_cleanup_enabled": true,
               "fault_edge_cleanup_enabled": true,
-              "inward_support_depth": 8,
+              "component_search_radius": 5,
+              "inward_support_depth": 12,
               "lateral_search_radius": 2,
               "minimum_height_above_base": 5,
               "minimum_face_relief": 24.0

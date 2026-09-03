@@ -12,6 +12,22 @@ import java.util.function.IntPredicate;
 public final class ArrakisContactDiagnostics {
     public static void main(String[] args) throws Exception {
         var settings = ArrakisProfileValidation.loadProfile().settings();
+        if (java.util.Arrays.asList(args).contains("--basal-tuning")) {
+            var old = new ArrakisTerrainEvaluator(0,BasalTuningValidation.previousSettings(settings),1024);
+            var now = new ArrakisTerrainEvaluator(0,settings,1024);
+            for (int[] p : BasalTuningValidation.POINTS) {
+                int x = p[0], z = p[1];
+                var c = now.column(x,z);
+                System.out.printf("Basal tuning %d/%d pre-talus-top=%d->%d root-Y64=%s->%s rock-Y65=%s->%s "
+                        + "contact=%s/%.2f talus=%d->%d skirt-reach=%.2f depth=%d%n",x,z,
+                        old.highestFilteredRockY(x,z),now.highestFilteredRockY(x,z),
+                        old.nativeFoundationOccupies(x,64,z),now.nativeFoundationOccupies(x,64,z),
+                        old.rockOccupies(x,65,z),now.rockOccupies(x,65,z),c.basal().source(),
+                        c.basal().actual().signedDistance(),old.column(x,z).basalTalusApron().height(),
+                        c.basalTalusApron().height(),c.skirt().outwardReach(),c.skirt().depth());
+            }
+            return;
+        }
         if (java.util.Arrays.asList(args).contains("--ravine-attachment")) {
             int contacts = 0, gaps = 0, north = 0, south = 0;
             long start = System.nanoTime();

@@ -22,6 +22,11 @@ public final class BoundedBasalComponentCleanup {
     }
 
     public static Sample sample(int x, int z, RockLookup rock) {
+        return sample(x, z, rock, SEARCH_RADIUS);
+    }
+
+    public static Sample sample(int x, int z, RockLookup rock, int searchRadius) {
+        int radius = Math.max(3, Math.min(5, searchRadius));
         if (!rock.cleanupAllowed(x, z)) return Sample.none("protected-or-outside-basal-context");
         int top = rock.topY(x, z);
         if (top < CONNECTION_MIN_Y) return Sample.none("substrate-only");
@@ -41,8 +46,8 @@ public final class BoundedBasalComponentCleanup {
                     minZ = Math.min(minZ, nz); maxZ = Math.max(maxZ, nz);
                     // Span guard makes the conservative edge decision identical for EVERY
                     // member, not just members whose query-centered window hits the edge.
-                    if (Math.abs(nx - x) >= SEARCH_RADIUS || Math.abs(nz - z) >= SEARCH_RADIUS
-                            || maxX - minX >= SEARCH_RADIUS || maxZ - minZ >= SEARCH_RADIUS) {
+                    if (Math.abs(nx - x) >= radius || Math.abs(nz - z) >= radius
+                            || maxX - minX >= radius || maxZ - minZ >= radius) {
                         return new Sample(true, false, count + 1, false, true, top, "search-boundary");
                     }
                     if (!rock.cleanupAllowed(nx, nz)) {

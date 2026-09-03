@@ -22,7 +22,10 @@ public final class EscarpmentErosionValidation {
     }
 
     public static void main(String[] args) throws Exception {
-        ArrakisTerrainSettings settings = ArrakisProfileValidation.validate().settings();
+        // Keep the saved pre-tuning profile's exact shape/golden fixtures. Active tuning
+        // has separate removal-only, upper-wall preservation and deposit checks.
+        ArrakisTerrainSettings settings = com.blackenter.minecraftdune.worldgen.arrakis.BasalTuningValidation
+                .previousSettings(ArrakisProfileValidation.validate().settings());
 
         validateResistanceOrder(settings);
         validateScarpMorphology(settings);
@@ -917,7 +920,8 @@ public final class EscarpmentErosionValidation {
                 settings.smallRockStrength(),
                 settings.brokenRockStrength(),
                 settings.lithologyReliefStrength(),
-                baseAnchored
+                baseAnchored,
+                settings.basalErosionDepth()
         );
     }
 

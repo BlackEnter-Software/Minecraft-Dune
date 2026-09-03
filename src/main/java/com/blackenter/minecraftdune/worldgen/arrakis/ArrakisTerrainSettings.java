@@ -60,6 +60,7 @@ public record ArrakisTerrainSettings(
                     0.62,
                     false,
                     false,
+                    false,
                     false
             );
 
@@ -129,7 +130,8 @@ public record ArrakisTerrainSettings(
                      0.42,
                      0.58,
                      0.65,
-                     false
+                     false,
+                     0
             );
 
     public static final OrphanRemnantSettings DEFAULT_ORPHAN_REMNANTS =
@@ -140,7 +142,8 @@ public record ArrakisTerrainSettings(
                     5,
                     24.0,
                     false,
-                    false
+                    false,
+                    3
             );
 
     /**
@@ -684,7 +687,8 @@ public record ArrakisTerrainSettings(
             double basalApronSandStart,
             boolean actualContactEnabled,
             boolean basalSandSkirtEnabled,
-            boolean ravineContactEnabled
+            boolean ravineContactEnabled,
+            boolean organicApronEnabled
     ) {
         public static final Codec<TalusSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -711,7 +715,9 @@ public record ArrakisTerrainSettings(
                         Codec.BOOL.optionalFieldOf("basal_sand_skirt_enabled", false)
                                 .forGetter(TalusSettings::basalSandSkirtEnabled),
                         Codec.BOOL.optionalFieldOf("ravine_contact_enabled", false)
-                                .forGetter(TalusSettings::ravineContactEnabled)
+                                .forGetter(TalusSettings::ravineContactEnabled),
+                        Codec.BOOL.optionalFieldOf("organic_apron_enabled", false)
+                                .forGetter(TalusSettings::organicApronEnabled)
                 ).apply(instance, TalusSettings::new));
     }
 
@@ -852,7 +858,8 @@ public record ArrakisTerrainSettings(
             int minimumHeightAboveBase,
             double minimumFaceRelief,
             boolean basalComponentCleanupEnabled,
-            boolean faultEdgeCleanupEnabled
+            boolean faultEdgeCleanupEnabled,
+            int componentSearchRadius
     ) {
         public static final Codec<OrphanRemnantSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
@@ -869,7 +876,9 @@ public record ArrakisTerrainSettings(
                         Codec.BOOL.optionalFieldOf("basal_component_cleanup_enabled", false)
                                 .forGetter(OrphanRemnantSettings::basalComponentCleanupEnabled),
                         Codec.BOOL.optionalFieldOf("fault_edge_cleanup_enabled", false)
-                                .forGetter(OrphanRemnantSettings::faultEdgeCleanupEnabled)
+                                .forGetter(OrphanRemnantSettings::faultEdgeCleanupEnabled),
+                        Codec.intRange(3, 5).optionalFieldOf("component_search_radius", 3)
+                                .forGetter(OrphanRemnantSettings::componentSearchRadius)
                 ).apply(instance, OrphanRemnantSettings::new));
     }
 
@@ -887,8 +896,13 @@ public record ArrakisTerrainSettings(
             double smallRockStrength,
             double brokenRockStrength,
             double lithologyReliefStrength,
-            boolean baseAnchoredErosion
+            boolean baseAnchoredErosion,
+            int basalErosionDepth
     ) {
+        public int erosionFloorY() {
+            return 64 - (baseAnchoredErosion ? Math.max(0, Math.min(10, basalErosionDepth)) : 0);
+        }
+
         public static final Codec<SurfaceErosionSettings> CODEC =
                 RecordCodecBuilder.create(instance -> instance.group(
                         Codec.BOOL.optionalFieldOf("enabled", false)
@@ -910,7 +924,9 @@ public record ArrakisTerrainSettings(
                         Codec.DOUBLE.optionalFieldOf("lithology_relief_strength", 0.65)
                                 .forGetter(SurfaceErosionSettings::lithologyReliefStrength),
                         Codec.BOOL.optionalFieldOf("base_anchored_erosion", false)
-                                .forGetter(SurfaceErosionSettings::baseAnchoredErosion)
+                                .forGetter(SurfaceErosionSettings::baseAnchoredErosion),
+                        Codec.intRange(0, 10).optionalFieldOf("basal_erosion_depth", 0)
+                                .forGetter(SurfaceErosionSettings::basalErosionDepth)
                 ).apply(instance, SurfaceErosionSettings::new));
     }
 

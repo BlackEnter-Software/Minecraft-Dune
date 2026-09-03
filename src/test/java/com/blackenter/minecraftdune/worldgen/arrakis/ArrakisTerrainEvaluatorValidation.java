@@ -21,7 +21,9 @@ public final class ArrakisTerrainEvaluatorValidation {
     };
 
     public static void main(String[] args) throws Exception {
-        ArrakisTerrainSettings settings = ArrakisProfileValidation.loadProfile().settings();
+        ArrakisTerrainSettings active = ArrakisProfileValidation.loadProfile().settings();
+        // These four golden fingerprints describe saved profiles, not the new opt-in tuning.
+        ArrakisTerrainSettings settings = BasalTuningValidation.previousSettings(active);
         var previousSettings = BasalFinishingValidation.withoutFinishing(settings);
         var preRavineSettings = BasalFinishingValidation.withoutFaultFinishing(settings);
         long hash = 0xCBF29CE484222325L;
@@ -50,7 +52,7 @@ public final class ArrakisTerrainEvaluatorValidation {
         require(historical == HISTORICAL_FINGERPRINT, "changes beyond basal support/contact altered historical terrain");
         require(previous == PRE_FINISHING_FINGERPRINT, "disabled finishing changed previous terrain");
         require(preRavine == PRE_RAVINE_FINGERPRINT, "disabled fault finishing changed previous skirt/components");
-        System.out.printf("Historical reconstruction=%016x; current=%016x.%n", historical, hash);
+        System.out.printf("Historical reconstruction=%016x; saved pre-tuning profile=%016x.%n", historical, hash);
         BasalFinishingValidation.validate(settings);
         RavineFinishingValidation.validate(settings);
         require(hash == EXPECTED_FINGERPRINT, "production occupancy fingerprint changed");
@@ -58,7 +60,10 @@ public final class ArrakisTerrainEvaluatorValidation {
         validateCoordinateKeys(settings);
         validateInspection(settings);
         BasalContactPipelineValidation.validate(settings);
-        System.out.printf("Production evaluator fingerprint=%016x; extraction/cache comparisons passed.%n", hash);
+        BasalTuningValidation.validate(active);
+        validateGenerationOrder(active);
+        validateCoordinateKeys(active);
+        System.out.printf("Saved-profile evaluator fingerprint=%016x; active and saved-profile order checks passed.%n", hash);
     }
 
     private static void validateInspection(ArrakisTerrainSettings settings) {

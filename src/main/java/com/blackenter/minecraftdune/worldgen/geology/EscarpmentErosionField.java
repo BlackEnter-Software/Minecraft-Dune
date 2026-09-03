@@ -408,7 +408,7 @@ public final class EscarpmentErosionField {
             }
             boolean baseAnchored = settings.surface().baseAnchoredErosion();
             int protectedTopY = baseAnchored
-                    ? MacroGeologyField.BASE_SURFACE_Y
+                    ? settings.surface().erosionFloorY()
                     : MacroGeologyField.BASE_SURFACE_Y + 2;
             if (!candidate || worldY <= protectedTopY) {
                 return true;
@@ -416,10 +416,10 @@ public final class EscarpmentErosionField {
 
             int maximumUndercut = Math.max(0, Math.min(16, settings.maxUndercutBlocks()));
             double erosionFloor = baseAnchored
-                    ? MacroGeologyField.BASE_SURFACE_Y
+                    ? settings.surface().erosionFloorY()
                     : MacroGeologyField.BASE_SURFACE_Y + 2.0;
             double fullErosionY = baseAnchored
-                    ? MacroGeologyField.BASE_SURFACE_Y + 2.0
+                    ? erosionFloor + 2.0
                     : MacroGeologyField.BASE_SURFACE_Y + 11.0;
             double heightGate = GeologyNoise.smoothStep(
                     erosionFloor,

@@ -67,6 +67,9 @@ public final class BasalTalusApronField {
 
     private static Sample shape(long worldSeed, double worldX, double worldZ,
             ArrakisTerrainSettings settings, double signedDistance, double high) {
+        if (settings.lithology().talus().organicApronEnabled()) {
+            return organicShape(worldSeed, worldX, worldZ, settings, signedDistance, high);
+        }
         var talus = settings.lithology().talus();
         double spread = Math.max(1.0, talus.basalApronSpread());
         double inset = Math.max(0.0, talus.basalApronInset());
@@ -123,6 +126,27 @@ public final class BasalTalusApronField {
                 worldX,
                 worldZ
         );
+    }
+
+    static Sample organicShape(long seed, double x, double z, ArrakisTerrainSettings settings,
+            double signed, double high) {
+        var talus = settings.lithology().talus();
+        var variation = TalusShapeVariation.sample(seed, x, z);
+        double spread = Math.min(CONTACT_SEARCH_LIMIT, Math.max(1, talus.basalApronSpread() * variation.spreadScale()));
+        double inset = Math.max(0, talus.basalApronInset());
+        if (!Double.isFinite(signed) || signed <= -spread || signed > inset) return Sample.NONE;
+        double outward = Math.max(0, -signed);
+        // Steeper against the source wall, progressively gentler towards the desert.
+        // No independent per-block randomness: neighboring columns share smooth patches.
+        double curve = Math.pow(1 - outward / spread, 1.8);
+        if (signed > 0) curve *= Math.max(0.45, 1 - GeologyNoise.smoothStep(0, Math.max(1, inset), signed));
+        double relief = GeologyNoise.smoothStep(12, 42, high - MacroGeologyField.BASE_SURFACE_Y);
+        double height = Math.max(0, Math.min(12, talus.basalApronMaxHeight())) * variation.heightScale() * curve * relief;
+        // Let the very shallow distal tail disappear instead of rounding every trace up
+        // into a long, uniform one-block sand rail. Preserve a qualified near-wall deposit.
+        if (height <= 0 || height < 0.45 && outward > 1) return Sample.NONE;
+        return new Sample(true, Math.max(1, (int) Math.floor(height + 0.5)), outward, spread,
+                GeologyNoise.clamp(talus.basalApronSandStart() + variation.sandStartOffset(), 0, 1), seed, x, z);
     }
 
     // Search is local to the candidate deposit cell, not the obsolete structural foot.

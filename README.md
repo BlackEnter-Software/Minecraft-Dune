@@ -2,15 +2,15 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.5.14.8**
+Current development version: **0.5.14.8.1 - Remnants**
 
-Current hardening branch: `refactor/0.5.14.8-hardening`. The analytical evaluator,
-settings validation, operation lifecycle and debug tooling have been hardened without
-retuning macro geometry. The mountain-base appearance has been accepted at the tested
-Seed-0 sites. A new downstream pass makes basal support settings-aware and moves talus
-to surviving-rock contact. This needs a **new Seed-0 world** for visual acceptance; a
-separately relief-protected Y70 tooth remains. See the
-[current contact report](docs/BASAL_REMNANTS_ACTUAL_CONTACT_REPORT.md) and the
+Current development branch: `tuning/0.5.14.8-basal-erosion-talus`. Remnants extends basal
+erosion down to Y60 while keeping the Y64 desert datum, checks inward remnant support over
+12 blocks, and reduces the talus to a curved, coherently varied gravel/sand apron anchored
+to actual cliff contact. Connected rock formations and protected fault cores are retained.
+The serialized terrain profile remains `5148`; existing worlds keep their saved settings.
+Use a **new Arrakis Dev Seed-0 world** to test the changes. See the
+[basal tuning report](docs/BASAL_EROSION_TALUS_TUNING_REPORT.md) and the
 [earlier hardening report](docs/HARDENING_0.5.14.8_REPORT.md).
 
 Operators can use `/dune terrain inspect` at their current position, or

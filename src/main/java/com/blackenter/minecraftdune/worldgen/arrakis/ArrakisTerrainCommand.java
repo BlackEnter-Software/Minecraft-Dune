@@ -2,7 +2,6 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 
 import com.blackenter.minecraftdune.worldgen.geology.OrphanRemnantFilter;
 import com.blackenter.minecraftdune.worldgen.geology.BasalSandSkirt;
-import com.blackenter.minecraftdune.worldgen.geology.BoundedBasalComponentCleanup;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -94,7 +93,8 @@ public final class ArrakisTerrainCommand {
                 + "Wall: top=%d relief=%d probe-blocks=%d query-band=Y%d..%d%n"
                 + "Basal talus: active=%s height=%d outward=%.2f spread=%.2f; local talus=%d blocks from Y%d%n"
                 + "At queried Y: basal-material=%s local-talus=%s%n"
-                + "Sand skirt: active=%s actual-contact-distance=%.2f inward-overlap=%d outward-reach=%d local-depth=%d visible-Y65-mantle=%s material-at-query=%s%n"
+                + "Basal erosion: floor=Y%d depth=%d native-root-at-Y64=%s rock-at-Y65=%s; organic-talus=%s%n"
+                + "Sand skirt: active=%s actual-contact-distance=%.2f inward-overlap=%d outward-reach=%.2f local-depth=%d visible-Y65-mantle=%s material-at-query=%s%n"
                 + "Pre-skirt ownership: Y64=%s Y65=%s queried-Y=%s%n"
                 + "Dune units=%d dune-top=%d combined analytical top=%d cached-columns=%d",
                 seed, settings.profileVersion(), x, y, z, surface.settings().baseAnchoredErosion(),
@@ -112,7 +112,7 @@ public final class ArrakisTerrainCommand {
                 orphan.enabled(), orphan.inwardSupportDepth(), orphan.lateralSearchRadius(),
                 OrphanRemnantFilter.protectedThroughY(surface.settings().baseAnchoredErosion(), orphan), orphan.minimumFaceRelief(),
                 evaluator.rawRockOccupies(c, y), evaluator.rockOccupies(x, y, z),
-                component.candidate(), component.removed(), BoundedBasalComponentCleanup.SEARCH_RADIUS,
+                component.candidate(), component.removed(), orphan.componentSearchRadius(),
                 component.componentColumns(), component.reachesSupport(), component.reachesSearchBoundary(), component.reason(),
                 orphan.faultEdgeCleanupEnabled(),
                 structural.valid(), structural.signedDistance(), structural.inwardX(), structural.inwardZ(),
@@ -122,7 +122,10 @@ public final class ArrakisTerrainCommand {
                 evaluator.talusWallQueryMinY(), evaluator.talusWallQueryMaxY(),
                 apron.active(), apron.height(), apron.outwardDistance(), apron.spread(),
                 c.localTalusThickness(), c.talusBaseY(), evaluator.basalMaterialAt(x, y, z, c), c.talusOccupiesY(y),
-                skirt.active(), skirt.signedDistance(), BasalSandSkirt.INWARD_OVERLAP, BasalSandSkirt.OUTWARD_REACH,
+                surface.settings().erosionFloorY(), surface.settings().basalErosionDepth(),
+                evaluator.nativeFoundationOccupies(x,64,z), evaluator.rockOccupies(x,65,z),
+                settings.lithology().talus().organicApronEnabled(),
+                skirt.active(), skirt.signedDistance(), BasalSandSkirt.INWARD_OVERLAP, skirt.outwardReach(),
                 skirt.depth(), skirt.visibleY65Mantle(), skirt.materialAt(y),
                 evaluator.preSkirtOwner(x, 64, z), evaluator.preSkirtOwner(x, 65, z), evaluator.preSkirtOwner(x, y, z),
                 c.duneSurfaceUnits(), c.highestDuneY(),

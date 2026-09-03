@@ -1,6 +1,35 @@
-# Arrakis terrain profile — parameter reference (0.5.14.2)
+# Arrakis terrain profile — parameter reference (0.5.14.8.1 - Remnants)
 
-## Current hardening addition: fault shoulders and ravine talus
+## Current tuning: deeper basal erosion and smaller varied talus
+
+The development preset opts into three new serialized parameters. Their defaults reproduce
+the previous hardening behavior in saved worlds. The mod version is `0.5.14.8.1` (Remnants),
+while the serialized terrain profile remains `5148`.
+
+- `erosion.surface.basal_erosion_depth`: integer 0–10, default 0, preset **4**. With
+  `base_anchored_erosion=true`, both existing erosion passes protect through `64-depth`
+  and reach full basal strength two blocks above that floor. The preset thus protects Y60,
+  fades at Y61 and reaches full strength at Y62. It does not shift the noise, lithology,
+  or upper wall pattern. Sand/fault datum remains Y64. Native rock omitted below the datum
+  leaves the generator's normal substrate in place; the hard foundation is not excavated.
+- `erosion.orphan_remnants.component_search_radius`: integer 3–5, default 3, preset **5**.
+  The four-column removal limit, all-height connectivity and protected fault gates remain.
+  The existing `inward_support_depth` is now **12**, increased from 8 to 10 in the first
+  tuning pass and another two blocks after visual review; lateral search remains 2.
+- `lithology.talus.organic_apron_enabled`: default false, preset **true**. Enables a curved,
+  coherently varied apron and a shorter sand skirt. Preset maximum height is **4**, spread
+  **10**, and sand-start fraction **0.80**. Variation gives an 8.5–11.5-block nominal gravel/
+  colluvium spread and 16–20-block skirt reach. The actual visible toe can end sooner as
+  sub-block deposits round away. Near-wall gravel still takes precedence over the skirt.
+
+Actual contact search and wall-relief probing are unchanged; the organic mode retains the
+Y71–76 wall-detection band independently of its smaller deposit height. The sand skirt
+still extends four blocks inward and up to four layers down. This is static deposition,
+not the future wind-driven sand-banking system. **Use a new Arrakis Dev world**: existing
+worlds retain their serialized settings, even for newly generated chunks.
+See [the basal tuning report](BASAL_EROSION_TALUS_TUNING_REPORT.md) for exact shapes and checks.
+
+## Prior hardening addition: fault shoulders and ravine talus
 
 Two further optional flags default to `false`; the development preset opts in:
 

@@ -4,6 +4,7 @@ import com.blackenter.minecraftdune.worldgen.dune.NativeTransverseDuneField;
 import com.blackenter.minecraftdune.worldgen.geology.BasalTalusApronField;
 import com.blackenter.minecraftdune.worldgen.geology.BoundedBasalComponentCleanup;
 import com.blackenter.minecraftdune.worldgen.geology.BasalSandSkirt;
+import com.blackenter.minecraftdune.worldgen.geology.TalusShapeVariation;
 import com.blackenter.minecraftdune.worldgen.geology.EscarpmentErosionField;
 import com.blackenter.minecraftdune.worldgen.geology.LithologyField;
 import com.blackenter.minecraftdune.worldgen.geology.MacroGeologyField;
@@ -83,7 +84,10 @@ public final class ArrakisTerrainEvaluator {
                     });
             boolean residual = residualBasalY65(worldX, worldZ);
             var skirt = BasalSandSkirt.sample(terrainSettings.lithology().talus().basalSandSkirtEnabled(),
-                    basal, residual, basal.apron().materialAt(65) == BasalTalusApronField.Material.GRAVEL);
+                    basal, residual, basal.apron().materialAt(65) == BasalTalusApronField.Material.GRAVEL,
+                    terrainSettings.lithology().talus().organicApronEnabled()
+                            ? TalusShapeVariation.sample(worldSeed, worldX + 0.5, worldZ + 0.5).skirtReach()
+                            : BasalSandSkirt.OUTWARD_REACH);
             entry.complete = new TerrainColumn(entry.rock, basal, skirt, residual,
                     terrainSettings.lithology().talus().basalSandSkirtEnabled(), componentCleanup(worldX, worldZ).removed());
         }
@@ -95,6 +99,8 @@ public final class ArrakisTerrainEvaluator {
     }
 
     public int talusWallQueryMinY() {
+        // Reducing the deposit height must not move its anchor back onto low debris.
+        if (terrainSettings.lithology().talus().organicApronEnabled()) return FIRST_NATIVE_Y + 6;
         return FIRST_NATIVE_Y + Math.max(0, Math.min(12,
                 terrainSettings.lithology().talus().basalApronMaxHeight()));
     }
@@ -360,7 +366,7 @@ public final class ArrakisTerrainEvaluator {
             public int topY(int sx, int sz) { return highestOrphanRockY(sx, sz); }
             public boolean occupied(int sx, int sy, int sz) { return postOrphanRockOccupies(sx, sy, sz); }
             public boolean cleanupAllowed(int sx, int sz) { return componentContext(sx, sz); }
-        });
+        }, terrainSettings.erosion().orphanRemnants().componentSearchRadius());
     }
 
     private boolean postOrphanRockOccupies(int x, int y, int z) {
@@ -398,6 +404,9 @@ public final class ArrakisTerrainEvaluator {
     }
 
     public String preSkirtOwner(int x, int y, int z) {
+        if (y <= 64 && y > terrainSettings.erosion().surface().erosionFloorY()) {
+            return nativeFoundationOccupies(x, y, z) ? "NATIVE_FOUNDATION_ROOT" : "NATURAL_SUBSTRATE_NO_NATIVE_ROOT";
+        }
         if (y <= 64) return "SUBSTRATE_OR_FOUNDATION_ROOT";
         if (!rockOccupies(x, y, z)) return "NO_NATIVE_ROCK";
         return y == 65 && residualBasalY65(x, z) ? "BASAL_EROSION_RESIDUE" : "FINAL_CLIFF_ROCK";
@@ -409,6 +418,12 @@ public final class ArrakisTerrainEvaluator {
         if (column.talusOccupiesY(y)) return BasalTalusApronField.Material.NONE;
         var apron = column.basalTalusApron().materialAt(y);
         return apron != BasalTalusApronField.Material.NONE ? apron : column.skirt().materialAt(y);
+    }
+
+    /** Same native-root predicate as the writer, above its existing hard foundation. */
+    public boolean nativeFoundationOccupies(int x, int y, int z) {
+        var c = preTalusColumn(x,z);
+        return y <= 64 && c.hasNativeRock() && filteredRockOccupies(x,z,y,c,c.materialSampleAt(y));
     }
 
     public boolean rawRockOccupies(TerrainColumn terrain, int worldY) {

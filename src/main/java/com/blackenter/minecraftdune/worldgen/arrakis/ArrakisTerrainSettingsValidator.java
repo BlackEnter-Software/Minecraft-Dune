@@ -210,6 +210,7 @@ final class ArrakisTerrainSettingsValidator {
         validation.nonNegative("erosion.broken_rock_scale", erosion.brokenRockScale(), 4.0);
 
         OrphanRemnantSettings orphan = erosion.orphanRemnants();
+        validation.integer("erosion.orphan_remnants.component_search_radius", orphan.componentSearchRadius(), 3, 5);
         validation.integer("erosion.orphan_remnants.inward_support_depth",
                 orphan.inwardSupportDepth(), 1, 16);
         validation.integer("erosion.orphan_remnants.lateral_search_radius",
@@ -221,6 +222,7 @@ final class ArrakisTerrainSettingsValidator {
 
         SurfaceErosionSettings surface = erosion.surface();
         validation.nonNegative("erosion.surface.strength", surface.strength(), 4.0);
+        validation.integer("erosion.surface.basal_erosion_depth", surface.basalErosionDepth(), 0, 10);
         validation.positive("erosion.surface.scale", surface.scale(), 65_536.0);
         validation.positive("erosion.surface.detail_scale", surface.detailScale(), 65_536.0);
         validation.integer("erosion.surface.max_retreat_blocks", surface.maxRetreatBlocks(), 0, 64);
