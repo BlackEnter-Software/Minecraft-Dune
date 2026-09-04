@@ -1,6 +1,27 @@
 Minecraft: Dune — Arrakis Dev
 ==============================
 
+Automated dev-world launcher
+----------------------------
+
+From the repository root, run:
+
+    run-arrakis-dev.bat
+
+The launcher reads mod_version from gradle.properties and uses a world named:
+
+    Arrakis-dev_[Version]_[DDMMYY]
+
+If that dated world already exists, Minecraft Quick Play opens it directly. Otherwise the
+client creates it automatically with seed 0, Creative mode, commands enabled, and the
+minecraftdune:arrakis_dev world preset.
+
+To delete only today's versioned dev world and recreate it from scratch, run:
+
+    run-arrakis-dev-fresh.bat
+
+Normal `gradlew.bat runClient` behavior is unchanged.
+
 Buried Rock — 0.6.0-dev.1 / profile 6000
 ---------------------------------------
 

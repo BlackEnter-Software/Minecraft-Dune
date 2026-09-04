@@ -49,6 +49,24 @@ neoForge {
 					'-XX:ZCollectionInterval=10'
 				]
 
+            def devWorldName = providers.gradleProperty('devWorldName').orNull
+            if (devWorldName != null && !devWorldName.isBlank()) {
+                def createDevWorld = providers.gradleProperty('devWorldCreate')
+                        .map { it.toBoolean() }
+                        .getOrElse(false)
+
+                if (createDevWorld) {
+                    systemProperty 'minecraftdune.devWorldName', devWorldName
+                    systemProperty 'minecraftdune.devWorldSeed',
+                            providers.gradleProperty('devWorldSeed').getOrElse('0')
+                } else {
+                    programArguments.addAll(
+                            '--quickPlaySingleplayer',
+                            devWorldName
+                    )
+                }
+            }
+
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
