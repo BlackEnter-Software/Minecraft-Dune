@@ -1,5 +1,22 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.6.0-dev.2.1 - World validation and terrain compatibility
+
+- Normalize dev save folder names using underscores so creation, reopening and `--fresh`
+  address the same directory. Refuse unexpected Minecraft folder collisions and linked paths.
+- Add launcher regression checks and an isolated two-launch Minecraft validation runner:
+  compare complete real chunk columns and three heightmaps with generator queries, verify
+  saved chunks exist, reopen the exact save, and compare persisted settings and chunk hashes.
+- Capture four fixed full-detail views after nearby chunks and rendering settle. Record
+  camera transforms, mod versions, render distance, lighting, and explicit pass/failure files.
+- Persist terrain algorithm revision 2 independently of profile 6000 and the mod version.
+  Recognize unversioned dev.1 as revision 1, reject ambiguous unversioned dev.2 saves, reject
+  unknown revisions and contradictory revision-1 settings, and expose revision in diagnostics.
+- Freeze dev.1 and corrected dev.2 column fingerprints across two seeds. Future output changes
+  require a new algorithm revision plus retained old behavior or an explicit incompatibility.
+- Preserve erosion geometry, material mapping, talus behavior, and every existing tuning value.
+
+
 ## Minecraft: Dune 0.6.0-dev.2 - Shield-Wall erosion morphology and talus coherence
 
 - Diagnosed weak dev.1 erosion: short downhill roof sampling, cascaded exposure gates and

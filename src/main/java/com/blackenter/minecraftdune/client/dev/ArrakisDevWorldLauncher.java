@@ -45,6 +45,15 @@ public final class ArrakisDevWorldLauncher {
         }
 
         if (state == LaunchState.NOT_STARTED) {
+            if (!Boolean.parseBoolean(System.getProperty("minecraftdune.devWorldCreate", "true"))) {
+                state = LaunchState.DONE;
+                new net.minecraft.client.gui.screens.worldselection.WorldOpenFlows(minecraft, minecraft.getLevelSource())
+                        .openWorld(worldName, () -> {
+                            MinecraftDune.LOGGER.error("Could not reopen Arrakis dev save '{}'", worldName);
+                            minecraft.setScreen(new net.minecraft.client.gui.screens.TitleScreen());
+                        });
+                return;
+            }
             MinecraftDune.LOGGER.info("Preparing Arrakis dev world '{}'", worldName);
             CreateWorldScreen.openFresh(minecraft, minecraft.screen);
             state = LaunchState.WAITING_FOR_CREATE_SCREEN;
@@ -87,6 +96,11 @@ public final class ArrakisDevWorldLauncher {
                 ));
 
         uiState.setName(worldName);
+        // Never silently create a suffixed collision or a differently sanitized folder.
+        if (!uiState.getTargetFolder().equals(worldName)) {
+            throw new IllegalStateException("Requested dev save folder '" + worldName
+                    + "' became '" + uiState.getTargetFolder() + "'. Reopen the existing save or use --fresh.");
+        }
         uiState.setWorldType(worldType);
         uiState.setSeed(seed);
         uiState.setGameMode(WorldCreationUiState.SelectedGameMode.CREATIVE);

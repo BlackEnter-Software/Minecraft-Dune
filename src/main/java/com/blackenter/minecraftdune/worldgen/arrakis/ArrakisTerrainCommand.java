@@ -68,7 +68,7 @@ public final class ArrakisTerrainCommand {
         var face = erosion.face();
         var material = c.lithology().sample(y);
         return String.format(Locale.ROOT,
-                "Arrakis seed=%d profile=%d buried-rock XYZ=%d/%d/%d%n"
+                "Arrakis seed=%d profile=%d algorithm=%d buried-rock XYZ=%d/%d/%d%n"
                 + "Regional rock=%.2f Shield-Wall uplift=%.2f other uplift=%.2f fault throw=%.2f structural displacement=%.2f%n"
                 + "R0=%.2f S=%.2f Re=%.2f sediment thickness=%.2f H=%.2f highest block=%d%n"
                 + "External face: steep-cliff=%s relief=%.2f strength=%.3f outward=(%.3f,%.3f)%n"
@@ -78,7 +78,7 @@ public final class ArrakisTerrainCommand {
                 + "Talus: active=%s Y=%d..%d source=%d/%d tendency=%.2f coherent=%s%n"
                 + "Lithology roof=%s; queried Y=%d geological-Y=%.2f material=%s resistance=%s composed=%s%n"
                 + "Legacy repair stack: bypassed; cached columns=%d",
-                seed, settings.profileVersion(), x, y, z,
+                seed, settings.profileVersion(), settings.terrainAlgorithmRevision(), x, y, z,
                 raw.regionalRockTop(), raw.shieldWallUplift(), raw.otherUplift(), raw.fault().displacement(), raw.structuralDisplacement(),
                 raw.rockTop(), c.sediment().surfaceY(), erosion.rockTop(), c.sedimentThickness(), c.finalSurface(), c.highestOccupiedY(),
                 face.exposed(), face.localRelief(), face.exposure(), face.outwardNormalX(), face.outwardNormalZ(),

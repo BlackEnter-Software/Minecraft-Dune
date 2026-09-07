@@ -55,19 +55,30 @@ neoForge {
                         .map { it.toBoolean() }
                         .getOrElse(false)
 
+                systemProperty 'minecraftdune.devWorldName', devWorldName
+                systemProperty 'minecraftdune.devWorldCreate', createDevWorld.toString()
                 if (createDevWorld) {
-                    systemProperty 'minecraftdune.devWorldName', devWorldName
                     systemProperty 'minecraftdune.devWorldSeed',
                             providers.gradleProperty('devWorldSeed').getOrElse('0')
-                } else {
-                    programArguments.addAll(
-                            '--quickPlaySingleplayer',
-                            devWorldName
-                    )
                 }
             }
 
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        terrainValidationClient {
+            client()
+            gameDirectory = file('build/terrain-validation-client')
+            def validationPhase = providers.gradleProperty('terrainValidationPhase').getOrElse('generate')
+            def validationFolder = providers.gradleProperty('terrainValidationFolder').getOrElse('Arrakis-validation_manual')
+            systemProperty 'minecraftdune.validationPhase', validationPhase
+            systemProperty 'minecraftdune.validationFolder', validationFolder
+            systemProperty 'minecraftdune.devWorldName', validationFolder
+            systemProperty 'minecraftdune.devWorldCreate', (validationPhase == 'generate').toString()
+            programArguments.addAll('--width', '1280', '--height', '720')
+            if (validationPhase == 'generate') {
+                systemProperty 'minecraftdune.devWorldSeed', '0'
+            }
         }
 
         server {
@@ -182,6 +193,7 @@ tasks.register('validateBuriedRock', JavaExec) {
 
 tasks.named('test', Test).configure {
     dependsOn tasks.named('validateBuriedRock')
+    dependsOn 'validateDevLauncher'
     // The lightweight terrain harness is a deterministic JavaExec main, not a JUnit suite.
     failOnNoDiscoveredTests = false
 }
@@ -191,6 +203,11 @@ tasks.named('check').configure {
     dependsOn tasks.named('validateArrakisTerrain')
     dependsOn tasks.named('validateDunePrototypeState')
     dependsOn tasks.named('validateArrakisEvaluator')
+}
+
+tasks.register('validateDevLauncher', Exec) {
+    onlyIf { System.getProperty('os.name').startsWith('Windows') }
+    commandLine 'powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'scripts/Test-ArrakisDevWorld.ps1'
 }
 
 idea {

@@ -69,6 +69,7 @@ public final class ArrakisChunkGenerator extends FlatLevelSource {
             ArrakisTerrainSettings terrainSettings
     ) {
         super(settings);
+        TerrainAlgorithm.requireSupported(terrainSettings);
         this.flatSettings = settings;
         this.terrainSettings = terrainSettings;
         lithologyPalette = new LithologyBlockPalette(

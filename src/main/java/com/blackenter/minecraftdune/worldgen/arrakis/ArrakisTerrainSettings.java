@@ -25,12 +25,31 @@ public record ArrakisTerrainSettings(
         BrokenRockSettings brokenRock,
         OuterTransitionSettings outerTransition,
         NativeDuneSettings nativeDunes,
-        BuriedRockSettings buriedRock
+        BuriedRockSettings buriedRock,
+        int terrainAlgorithmRevision
 ) {
     public static final int CURRENT_PROFILE_VERSION = 6000;
     public static final int LEGACY_PROFILE_VERSION = 5148;
 
-    public boolean isBuriedRock() { return profileVersion == CURRENT_PROFILE_VERSION; }
+    // Profile IDs describe the architecture and must not track the newest release.
+    public boolean isBuriedRock() { return profileVersion == 6000; }
+
+    public ArrakisTerrainSettings(int profileVersion, BasinSettings basin, ForelandSettings foreland,
+            MassifSettings massif, BaseAlignmentSettings baseAlignment, FaultSettings faults,
+            LithologySettings lithology, AdditionalMaterialSettings additionalMaterials,
+            FractureSettings fractures, ErosionSettings erosion, FrontShellCleanupSettings frontShellCleanup,
+            SandPassSettings sandPasses, BrokenRockSettings brokenRock, OuterTransitionSettings outerTransition,
+            NativeDuneSettings nativeDunes, BuriedRockSettings buriedRock) {
+        this(profileVersion, basin, foreland, massif, baseAlignment, faults, lithology, additionalMaterials,
+                fractures, erosion, frontShellCleanup, sandPasses, brokenRock, outerTransition, nativeDunes,
+                buriedRock, profileVersion == 6000 ? TerrainAlgorithm.CURRENT : 0);
+    }
+
+    public ArrakisTerrainSettings withAlgorithmRevision(int revision) {
+        return new ArrakisTerrainSettings(profileVersion, basin, foreland, massif, baseAlignment, faults,
+                lithology, additionalMaterials, fractures, erosion, frontShellCleanup, sandPasses,
+                brokenRock, outerTransition, nativeDunes, buriedRock, revision);
+    }
 
     public static final MaterialPaletteSettings DEFAULT_MATERIALS =
             new MaterialPaletteSettings(
@@ -286,8 +305,8 @@ public record ArrakisTerrainSettings(
             BuriedRockSettings.DEFAULT
     );
 
-    private static final Codec<ArrakisTerrainSettings> RAW_CODEC =
-            RecordCodecBuilder.create(instance -> instance.group(
+    private static final com.mojang.serialization.MapCodec<ArrakisTerrainSettings> SETTINGS_CODEC =
+            RecordCodecBuilder.mapCodec(instance -> instance.group(
                     Codec.INT.fieldOf("profile_version")
                             .forGetter(ArrakisTerrainSettings::profileVersion),
                     BasinSettings.CODEC.fieldOf("basin")
@@ -339,6 +358,12 @@ public record ArrakisTerrainSettings(
                     BuriedRockSettings.CODEC.optionalFieldOf("buried_rock", BuriedRockSettings.DEFAULT)
                             .forGetter(ArrakisTerrainSettings::buriedRock)
             ).apply(instance, ArrakisTerrainSettings::new));
+
+    private static final Codec<ArrakisTerrainSettings> RAW_CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            SETTINGS_CODEC.forGetter((ArrakisTerrainSettings settings) -> settings),
+            Codec.INT.optionalFieldOf("terrain_algorithm_revision", 0)
+                    .forGetter(ArrakisTerrainSettings::terrainAlgorithmRevision)
+    ).apply(instance, ArrakisTerrainSettings::withAlgorithmRevision));
 
     public static final Codec<ArrakisTerrainSettings> CODEC = RAW_CODEC.flatXmap(
             ArrakisTerrainSettingsValidator::validate,

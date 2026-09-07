@@ -2,7 +2,14 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.6.0-dev.2 — Shield-Wall erosion morphology and talus coherence**
+Current development version: **0.6.0-dev.2.1 — world validation and terrain compatibility**
+
+Dev.2.1 fixes dev-world folder naming and adds an isolated Minecraft generation/save/reload
+check with four fixed screenshot views. New worlds persist `terrain_algorithm_revision: 2`
+within profile 6000. Unversioned dev.1 settings resolve to revision 1; ambiguous unversioned
+dev.2 saves are rejected rather than silently reinterpreted. Keep their original build or
+create a fresh world; do not relabel an old save. Terrain shape and numeric tuning are unchanged.
+See [dev.2.1 compatibility and validation](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.2.1.md).
 
 Current development branch: `main`. The active terrain profile is **6000**: continuous
 subsurface geology, tectonic Shield-Wall uplift, signed fault displacement and an independent
@@ -18,7 +25,8 @@ the downhill profile, and apply resistance through the depth actually reached. U
 created world when comparing these fixes with the initial dev.2 implementation.
 See the [dev.2 diagnosis, settings and validation report](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.2.md)
 and [original buried-rock architecture](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.1.md).
-Analytical tests pass; fresh in-client visual review is still required. True undercuts are deferred.
+The dev.2.1 report records live validation and screenshot review separately from analytical
+tests. True undercuts are deferred.
 
 Operators can use `/dune terrain inspect` at their current position, or
 `/dune terrain inspect 3053 65 190`, to copy a report from the same analytical evaluator

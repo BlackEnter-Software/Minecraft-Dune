@@ -20,6 +20,7 @@ public final class BuriedRockTerrainValidation {
         var profile = ArrakisProfileValidation.loadDevelopmentProfile();
         var settings = profile.settings();
         validateCodec(profile.json(), settings);
+        TerrainAlgorithmValidation.validate(profile.json(), settings);
         validateGeology(settings);
         validateStructuralLithology(settings);
         validateFaults(settings);

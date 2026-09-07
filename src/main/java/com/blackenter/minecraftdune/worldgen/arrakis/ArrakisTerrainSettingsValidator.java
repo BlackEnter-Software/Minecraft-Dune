@@ -28,6 +28,12 @@ final class ArrakisTerrainSettingsValidator {
     }
 
     static DataResult<ArrakisTerrainSettings> validate(ArrakisTerrainSettings settings) {
+        try {
+            var resolved = TerrainAlgorithm.resolve(settings);
+            if (resolved != settings) return validate(resolved);
+        } catch (IllegalArgumentException exception) {
+            return DataResult.error(exception::getMessage);
+        }
         if (settings.profileVersion() > ArrakisTerrainSettings.LEGACY_PROFILE_VERSION && !settings.isBuriedRock()) {
             return DataResult.error(() -> "Unsupported terrain profile: " + settings.profileVersion() + "; expected legacy <=5148 or 6000");
         }

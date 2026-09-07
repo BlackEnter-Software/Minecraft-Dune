@@ -46,6 +46,7 @@ public final class ArrakisTerrainEvaluator {
             throw new IllegalArgumentException("Cache limit must be between 0 and " + CHUNK_CACHE_LIMIT);
         }
         this.worldSeed = worldSeed;
+        TerrainAlgorithm.requireSupported(settings);
         this.terrainSettings = java.util.Objects.requireNonNull(settings);
         this.maximumEntries = maximumEntries;
         this.metrics = metrics;
