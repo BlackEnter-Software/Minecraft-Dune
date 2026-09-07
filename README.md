@@ -2,7 +2,7 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.6.0-dev.1 — Buried Rock**
+Current development version: **0.6.0-dev.2 — Shield-Wall erosion morphology and talus coherence**
 
 Current development branch: `main`. The active terrain profile is **6000**: continuous
 subsurface geology, tectonic Shield-Wall uplift, signed fault displacement and an independent
@@ -10,8 +10,15 @@ sediment surface. Analytical external exposure drives one fixed roof-recession p
 by erosion-derived colluvium. Rock fills the entire column below its eroded roof; there is no
 remnant/front-shell cleanup or basal concealment in this path. Saved profile 5148 worlds keep
 their legacy generator. Use a **fresh Arrakis Dev Seed-0 world**; never relabel an old save 6000.
-See the [architecture, settings and validation report](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.1.md).
-This first heightfield version still needs in-client visual tuning; true undercuts are deferred.
+Dev.2 adds broad differential recession, wandering gullies, stratigraphic resistance response
+and blended source-region talus within that same one-pass architecture. New options default
+off in saved dev.1 worlds and are enabled in the development preset. All previous JSON tuning
+is preserved. Review fixes extend erosion to gentler exposed slopes, reshape shoulders using
+the downhill profile, and apply resistance through the depth actually reached. Use a newly
+created world when comparing these fixes with the initial dev.2 implementation.
+See the [dev.2 diagnosis, settings and validation report](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.2.md)
+and [original buried-rock architecture](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.1.md).
+Analytical tests pass; fresh in-client visual review is still required. True undercuts are deferred.
 
 Operators can use `/dune terrain inspect` at their current position, or
 `/dune terrain inspect 3053 65 190`, to copy a report from the same analytical evaluator
@@ -25,6 +32,7 @@ The project currently contains:
 - coherent 3D lithology with geological resistance roles and optional Create limestone;
 - deterministic through-going massif fissures, dead-end branches and variable calcite bands;
 - lithology-aware roof recession, structural fracture incision and gravel/source-clast colluvium;
+- broad Shield-Wall bays/buttresses, coherent wandering gullies and blended downslope deposits;
 - rock/sediment-envelope exposure independent of future caves or generated neighbor chunks;
 - smooth warped structural ramps reused as uplift of the continuous geological body;
 - a separate legacy 5148 path retaining historical occupancy, undercuts and cleanup behavior;

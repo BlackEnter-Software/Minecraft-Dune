@@ -1,11 +1,34 @@
-# Arrakis terrain profile — parameter reference (0.6.0-dev.1 — Buried Rock)
+# Arrakis terrain profile — parameter reference (0.6.0-dev.2)
 
 ## Current profile 6000
 
 The active development JSON now selects `profile_version: 6000`. New controls are grouped
 under `buried_rock.rock_surface`, `buried_rock.sediment`, `buried_rock.fault_displacement`,
 `buried_rock.erosion` and `buried_rock.talus`. Every parameter, default and geological role is
-documented in the [buried-rock parameter reference](BURIED_ROCK_TERRAIN_0.6.0-dev.1.md#settings).
+documented in the [original buried-rock parameter reference](BURIED_ROCK_TERRAIN_0.6.0-dev.1.md#settings).
+
+Dev.2 adds `buried_rock.erosion.morphology` and `buried_rock.talus.coherent_sources` without
+changing any previous preset values or the profile number. The complete new parameter/range
+reference is [dev.2 settings and compatibility](BURIED_ROCK_TERRAIN_0.6.0-dev.2.md#settings-and-compatibility).
+
+| New field | Missing-field default | Dev.2 preset | Purpose / range |
+| --- | --- | --- | --- |
+| `erosion.morphology.enabled` | false | true | Coherent wall recession and longer external probe halo. |
+| `erosion.morphology.sector_scale` | 180 | 180 | Broad along-wall scale, 80–600 blocks. |
+| `erosion.morphology.sector_recession` | 32 | 32 | Extra sector horizontal budget, 0–64 blocks. |
+| `erosion.morphology.mesoscale_recession` | 16 | 16 | Extra mesoscale horizontal budget, 0–32 blocks. |
+| `erosion.morphology.gully_spacing` | 44 | 44 | Nominal channel spacing, 16–128 blocks. |
+| `erosion.morphology.gully_depth` | 24 | 24 | Base vertical depth before resistance/damage, 0–64 blocks. |
+| `talus.coherent_sources` | false | true | Blended fixed source nodes instead of shifted rays/maxima. |
+
+All paths in this table are relative to `buried_rock`. Recession budgets are horizontal;
+the downhill profile converts them to erosion work on slopes and shoulders. Gully work is
+vertical. Integrated susceptibility through the reached strata determines achieved removal;
+diagnostics report that separately from the input budgets. Existing erosion
+and talus enable flags still apply. Both new opt-ins must be false for exact dev.1 behavior;
+missing fields decode that way. Create a fresh dev.2 world; saved worlds are not migrated.
+The review fixes change generation when morphology is enabled, including in newly generated
+chunks of earlier dev.2 saves. Use a newly created world to compare the fixes without mixed terrain.
 
 Rock and sediment are independent absolute surfaces. Existing geometry/dune/material controls
 are reused, but legacy repair groups are absent from the active preset and cannot run in 6000.

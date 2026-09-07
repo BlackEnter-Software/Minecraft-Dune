@@ -74,22 +74,13 @@
               "surface_retreat": 4,
               "incision_scale": 1,
               "fault_weakness": 0.7,
-              "edge_threshold": 0.32,
-              "morphology": {
-                "enabled": true,
-                "sector_scale": 180,
-                "sector_recession": 32,
-                "mesoscale_recession": 16,
-                "gully_spacing": 44,
-                "gully_depth": 24
-              }
+              "edge_threshold": 0.32
             },
             "talus": {
               "enabled": true,
               "yield": 0.4,
               "maximum_thickness": 4,
               "reach": 16,
-              "coherent_sources": true,
               "minimum_erosion": 0.75,
               "minimum_relief": 8
             }

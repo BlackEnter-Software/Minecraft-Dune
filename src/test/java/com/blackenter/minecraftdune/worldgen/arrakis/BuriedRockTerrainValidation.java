@@ -26,6 +26,7 @@ public final class BuriedRockTerrainValidation {
         validateExposureAndTalus(settings);
         validateOrderAndComposition(settings);
         validateIsolation(settings);
+        BuriedRockMorphologyValidation.validate(settings);
         var evaluator = new ArrakisTerrainEvaluator(0, settings, 1024);
         for (int[] p : new int[][] {{0,0},{3057,150},{3060,150},{3100,150},{3400,0},{4096,0},{9000,9000}}) {
             var c = evaluator.buriedColumn(p[0], p[1]);
@@ -187,7 +188,7 @@ public final class BuriedRockTerrainValidation {
         require(rejected,"6000 can enter legacy repair evaluator");
         var legacy=ArrakisProfileValidation.loadProfile().settings();
         require(!legacy.isBuriedRock() && legacy.profileVersion()==5148,"saved 5148 migrated silently");
-        for(String file:new String[] {"arrakis/BuriedRockTerrain.java","arrakis/BuriedTerrainColumn.java","geology/RockErosionField.java","geology/RawRockSurfaceField.java","geology/TalusColluviumField.java"}) {
+        for(String file:new String[] {"arrakis/BuriedRockTerrain.java","arrakis/BuriedTerrainColumn.java","geology/RockErosionField.java","geology/WallErosionMorphology.java","geology/RawRockSurfaceField.java","geology/TalusColluviumField.java"}) {
             String code=Files.readString(Path.of("src/main/java/com/blackenter/minecraftdune/worldgen",file));
             for(String forbidden:new String[] {"OrphanRemnantFilter","BoundedBasalComponentCleanup","ShieldWallFrontShellCleanup","BasalSandSkirt","getBlockState(","ServerLevel"})
                 require(!code.contains(forbidden),"new geological DAG depends on repair/world state: "+file+" "+forbidden);

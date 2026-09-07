@@ -40,15 +40,22 @@ final class BuriedRockTerrain {
         Entry entry = entry(x, z);
         if (entry.erosion != null) return entry;
         var config = settings.buriedRock().erosion();
+        // Still eight fixed external probes. A sector can retreat farther than dev.1's
+        // 18-block halo, so its exposure must see that shoulder before recession begins.
+        double farProbe = config.morphology().enabled() ? Math.max(config.probeDistance(),
+                Math.min(64, config.morphology().sectorRecession() + config.morphology().mesoscaleRecession())) : config.probeDistance();
         var face = RockFaceExposure.external(x + .5, z + .5, entry.raw.rockTop(), entry.sediment.surfaceY(),
-                Math.max(2, config.surfaceRetreat() + 1), config.probeDistance(), config.minimumRelief(),
+                Math.max(2, config.surfaceRetreat() + 1), farProbe, config.minimumRelief(),
                 (sx, sz) -> interpolate(sx, sz, true));
         entry.fracture = MassifFractureField.structural(seed, x + .5, z + .5,
                 entry.lithology.sample(entry.raw.rockTop()).resistance(), settings.fractures());
         entry.erosion = RockErosionField.sample(seed, x + .5, z + .5, entry.raw.rockTop(), entry.sediment.surfaceY(),
                 face, entry.fracture, entry.lithology, entry.raw.fault().damage(), settings.nativeDunes().windAngleDegrees(),
-                settings.buriedRock(), (sx, sz) -> interpolate(sx, sz, false));
+                settings.buriedRock(), (sx, sz) -> interpolate(sx, sz, false),
+                WallErosionMorphology.sample(seed, x + .5, z + .5, entry.raw.rockTop(), entry.sediment.surfaceY(),
+                        face, entry.raw.geography(), settings));
         metrics.stage(TerrainGenerationMetrics.Stage.EXPOSURE);
+        if (config.morphology().enabled()) metrics.stage(TerrainGenerationMetrics.Stage.MORPHOLOGY);
         metrics.stage(TerrainGenerationMetrics.Stage.EROSION);
         return entry;
     }
@@ -77,7 +84,9 @@ final class BuriedRockTerrain {
         var talus = TalusColluviumField.sample(seed, x, z, external, settings.buriedRock().talus(), (sx, sz) -> {
             Entry source = eroded(sx, sz);
             var face = source.erosion.face();
-            double exposedSupply = source.erosion.rockTop() >= source.sediment.surfaceY() && face.exposed()
+            var morphology = source.erosion.morphology();
+            boolean erodedSlope = morphology.recessionRemoval() + morphology.gullyIncision() > 0;
+            double exposedSupply = source.erosion.rockTop() >= source.sediment.surfaceY() && (face.exposed() || erodedSlope)
                     ? source.erosion.removedAmount() : 0;
             return new TalusColluviumField.Source(source.erosion.rockTop(), exposedSupply,
                     face.outwardNormalX(), face.outwardNormalZ(), source.lithology.sample(source.erosion.rockTop()).material());

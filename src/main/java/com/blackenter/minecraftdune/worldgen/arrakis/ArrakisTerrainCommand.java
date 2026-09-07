@@ -71,10 +71,11 @@ public final class ArrakisTerrainCommand {
                 "Arrakis seed=%d profile=%d buried-rock XYZ=%d/%d/%d%n"
                 + "Regional rock=%.2f Shield-Wall uplift=%.2f other uplift=%.2f fault throw=%.2f structural displacement=%.2f%n"
                 + "R0=%.2f S=%.2f Re=%.2f sediment thickness=%.2f H=%.2f highest block=%d%n"
-                + "External face: exposed=%s relief=%.2f strength=%.3f outward=(%.3f,%.3f)%n"
-                + "Erosion: incision=%.2f major=%.2f surface=%.2f removed=%.2f horizontal recession=%.2f%n"
+                + "External face: steep-cliff=%s relief=%.2f strength=%.3f outward=(%.3f,%.3f)%n"
+                + "Erosion: incision=%.2f major=%.2f surface=%.2f removed=%.2f horizontal budget=%.2f%n"
+                + "Morphology: sector-budget=%.2f meso-budget=%.2f gully-removal=%.2f lithology-response=%.2f fracture-boost=%.2f fault-boost=%.2f recession-removal=%.2f%n"
                 + "Fault: index=%d signed-distance=%.2f side=%d damage=%.3f; fracture strength=%.3f depth=%.2f%n"
-                + "Talus: active=%s Y=%d..%d source=%d/%d%n"
+                + "Talus: active=%s Y=%d..%d source=%d/%d tendency=%.2f coherent=%s%n"
                 + "Lithology roof=%s; queried Y=%d geological-Y=%.2f material=%s resistance=%s composed=%s%n"
                 + "Legacy repair stack: bypassed; cached columns=%d",
                 seed, settings.profileVersion(), x, y, z,
@@ -82,9 +83,12 @@ public final class ArrakisTerrainCommand {
                 raw.rockTop(), c.sediment().surfaceY(), erosion.rockTop(), c.sedimentThickness(), c.finalSurface(), c.highestOccupiedY(),
                 face.exposed(), face.localRelief(), face.exposure(), face.outwardNormalX(), face.outwardNormalZ(),
                 erosion.incision(), erosion.majorRemoval(), erosion.surfaceRemoval(), erosion.removedAmount(), erosion.horizontalRecession(),
+                erosion.morphology().sectorRecession(), erosion.morphology().mesoscaleRecession(), erosion.morphology().gullyIncision(),
+                erosion.morphology().lithologyResponse(), erosion.morphology().fractureBoost(), erosion.morphology().faultBoost(),
+                erosion.morphology().recessionRemoval(),
                 raw.fault().faultIndex(), raw.fault().signedDistance(), raw.fault().side(), raw.fault().damage(),
                 c.fracture().strength(), c.fracture().carveDepth(), c.talus().active(), c.talus().bottomY(), c.talus().topY(),
-                c.talus().sourceX(), c.talus().sourceZ(),
+                c.talus().sourceX(), c.talus().sourceZ(), c.talus().tendency(), settings.buriedRock().talus().coherentSources(),
                 c.lithology().sample(c.rockTopY()).material(), y, c.lithology().geologicalY(y),
                 material.material(), material.resistance(), c.cellAt(y, -64).kind(), evaluator.size());
     }

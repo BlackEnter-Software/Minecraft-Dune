@@ -2,6 +2,7 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 /** Profile-6000 controls. No native-root, occupancy-repair, or concealment settings. */
@@ -70,8 +71,17 @@ public record BuriedRockSettings(RockSurface rockSurface, Sediment sediment,
             double maximumRecession, double windStrength, double fractureStrength,
             double softMultiplier, double hardMultiplier, double veryHardMultiplier,
             double surfaceStrength, double coarseScale, double detailScale, int surfaceRetreat,
-            double incisionScale, double faultWeakness, double edgeThreshold) {
-        public static final Codec<Erosion> CODEC = RecordCodecBuilder.create(i -> i.group(
+            double incisionScale, double faultWeakness, double edgeThreshold, Morphology morphology) {
+        // Preserve omitted dev.1 settings and its serialized profile-6000 behavior.
+        public Erosion(boolean enabled, double minimumRelief, double probeDistance, double maximumRecession,
+                double windStrength, double fractureStrength, double softMultiplier, double hardMultiplier,
+                double veryHardMultiplier, double surfaceStrength, double coarseScale, double detailScale,
+                int surfaceRetreat, double incisionScale, double faultWeakness, double edgeThreshold) {
+            this(enabled, minimumRelief, probeDistance, maximumRecession, windStrength, fractureStrength,
+                    softMultiplier, hardMultiplier, veryHardMultiplier, surfaceStrength, coarseScale, detailScale,
+                    surfaceRetreat, incisionScale, faultWeakness, edgeThreshold, Morphology.LEGACY);
+        }
+        private static final MapCodec<Erosion> BASE_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
                 Codec.BOOL.optionalFieldOf("enabled", true).forGetter(Erosion::enabled),
                 number(4, 96).optionalFieldOf("minimum_relief", 18.0).forGetter(Erosion::minimumRelief),
                 number(6, 32).optionalFieldOf("probe_distance", 18.0).forGetter(Erosion::probeDistance),
@@ -89,17 +99,42 @@ public record BuriedRockSettings(RockSurface rockSurface, Sediment sediment,
                 number(0, 2).optionalFieldOf("fault_weakness", .7).forGetter(Erosion::faultWeakness),
                 number(.05, .9).optionalFieldOf("edge_threshold", .32).forGetter(Erosion::edgeThreshold)
         ).apply(i, Erosion::new));
+        public static final Codec<Erosion> CODEC = RecordCodecBuilder.create(i -> i.group(
+                BASE_CODEC.forGetter((Erosion e) -> e),
+                Morphology.CODEC.optionalFieldOf("morphology", Morphology.LEGACY).forGetter(Erosion::morphology)
+        ).apply(i, (e, m) -> new Erosion(e.enabled, e.minimumRelief, e.probeDistance, e.maximumRecession,
+                e.windStrength, e.fractureStrength, e.softMultiplier, e.hardMultiplier, e.veryHardMultiplier,
+                e.surfaceStrength, e.coarseScale, e.detailScale, e.surfaceRetreat, e.incisionScale,
+                e.faultWeakness, e.edgeThreshold, m)));
+    }
+
+    public record Morphology(boolean enabled, double sectorScale, double sectorRecession,
+            double mesoscaleRecession, double gullySpacing, double gullyDepth) {
+        public static final Morphology LEGACY = new Morphology(false, 180, 32, 16, 44, 24);
+        public static final Codec<Morphology> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.BOOL.optionalFieldOf("enabled", false).forGetter(Morphology::enabled),
+                number(80, 600).optionalFieldOf("sector_scale", 180.0).forGetter(Morphology::sectorScale),
+                number(0, 64).optionalFieldOf("sector_recession", 32.0).forGetter(Morphology::sectorRecession),
+                number(0, 32).optionalFieldOf("mesoscale_recession", 16.0).forGetter(Morphology::mesoscaleRecession),
+                number(16, 128).optionalFieldOf("gully_spacing", 44.0).forGetter(Morphology::gullySpacing),
+                number(0, 64).optionalFieldOf("gully_depth", 24.0).forGetter(Morphology::gullyDepth)
+        ).apply(i, Morphology::new));
     }
 
     public record Talus(boolean enabled, double yield, int maximumThickness, int reach,
-            double minimumErosion, double minimumRelief) {
+            double minimumErosion, double minimumRelief, boolean coherentSources) {
+        public Talus(boolean enabled, double yield, int maximumThickness, int reach,
+                double minimumErosion, double minimumRelief) {
+            this(enabled, yield, maximumThickness, reach, minimumErosion, minimumRelief, false);
+        }
         public static final Codec<Talus> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.BOOL.optionalFieldOf("enabled", true).forGetter(Talus::enabled),
                 number(0, 1).optionalFieldOf("yield", .4).forGetter(Talus::yield),
                 Codec.intRange(0, 8).optionalFieldOf("maximum_thickness", 4).forGetter(Talus::maximumThickness),
                 Codec.intRange(2, 24).optionalFieldOf("reach", 16).forGetter(Talus::reach),
                 number(.01, 16).optionalFieldOf("minimum_erosion", .75).forGetter(Talus::minimumErosion),
-                number(2, 48).optionalFieldOf("minimum_relief", 8.0).forGetter(Talus::minimumRelief)
+                number(2, 48).optionalFieldOf("minimum_relief", 8.0).forGetter(Talus::minimumRelief),
+                Codec.BOOL.optionalFieldOf("coherent_sources", false).forGetter(Talus::coherentSources)
         ).apply(i, Talus::new));
     }
 }

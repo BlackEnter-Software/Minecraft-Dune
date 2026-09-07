@@ -1,5 +1,44 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.6.0-dev.2 - Shield-Wall erosion morphology and talus coherence
+
+- Diagnosed weak dev.1 erosion: short downhill roof sampling, cascaded exposure gates and
+  roof-only material response lost much of the old per-Y face breakup despite reused noise.
+- Added coherent broad-sector and mesoscale differential recession in a cylindrical
+  Shield-Wall frame, retaining projecting resistant sections between more recessed areas.
+- Added wandering, variable-width/depth downslope gullies with merging branches and fading
+  termini. They lower the analytical roof inside the existing single fixed erosion pass.
+- Exposed slopes now use their own continuous relief/slope response instead of the old
+  steep-cliff eligibility flag. A bounded three-distance downhill profile spreads sector
+  recession across shoulders instead of concentrating nearly all removal at cliff feet.
+- Integrate erosion work through the displaced strata actually reached, including resistant
+  formations more than 40 blocks below the starting roof. Existing wind, fractures and fault
+  damage modulate recession without redesigning geology or adding an exposure pass.
+- Extended the eight-probe external-height halo to match the new recession scale. Formation
+  ownership selects wall style but cannot substitute for actual height-derived exposure.
+- Reproduced a neighboring-recipient miss in the old eight-ray talus search. New coherent mode
+  blends shared world-space source kernels; dominant sources choose clasts, not deposit height.
+  Deposits still require exposed erosion supply and can rest on slopes. No cleanup was added.
+- Added six `buried_rock.erosion.morphology` controls and `buried_rock.talus.coherent_sources`.
+  Missing opt-ins remain false for saved dev.1 compatibility; the new preset enables both.
+  Terrain profile remains `6000`, and every pre-existing preset value is preserved.
+- Extended shared terrain/geology diagnostics with sector/mesoscale recession, gully depth,
+  resistance/damage response and pre-rounding talus tendency; added a morphology metric stage.
+- Diagnostics distinguish horizontal erosion budgets from achieved vertical recession removal.
+  Newly eroded slopes also supply downstream talus when they remain exposed above sediment.
+- Retained all dev.1 and legacy validations. Added a frozen dev.1 fixture, statistical wall/
+  gully coherence, resistance, exposure ownership, angular seam, negative/cache-order,
+  diagnostic consistency and source-blending regression checks.
+- Added independently selected slope/shoulder coverage, final visible-gully continuity,
+  actual height-contour recession/buttress coherence and deep-resistant-bed regression tests.
+- Preserved basin/dunes, smooth uplift, deep continuous geology, structural lithology and fault
+  geometry. No hard cliffs, repair filters, second erosion pass, caves or overhangs introduced.
+- Preserved the automated Seed-0 Creative Arrakis launcher and JVM/ZGC settings. Versioned
+  world names now derive `0.6.0-dev.2`; animals, cameras and the finite dune laboratory are unchanged.
+- Fresh Minecraft visual validation is still required; analytical improvement does not prove
+  rendered visual parity with 0.5.14.8. Explicit fault/crack naturalization remains deferred.
+- See [implementation, settings, measurements and inspection coordinates](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.2.md).
+
 ## Minecraft: Dune 0.6.0-dev.1 - Buried Rock
 
 - Added terrain profile `6000`: continuous buried geological rock exists beneath the entire

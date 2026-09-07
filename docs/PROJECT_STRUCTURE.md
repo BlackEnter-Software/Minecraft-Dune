@@ -20,6 +20,7 @@ src/main/java/com/blackenter/minecraftdune/
 │  │  ├─ GeologicalFaultField.java
 │  │  ├─ SedimentSurfaceField.java
 │  │  ├─ RockErosionField.java
+│  │  ├─ WallErosionMorphology.java
 │  │  ├─ TalusColluviumField.java
 │  │  ├─ LithologyField.java
 │  │  ├─ LithologyBlockPalette.java
@@ -59,8 +60,13 @@ and independent sediment, then analytical external exposure, fixed erosion, caus
 and `BuriedTerrainColumn` composition. Chunk/base-column writers consume the same composer;
 height queries use its final roof. Only legacy profiles can access the old column/repair cache.
 See [the full dependency graph and migration report](BURIED_ROCK_TERRAIN_0.6.0-dev.1.md).
+Dev.2's `WallErosionMorphology` supplies coherent sector/mesoscale/gully potentials inside
+the same fixed roof pass; `TalusColluviumField` can blend fixed source-region kernels.
+See [morphology, compatibility and validation](BURIED_ROCK_TERRAIN_0.6.0-dev.2.md).
 `validateBuriedRock` is reached by both `test` and `check`; all old validators remain on the
-frozen 5148 fixture. The following occupancy architecture is legacy-only.
+frozen 5148 fixture. `BuriedRockMorphologyValidation` supplements the unchanged buried-rock
+checks and compares against a frozen 6000 dev.1 fixture. The following occupancy architecture
+is legacy-only.
 
 Native terrain classes under `worldgen` must remain deterministic from the world seed,
 serialized profile, and absolute coordinates. `DuneSimulation` is the frozen finite laboratory;

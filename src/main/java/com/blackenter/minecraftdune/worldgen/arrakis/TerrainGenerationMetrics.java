@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.LongAdder;
  * evaluation work and never participate in terrain decisions.</p>
  */
 final class TerrainGenerationMetrics {
-    enum Stage { RAW_ROCK, FAULT, SEDIMENT, LITHOLOGY_COLUMN, EXPOSURE, EROSION, TALUS, COMPOSITION }
+    enum Stage { RAW_ROCK, FAULT, SEDIMENT, LITHOLOGY_COLUMN, EXPOSURE, MORPHOLOGY, EROSION, TALUS, COMPOSITION }
     private static final LongAdder[] STAGES = java.util.Arrays.stream(Stage.values())
             .map(stage -> new LongAdder()).toArray(LongAdder[]::new);
     private static final boolean ENABLED = Boolean.getBoolean("minecraftdune.terrainMetrics");

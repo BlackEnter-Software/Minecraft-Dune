@@ -1,6 +1,7 @@
 package com.blackenter.minecraftdune.worldgen.geology;
 
 import com.blackenter.minecraftdune.worldgen.arrakis.BuriedRockSettings;
+import java.util.function.DoubleUnaryOperator;
 
 /** One fixed analytical recession pass. Its result is a solid geological roof, not voxel survival. */
 public final class RockErosionField {
@@ -15,6 +16,14 @@ public final class RockErosionField {
             RockFaceExposure.Sample face, MassifFractureField.Sample fracture, LithologyField.Column lithology,
             double faultDamage, double windAngle, BuriedRockSettings settings,
             RockFaceExposure.HeightLookup rawHeight) {
+        return sample(seed, x, z, rawTop, sediment, face, fracture, lithology, faultDamage,
+                windAngle, settings, rawHeight, WallErosionMorphology.Sample.NONE);
+    }
+
+    public static Sample sample(long seed, double x, double z, double rawTop, double sediment,
+            RockFaceExposure.Sample face, MassifFractureField.Sample fracture, LithologyField.Column lithology,
+            double faultDamage, double windAngle, BuriedRockSettings settings,
+            RockFaceExposure.HeightLookup rawHeight, WallErosionMorphology.Sample morphology) {
         var erosion = settings.erosion();
         if (!erosion.enabled() || rawTop < sediment) return new Sample(rawTop, 0, 0, 0, 0, 0, face);
 
@@ -65,8 +74,76 @@ public final class RockErosionField {
                 z + face.outwardNormalZ() * distance)) - topWeathering;
         afterSurface = Math.max(settings.rockSurface().minimumY(), afterSurface);
         afterMajor = Math.max(afterSurface, afterMajor);
+        if (settings.erosion().morphology().enabled() && morphology.exposureGate() > 0) {
+            double faultBoost = .35 * faultDamage * erosion.faultWeakness();
+            double fractureBoost = .55 * fractureWeakness * erosion.fractureStrength();
+            var config = erosion.morphology();
+            double sector = Math.min(config.sectorRecession(), morphology.sectorRecession()
+                    * (.85 + .3 * wind + faultBoost));
+            double meso = Math.min(config.mesoscaleRecession(), morphology.mesoscaleRecession()
+                    * (1 + fractureBoost + faultBoost));
+            double totalDistance = distance + sector + meso;
+            double endpointLoss = Math.max(0, afterSurface - rawHeight.top(
+                    x + face.outwardNormalX() * totalDistance, z + face.outwardNormalZ() * totalDistance));
+            // The short offset alone barely changes a shoulder until it crosses the toe.
+            // Secants across the downhill profile distribute coherent recession over that
+            // shoulder as well. Sampling three distances also sees shorter downhill slopes
+            // followed by rising ground; a single far endpoint would miss those entirely.
+            // A flat envelope supplies no slope or removal.
+            double profileReach = face.farProbeDistance();
+            double profileSlope = 0;
+            for (int probe = 1; probe <= 3; probe++) {
+                double reach = profileReach * probe / 3;
+                double drop = Math.max(0, rawTop - rawHeight.top(
+                        x + face.outwardNormalX() * reach, z + face.outwardNormalZ() * reach));
+                profileSlope += drop / reach * (probe == 1 ? .2 : probe == 2 ? .3 : .5);
+            }
+            double recessionWork = Math.max(endpointLoss, (sector + meso) * profileSlope);
+            double gullyWork = morphology.gullyDepth() * (1 + fractureBoost + faultBoost);
+            double work = recessionWork + gullyWork;
+            double roof = erodeThroughStrata(afterSurface, settings.rockSurface().minimumY(), work,
+                    y -> susceptibility(lithology.sample(y).resistance(), erosion));
+            double removal = afterSurface - roof;
+            double resistance = work > 0 ? removal / work : 1;
+            // Attribute the one integrated removal to its two causes; this is not another pass.
+            double gully = work > 0 ? removal * gullyWork / work : 0;
+            double recession = removal - gully;
+            return new Sample(roof, incision, afterIncision - afterMajor + recession,
+                    afterMajor - afterSurface, rawTop - roof, totalDistance, face,
+                    new MorphologyBreakdown(sector, meso, gully, resistance, fractureBoost, faultBoost, recession));
+        }
         return new Sample(afterSurface, incision, afterIncision - afterMajor, afterMajor - afterSurface,
                 rawTop - afterSurface, distance, face);
+    }
+
+    /** Integrate erosion work through the material actually reached. At most 88 four-block
+     * intervals cover the configured geological range. Interpolated cost and a continuous
+     * inverse give a fractional roof, never occupancy holes or mandatory stratum-height steps.
+     * The caller supplies displaced lithology; no terrain/exposure is recomputed here. */
+    public static double erodeThroughStrata(double top, double minimum, double work,
+            DoubleUnaryOperator susceptibilityAt) {
+        if (work <= 0 || top <= minimum) return top;
+        double roof = top;
+        double cost = erosionCost(susceptibilityAt.applyAsDouble(roof));
+        int intervals = (int) Math.ceil((top - minimum) / 4);
+        for (int i = 0; i < intervals; i++) {
+            double depth = Math.min(4, roof - minimum);
+            double nextCost = erosionCost(susceptibilityAt.applyAsDouble(roof - depth));
+            double needed = depth * (cost + nextCost) * .5;
+            if (work <= needed) {
+                double gradient = (nextCost - cost) / depth;
+                double reached = 2 * work / (cost + Math.sqrt(Math.max(0, cost * cost + 2 * gradient * work)));
+                return Math.max(minimum, roof - Math.min(depth, reached));
+            }
+            work -= needed;
+            roof -= depth;
+            cost = nextCost;
+        }
+        return minimum;
+    }
+
+    private static double erosionCost(double susceptibility) {
+        return 1 / GeologyNoise.clamp(susceptibility, .05, 1.6);
     }
 
     public static double susceptibility(LithologyField.ResistanceClass resistance, BuriedRockSettings.Erosion settings) {
@@ -80,5 +157,14 @@ public final class RockErosionField {
     }
 
     public record Sample(double rockTop, double incision, double majorRemoval, double surfaceRemoval,
-            double removedAmount, double horizontalRecession, RockFaceExposure.Sample face) {}
+            double removedAmount, double horizontalRecession, RockFaceExposure.Sample face, MorphologyBreakdown morphology) {
+        public Sample(double rockTop, double incision, double majorRemoval, double surfaceRemoval,
+                double removedAmount, double horizontalRecession, RockFaceExposure.Sample face) {
+            this(rockTop, incision, majorRemoval, surfaceRemoval, removedAmount, horizontalRecession, face, MorphologyBreakdown.NONE);
+        }
+    }
+    public record MorphologyBreakdown(double sectorRecession, double mesoscaleRecession, double gullyIncision,
+            double lithologyResponse, double fractureBoost, double faultBoost, double recessionRemoval) {
+        public static final MorphologyBreakdown NONE = new MorphologyBreakdown(0, 0, 0, 1, 0, 0, 0);
+    }
 }

@@ -22,7 +22,7 @@ To delete only today's versioned dev world and recreate it from scratch, run:
 
 Normal `gradlew.bat runClient` behavior is unchanged.
 
-Buried Rock — 0.6.0-dev.1 / profile 6000
+Buried Rock — 0.6.0-dev.2 / profile 6000
 ---------------------------------------
 
 Create a FRESH Arrakis Dev world. Rock is continuous from above Y=-64 bedrock to its
@@ -31,10 +31,21 @@ Independent sediment buries lower rock and grades the central basin to Y64. One 
 analytical recession pass and erosion-derived colluvium replace the old occupancy/repair
 stack. The full column composer also drives height/base-column queries.
 
+Dev.2 adds coherent broad/mesoscale wall recession, wandering gullies, stronger resistance
+response and blended source-region talus. It keeps that one-pass architecture, smooth uplift,
+independent sediment and deep strata. New options are enabled only in the new preset;
+saved dev.1 worlds that omit them retain their old settings, including newly generated chunks.
+The launcher naturally names today's world Arrakis-dev_0.6.0-dev.2_[DDMMYY].
+The erosion review fixes change terrain in morphology-enabled dev.2 saves too. Use a newly
+created Seed-0 world; loading existing chunks cannot show the fixed geometry. The fixes
+include gentler exposed slopes, shoulder recession and resistance through the reached depth.
+
 Saved profile 5148 worlds retain legacy behavior. Do not change their profile number.
-See docs/BURIED_ROCK_TERRAIN_0.6.0-dev.1.md for settings, limitations and Seed-0 test points.
+See docs/BURIED_ROCK_TERRAIN_0.6.0-dev.2.md for changes, settings and Seed-0 test points;
+docs/BURIED_ROCK_TERRAIN_0.6.0-dev.1.md retains the original architecture reference.
 Use /dune terrain inspect and /dune geology profile for authoritative diagnostics.
-True overhangs/caves are deferred; no in-client visual parity is claimed yet.
+True overhangs/caves and fault/crack redesign are deferred. Dev.2 was analytically tested,
+not visually validated in Minecraft; inspect a fresh world at normal/full-detail distances.
 
 The following 0.5.14 description is retained for LEGACY profiles only.
 
