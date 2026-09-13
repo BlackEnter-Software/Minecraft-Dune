@@ -26,7 +26,7 @@ public final class ArrakisRuntimeValidation {
         var settings = generator.terrainSettings();
         Path actualSave = server.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
         if (!actualSave.getFileName().toString().equals(folder) || level.getSeed() != 0
-                || !settings.isBuriedRock() || settings.terrainAlgorithmRevision() != 2) {
+                || !settings.isBuriedRock() || settings.terrainAlgorithmRevision() != TerrainAlgorithm.CURRENT) {
             throw new IllegalStateException("Validation world identity mismatch: " + actualSave);
         }
         JsonObject report = new JsonObject();
@@ -40,7 +40,44 @@ public final class ArrakisRuntimeValidation {
         var pos = new BlockPos.MutableBlockPos();
         int columns = 0, blocks = 0, heights = 0;
         // Basin, inner wall/gully/shoulder, plateau, outer wall, negative coordinates and far erg.
-        int[][] chunks = {{0,0}, {191,9}, {193,9}, {190,11}, {212,0}, {256,0}, {-185,-37}, {-1,256}, {562,562}};
+        var chunks = new java.util.ArrayList<int[]>(java.util.List.of(new int[][] {
+                {0,0}, {191,9}, {193,9}, {190,11}, {212,0}, {256,0}, {-185,-37}, {-1,256}, {562,562}}));
+        var evaluator = new ArrakisTerrainEvaluator(0, settings, 1024);
+        var candidates = new java.util.ArrayList<com.blackenter.minecraftdune.worldgen.geology.ExposedCliffCavityField.Feature>();
+        for (int cx = -12; cx <= 12; cx++) for (int cz = 44; cz <= 53; cz++) {
+            var feature = evaluator.cavityFeature(cx, cz);
+            if (feature.volume() > 0) candidates.add(feature);
+        }
+        candidates.sort(java.util.Comparator.comparingInt(
+                com.blackenter.minecraftdune.worldgen.geology.ExposedCliffCavityField.Feature::volume).reversed());
+        if (candidates.size() < 2) throw new IllegalStateException("Insufficient native cavity coverage for runtime validation");
+        var views = new com.google.gson.JsonArray();
+        for (int i = 0; i < 2; i++) {
+            var feature = candidates.get(i);
+            int bestX = 0, bestZ = 0, best = 0; long mask = 0;
+            for (int x = feature.cellX() * 64; x < (feature.cellX() + 1) * 64; x++)
+                for (int z = feature.cellZ() * 64; z < (feature.cellZ() + 1) * 64; z++) {
+                    var column = feature.column(x, z);
+                    if (column.volume() > best) { best = column.volume(); bestX = x; bestZ = z; mask = column.mask(); }
+                }
+            int y = feature.baseY() + (Long.numberOfTrailingZeros(mask) + 63 - Long.numberOfLeadingZeros(mask)) / 2;
+            if (!feature.column(bestX, bestZ).removes(y)) y = feature.baseY() + Long.numberOfTrailingZeros(mask);
+            chunks.add(new int[] {bestX >> 4, bestZ >> 4});
+            int outwardDistance = (bestX - feature.mouthX()) * feature.inwardX()
+                    + (bestZ - feature.mouthZ()) * feature.inwardZ() + 6;
+            var view = new JsonObject();
+            view.addProperty("name", "southern-cavity-" + (i + 1));
+            view.addProperty("x", bestX + .5 - feature.inwardX() * outwardDistance);
+            // Camera Y is the player's feet; aim the spectator eye at the opening center.
+            view.addProperty("y", y + .5 - 1.62); view.addProperty("z", bestZ + .5 - feature.inwardZ() * outwardDistance);
+            view.addProperty("yaw", Math.toDegrees(Math.atan2(-feature.inwardX(), feature.inwardZ())));
+            view.addProperty("pitch", 0);
+            view.addProperty("targetX", bestX); view.addProperty("targetY", y); view.addProperty("targetZ", bestZ);
+            view.addProperty("feature_volume", feature.volume());
+            views.add(view);
+        }
+        report.add("cavity_views", views);
+        int cavityBlocks = 0;
         for (int[] coordinate : chunks) {
             if (reload && level.getChunkSource().chunkMap.read(new net.minecraft.world.level.ChunkPos(
                     coordinate[0], coordinate[1])).join().isEmpty()) {
@@ -51,9 +88,14 @@ public final class ArrakisRuntimeValidation {
             for (int dz = 0; dz < 16; dz++) for (int dx = 0; dx < 16; dx++) {
                 int x = coordinate[0] * 16 + dx, z = coordinate[1] * 16 + dz;
                 var expected = generator.getBaseColumn(x, z, level, random);
+                var analytical = evaluator.buriedColumn(x, z);
                 columns++;
                 for (int y = level.getMinBuildHeight(); y < level.getMaxBuildHeight(); y++) {
                     var actual = chunk.getBlockState(pos.set(x, y, z));
+                    if (analytical.cavities().removes(y)) {
+                        if (!actual.isAir()) throw new IllegalStateException("Expected cavity missing at " + pos);
+                        cavityBlocks++;
+                    }
                     if (!actual.equals(expected.getBlock(y))) {
                         throw new IllegalStateException("Chunk/base-column mismatch at " + pos + ": " + actual
                                 + " vs " + expected.getBlock(y));
@@ -77,6 +119,8 @@ public final class ArrakisRuntimeValidation {
         report.addProperty("columns_checked", columns);
         report.addProperty("blocks_checked", blocks);
         report.addProperty("heightmaps_checked", heights);
+        report.addProperty("cavity_blocks_checked", cavityBlocks);
+        if (cavityBlocks == 0) throw new IllegalStateException("Runtime check never visited a cavity");
         Files.createDirectories(output);
         if (reload) {
             var before = JsonParser.parseString(Files.readString(output.resolve("generated.json"))).getAsJsonObject();

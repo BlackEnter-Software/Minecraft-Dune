@@ -76,6 +76,7 @@ public final class ArrakisTerrainCommand {
                 + "Morphology: sector-budget=%.2f meso-budget=%.2f gully-removal=%.2f lithology-response=%.2f fracture-boost=%.2f fault-boost=%.2f recession-removal=%.2f%n"
                 + "Fault: index=%d signed-distance=%.2f side=%d damage=%.3f; fracture strength=%.3f depth=%.2f%n"
                 + "Talus: active=%s Y=%d..%d source=%d/%d tendency=%.2f coherent=%s%n"
+                + "Finishing: summit-removal=%.2f proximal-clast-setting=%.2f cavity-voxels=%d cavity-base=%d queried-cavity=%s%n"
                 + "Lithology roof=%s; queried Y=%d geological-Y=%.2f material=%s resistance=%s composed=%s%n"
                 + "Legacy repair stack: bypassed; cached columns=%d",
                 seed, settings.profileVersion(), settings.terrainAlgorithmRevision(), x, y, z,
@@ -89,6 +90,7 @@ public final class ArrakisTerrainCommand {
                 raw.fault().faultIndex(), raw.fault().signedDistance(), raw.fault().side(), raw.fault().damage(),
                 c.fracture().strength(), c.fracture().carveDepth(), c.talus().active(), c.talus().bottomY(), c.talus().topY(),
                 c.talus().sourceX(), c.talus().sourceZ(), c.talus().tendency(), settings.buriedRock().talus().coherentSources(),
+                c.summitRemoval(), c.sourceClastFraction(), c.cavities().volume(), c.cavities().baseY(), c.cavities().removes(y),
                 c.lithology().sample(c.rockTopY()).material(), y, c.lithology().geologicalY(y),
                 material.material(), material.resistance(), c.cellAt(y, -64).kind(), evaluator.size());
     }

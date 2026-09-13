@@ -105,6 +105,33 @@ public final class MassifFractureField {
     private static Sample network(long worldSeed, double worldX, double worldZ,
             LithologyField.ResistanceClass resistance, ArrakisTerrainSettings.FractureSettings settings,
             double activation) {
+        return network(worldSeed, worldX, worldZ, resistance, settings, activation, 0);
+    }
+
+    /** Revision-3 surface expression of the same families and finite branch hierarchy. */
+    public static Sample surface(long seed, double x, double z, LithologyField.ResistanceClass resistance,
+            ArrakisTerrainSettings.FractureSettings settings, double variation) {
+        return settings.enabled() && settings.density() > 0
+                ? network(seed, x, z, resistance, settings, 1, variation) : NONE;
+    }
+
+    public static double surfaceDepthMultiplier(long seed, double along, double variation) {
+        double envelope = GeologyNoise.smoothStep(-.35, .45,
+                GeologyNoise.value2(seed ^ 0x376E184AC95D20BFL, along / 95, 8));
+        return 1 + variation * (1.25 * envelope - 1);
+    }
+
+    public static double branchTaper(double progress) {
+        return 1 - GeologyNoise.smoothStep(.5, 1, progress);
+    }
+
+    private static double surfaceWander(long seed, double along, double variation) {
+        return variation * 5 * GeologyNoise.value2(seed ^ 0x29A7D0CF635148BEL, along / 55, 3);
+    }
+
+    private static Sample network(long worldSeed, double worldX, double worldZ,
+            LithologyField.ResistanceClass resistance, ArrakisTerrainSettings.FractureSettings settings,
+            double activation, double surfaceVariation) {
 
         double traceSpacing = Math.max(96.0, settings.cellSize());
         double minimumBranchLength = Math.max(12.0, settings.minimumLength());
@@ -163,6 +190,7 @@ public final class MassifFractureField {
                         traceSpacing,
                         family
                 );
+                if (surfaceVariation > 0) centerOffset += surfaceWander(lineSeed, along, surfaceVariation);
                 double distance = Math.abs(perpendicular - centerOffset);
                 double baseWidth = GeologyNoise.lerp(
                         Math.max(1.0, settings.minimumWidth()),
@@ -190,8 +218,8 @@ public final class MassifFractureField {
                 considerCandidate(
                         accumulator,
                         distance,
-                        baseWidth,
-                        baseDepth,
+                        surfaceVariation > 0 ? baseWidth * (.4 + .6 * surfaceDepthMultiplier(lineSeed, along, surfaceVariation)) : baseWidth,
+                        surfaceVariation > 0 ? baseDepth * surfaceDepthMultiplier(lineSeed, along, surfaceVariation) : baseDepth,
                         1.0,
                         tracePhase,
                         mineralization,
@@ -226,7 +254,8 @@ public final class MassifFractureField {
                             mineralBandOffset,
                             activation,
                             resistance,
-                            settings
+                            settings,
+                            surfaceVariation
                     );
                 }
             }
@@ -313,7 +342,8 @@ public final class MassifFractureField {
             double primaryMineralBandOffset,
             double activation,
             LithologyField.ResistanceClass resistance,
-            ArrakisTerrainSettings.FractureSettings settings
+            ArrakisTerrainSettings.FractureSettings settings,
+            double surfaceVariation
     ) {
         long branchSeed = GeologyNoise.cellSeed(
                 lineSeed,
@@ -322,7 +352,7 @@ public final class MassifFractureField {
                 BRANCH_NODE_SALT
         );
         if (GeologyNoise.unit(branchSeed, BRANCH_CHANCE_SALT)
-                >= settings.branchChance()) {
+                >= (surfaceVariation > 0 ? Math.min(.9, settings.branchChance() * (1 + .4 * surfaceVariation)) : settings.branchChance())) {
             return;
         }
 
@@ -335,6 +365,7 @@ public final class MassifFractureField {
                 traceSpacing,
                 family
         );
+        if (surfaceVariation > 0) startPerpendicular += surfaceWander(lineSeed, startAlong, surfaceVariation);
         double startX = startAlong * directionX - startPerpendicular * directionZ;
         double startZ = startAlong * directionZ + startPerpendicular * directionX;
         double side = GeologyNoise.unit(branchSeed, BRANCH_SIDE_SALT) < 0.5
@@ -401,7 +432,8 @@ public final class MassifFractureField {
                 mineralBandOffset,
                 activation,
                 resistance,
-                settings
+                settings,
+                0
         );
         considerSegment(
                 accumulator,
@@ -419,7 +451,8 @@ public final class MassifFractureField {
                 mineralBandOffset,
                 activation,
                 resistance,
-                settings
+                settings,
+                surfaceVariation
         );
     }
 
@@ -439,7 +472,8 @@ public final class MassifFractureField {
             double mineralBandOffset,
             double activation,
             LithologyField.ResistanceClass resistance,
-            ArrakisTerrainSettings.FractureSettings settings
+            ArrakisTerrainSettings.FractureSettings settings,
+            double surfaceVariation
     ) {
         double segmentX = endX - startX;
         double segmentZ = endZ - startZ;
@@ -454,16 +488,18 @@ public final class MassifFractureField {
         double nearestX = startX + segmentX * along;
         double nearestZ = startZ + segmentZ * along;
         double distance = Math.hypot(pointX - nearestX, pointZ - nearestZ);
+        double taper = surfaceVariation > 0 ? branchTaper(projection) : 1;
+        if (taper <= 0) return;
         considerCandidate(
                 accumulator,
                 distance,
                 baseWidth,
-                baseDepth,
+                baseDepth * taper,
                 branchScale,
                 along * Math.PI * 3.0 + phase,
                 mineralization,
                 mineralBandOffset,
-                activation,
+                activation * taper,
                 resistance,
                 settings
         );

@@ -25,9 +25,11 @@ public final class BuriedRockTerrainValidation {
         validateStructuralLithology(settings);
         validateFaults(settings);
         validateExposureAndTalus(settings);
-        validateOrderAndComposition(settings);
+        var dev2 = TerrainAlgorithmValidation.load("arrakis_6000_dev2.json");
+        validateOrderAndComposition(dev2);
         validateIsolation(settings);
-        BuriedRockMorphologyValidation.validate(settings);
+        BuriedRockMorphologyValidation.validate(dev2);
+        MassifFinishingValidation.validate(settings, dev2);
         var evaluator = new ArrakisTerrainEvaluator(0, settings, 1024);
         for (int[] p : new int[][] {{0,0},{3057,150},{3060,150},{3100,150},{3400,0},{4096,0},{9000,9000}}) {
             var c = evaluator.buriedColumn(p[0], p[1]);

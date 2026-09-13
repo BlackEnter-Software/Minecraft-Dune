@@ -12,7 +12,8 @@ The launcher reads mod_version from gradle.properties and uses a world named:
 
     Arrakis-dev_[Version]_[DDMMYY]
 
-If that dated world already exists, Minecraft Quick Play opens it directly. Otherwise the
+Version punctuation is normalized to underscores in the folder name. If that dated world
+already exists, the launcher opens the exact save folder directly. Otherwise the
 client creates it automatically with seed 0, Creative mode, commands enabled, and the
 minecraftdune:arrakis_dev world preset.
 
@@ -22,10 +23,33 @@ To delete only today's versioned dev world and recreate it from scratch, run:
 
 Normal `gradlew.bat runClient` behavior is unchanged.
 
-Buried Rock — 0.6.0-dev.2 / profile 6000
+Buried Rock — 0.6.0-dev.3 / profile 6000 / algorithm revision 3
 ---------------------------------------
 
-Create a FRESH Arrakis Dev world. Rock is continuous from above Y=-64 bedrock to its
+Create a FRESH Arrakis Dev world. The current folder is Arrakis-dev_0_6_0-dev_3_[DDMMYY].
+Saved algorithm revisions 1 and 2 retain their historical terrain; never relabel an old save.
+Dev.3 adds source-colored, stability/obstruction-aware talus, modest extra weak-unit erosion,
+broad summit weathering, varied major fissures and sparse exterior cliff alcoves/overhangs.
+Rock is continuous except for these bounded externally connected openings; general caves,
+physical collapse and cavity-derived debris supply remain deferred.
+
+Run the isolated graphical generation/save/reload check with:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Test-ArrakisRuntime.ps1
+
+It creates a unique disposable world under build/terrain-validation-client/saves and writes
+reports/screenshots under build/terrain-validation-client/validation. It checks nine original
+chunks plus two native cavity chunks and captures eight views (including summit, southern
+wall and two discovered cavity mouths). Inspect PNGs for visual quality after the automated
+checks pass. A clean build removes these generated validation artifacts, so preserve any
+screenshots needed for long-term comparisons outside build first.
+
+See docs/BURIED_ROCK_TERRAIN_0.6.0-dev.3.md for full results, settings and known limitations.
+
+Historical dev.1 / dev.2 architecture
+------------------------------------
+
+In revisions 1 and 2, rock is continuous from above Y=-64 bedrock to its
 eroded roof. Shield-Wall uplift and signed fault throw move that geology and its strata.
 Independent sediment buries lower rock and grades the central basin to Y64. One fixed
 analytical recession pass and erosion-derived colluvium replace the old occupancy/repair
@@ -35,7 +59,7 @@ Dev.2 adds coherent broad/mesoscale wall recession, wandering gullies, stronger 
 response and blended source-region talus. It keeps that one-pass architecture, smooth uplift,
 independent sediment and deep strata. New options are enabled only in the new preset;
 saved dev.1 worlds that omit them retain their old settings, including newly generated chunks.
-The launcher naturally names today's world Arrakis-dev_0.6.0-dev.2_[DDMMYY].
+The current launcher names worlds using the version in gradle.properties, with normalized punctuation.
 The erosion review fixes change terrain in morphology-enabled dev.2 saves too. Use a newly
 created Seed-0 world; loading existing chunks cannot show the fixed geometry. The fixes
 include gentler exposed slopes, shoulder recession and resistance through the reached depth.

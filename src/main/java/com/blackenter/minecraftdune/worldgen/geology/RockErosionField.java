@@ -24,6 +24,15 @@ public final class RockErosionField {
             RockFaceExposure.Sample face, MassifFractureField.Sample fracture, LithologyField.Column lithology,
             double faultDamage, double windAngle, BuriedRockSettings settings,
             RockFaceExposure.HeightLookup rawHeight, WallErosionMorphology.Sample morphology) {
+        return sample(seed, x, z, rawTop, sediment, face, fracture, lithology, faultDamage, windAngle,
+                settings, rawHeight, morphology, 0, 0);
+    }
+
+    public static Sample sample(long seed, double x, double z, double rawTop, double sediment,
+            RockFaceExposure.Sample face, MassifFractureField.Sample fracture, LithologyField.Column lithology,
+            double faultDamage, double windAngle, BuriedRockSettings settings,
+            RockFaceExposure.HeightLookup rawHeight, WallErosionMorphology.Sample morphology,
+            double summitWeathering, double workBoost) {
         var erosion = settings.erosion();
         if (!erosion.enabled() || rawTop < sediment) return new Sample(rawTop, 0, 0, 0, 0, 0, face);
 
@@ -59,6 +68,7 @@ public final class RockErosionField {
         double surfaceStrength = erosion.surfaceStrength() * (1 + faultDamage * erosion.faultWeakness());
         double topWeathering = erosion.surfaceRetreat() * surfaceStrength * (.18 + pattern * .82)
                 * (.72 + face.exposure() * .28) * lithologyRelief * exposed;
+        topWeathering += summitWeathering;
         double vertical = .5 + .5 * GeologyNoise.value3(seed ^ VERTICAL_SALT,
                 x / erosion.coarseScale(), rawTop / Math.max(5, erosion.coarseScale() * .82), z / erosion.coarseScale());
         double response = GeologyNoise.smoothStep(0, .55, surfaceStrength * face.exposure() * (.52 + pattern * .48));
@@ -100,6 +110,12 @@ public final class RockErosionField {
             }
             double recessionWork = Math.max(endpointLoss, (sector + meso) * profileSlope);
             double gullyWork = morphology.gullyDepth() * (1 + fractureBoost + faultBoost);
+            if (workBoost > 0) {
+                double weakUnit = GeologyNoise.smoothStep(.45, 1.25, susceptibility);
+                double localRecess = GeologyNoise.clamp(meso / Math.max(1, config.mesoscaleRecession()), 0, 1);
+                recessionWork *= 1 + workBoost * weakUnit * (.25 + .75 * localRecess);
+                gullyWork *= 1 + workBoost * weakUnit;
+            }
             double work = recessionWork + gullyWork;
             double roof = erodeThroughStrata(afterSurface, settings.rockSurface().minimumY(), work,
                     y -> susceptibility(lithology.sample(y).resistance(), erosion));

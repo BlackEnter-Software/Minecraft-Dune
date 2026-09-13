@@ -60,6 +60,12 @@ public final class ArrakisTerrainEvaluator {
         return buriedTerrain.column(x, z);
     }
 
+    /** The production cavity geometry, without composing talus or requesting world chunks. */
+    public com.blackenter.minecraftdune.worldgen.geology.ExposedCliffCavityField.Feature cavityFeature(int cellX, int cellZ) {
+        if (buriedTerrain == null) throw new IllegalStateException("Cliff cavities require buried geology");
+        return buriedTerrain.cavityFeature(cellX, cellZ);
+    }
+
     /** Only this final stage requests deposits. Support and contact queries never call it. */
     public TerrainColumn column(int worldX, int worldZ) {
         ColumnEntry entry = entry(worldX, worldZ);

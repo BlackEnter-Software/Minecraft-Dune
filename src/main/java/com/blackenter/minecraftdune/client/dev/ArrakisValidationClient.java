@@ -22,11 +22,13 @@ public final class ArrakisValidationClient {
     private static final String PHASE = System.getProperty("minecraftdune.validationPhase", "");
     private static final String FOLDER = System.getProperty("minecraftdune.validationFolder", "");
     private static final long STARTED = System.nanoTime();
-    private static final Camera[] CAMERAS = {
+    private static Camera[] CAMERAS = {
             new Camera("inner-wall", 2990.5, 210, 240.5, -129, 23, 3060, 145, 150),
             new Camera("cliff-foot", 3030.5, 95, 180.5, -135, -12, 3060, 105, 150),
             new Camera("shoulder", 3068.5, 250, 200.5, -147, 32, 3100, 200, 150),
-            new Camera("outer-wall", 4200.5, 175, 80.5, 128, 18, 4096, 100, 0)
+            new Camera("outer-wall", 4200.5, 175, 80.5, 128, 18, 4096, 100, 0),
+            new Camera("summit", 3360.5, 245, 80.5, -90, 30, 3440, 205, 80),
+            new Camera("southern-wall", .5, 210, 3000.5, 0, 10, 0, 170, 3150)
     };
     private static CompletableFuture<Void> checking;
     private static int cameraIndex = -1, settleTicks, stableTicks;
@@ -89,7 +91,19 @@ public final class ArrakisValidationClient {
             if (!checking.isDone()) return;
             checking.join();
             if (PHASE.equals("reload")) { finish(); return; }
-            if (cameraIndex < 0) { nextCamera(); return; }
+            if (cameraIndex < 0) {
+                var generated = com.google.gson.JsonParser.parseString(Files.readString(output().resolve("generated.json"))).getAsJsonObject();
+                var cameras = new java.util.ArrayList<>(java.util.List.of(CAMERAS));
+                for (var view : generated.getAsJsonArray("cavity_views")) {
+                    cameras.add(new com.google.gson.Gson().fromJson(view, Camera.class));
+                }
+                CAMERAS = cameras.toArray(Camera[]::new);
+                var manifestPath = output().resolve("generate-capture-manifest.json");
+                var manifest = com.google.gson.JsonParser.parseString(Files.readString(manifestPath)).getAsJsonObject();
+                manifest.add("cameras", new com.google.gson.Gson().toJsonTree(CAMERAS));
+                Files.writeString(manifestPath, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(manifest));
+                nextCamera(); return;
+            }
             if (readyToCapture) return;
             var camera = CAMERAS[cameraIndex];
             if (++settleTicks > 2400) throw new IllegalStateException("Camera did not load: " + camera.name);
@@ -100,6 +114,22 @@ public final class ArrakisValidationClient {
             int cx = ((int) Math.floor(camera.x)) >> 4, cz = ((int) Math.floor(camera.z)) >> 4;
             for (int dx = -7; dx <= 7; dx++) for (int dz = -7; dz <= 7; dz++) {
                 if (!minecraft.level.hasChunk(cx + dx, cz + dz)) loaded = false;
+            }
+            if (loaded && camera.name.equals("summit")) {
+                // A fixed subterranean target section may be occluded and never compiled.
+                // Select the real summit surface after its chunk is present, retaining all
+                // load/settle checks and the original four camera targets unchanged.
+                int surfaceY = minecraft.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE,
+                        camera.targetX, camera.targetZ) - 1;
+                if (camera.targetY != surfaceY) {
+                    camera = new Camera(camera.name, camera.x, camera.y, camera.z, camera.yaw, camera.pitch,
+                            camera.targetX, surfaceY, camera.targetZ);
+                    CAMERAS[cameraIndex] = camera;
+                    var path = output().resolve("generate-capture-manifest.json");
+                    var manifest = com.google.gson.JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+                    manifest.add("cameras", new com.google.gson.Gson().toJsonTree(CAMERAS));
+                    Files.writeString(path, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(manifest));
+                }
             }
             if (loaded && minecraft.levelRenderer.hasRenderedAllSections()
                     && minecraft.levelRenderer.isSectionCompiled(new BlockPos(camera.targetX, camera.targetY, camera.targetZ))) {

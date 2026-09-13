@@ -1,0 +1,101 @@
+{
+  "mod_version": "0.6.0-dev.3",
+  "render_distance": 12,
+  "clouds": "off",
+  "day_time": 6000,
+  "cameras": [
+    {
+      "name": "inner-wall",
+      "x": 2990.5,
+      "y": 210.0,
+      "z": 240.5,
+      "yaw": -129.0,
+      "pitch": 23.0,
+      "targetX": 3060,
+      "targetY": 145,
+      "targetZ": 150
+    },
+    {
+      "name": "cliff-foot",
+      "x": 3030.5,
+      "y": 95.0,
+      "z": 180.5,
+      "yaw": -135.0,
+      "pitch": -12.0,
+      "targetX": 3060,
+      "targetY": 105,
+      "targetZ": 150
+    },
+    {
+      "name": "shoulder",
+      "x": 3068.5,
+      "y": 250.0,
+      "z": 200.5,
+      "yaw": -147.0,
+      "pitch": 32.0,
+      "targetX": 3100,
+      "targetY": 200,
+      "targetZ": 150
+    },
+    {
+      "name": "outer-wall",
+      "x": 4200.5,
+      "y": 175.0,
+      "z": 80.5,
+      "yaw": 128.0,
+      "pitch": 18.0,
+      "targetX": 4096,
+      "targetY": 100,
+      "targetZ": 0
+    },
+    {
+      "name": "summit",
+      "x": 3360.5,
+      "y": 245.0,
+      "z": 80.5,
+      "yaw": -90.0,
+      "pitch": 30.0,
+      "targetX": 3440,
+      "targetY": 218,
+      "targetZ": 80
+    },
+    {
+      "name": "southern-wall",
+      "x": 0.5,
+      "y": 210.0,
+      "z": 3000.5,
+      "yaw": 0.0,
+      "pitch": 10.0,
+      "targetX": 0,
+      "targetY": 170,
+      "targetZ": 3150
+    },
+    {
+      "name": "southern-cavity-1",
+      "x": -611.5,
+      "y": 160.88,
+      "z": 3125.5,
+      "yaw": 180.0,
+      "pitch": 0.0,
+      "targetX": -612,
+      "targetY": 162,
+      "targetZ": 3116
+    },
+    {
+      "name": "southern-cavity-2",
+      "x": 668.5,
+      "y": 97.88,
+      "z": 3079.5,
+      "yaw": 0.0,
+      "pitch": 0.0,
+      "targetX": 668,
+      "targetY": 99,
+      "targetZ": 3098
+    }
+  ],
+  "loaded_mods": [
+    "minecraft@1.21.1",
+    "minecraftdune@0.6.0-dev.3",
+    "neoforge@21.1.248"
+  ]
+}

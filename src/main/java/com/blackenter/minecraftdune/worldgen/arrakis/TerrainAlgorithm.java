@@ -3,7 +3,8 @@ package com.blackenter.minecraftdune.worldgen.arrakis;
 /** Persisted algorithm identities, independent of mod releases and numeric tuning. */
 public final class TerrainAlgorithm {
     public static final int DEV1 = 1;
-    public static final int CURRENT = 2;
+    public static final int DEV2 = 2;
+    public static final int CURRENT = 3;
 
     private TerrainAlgorithm() {}
 
@@ -28,9 +29,12 @@ public final class TerrainAlgorithm {
             if (revision != 0) throw new IllegalArgumentException("Legacy terrain requires algorithm revision 0");
             return;
         }
-        if (revision != DEV1 && revision != CURRENT) {
+        if (revision != DEV1 && revision != DEV2 && revision != CURRENT) {
             throw new IllegalArgumentException("Unsupported Arrakis terrain_algorithm_revision=" + revision
-                    + "; this build supports 1 (dev.1) and 2 (corrected dev.2). Use a compatible mod build.");
+                    + "; this build supports revisions 1, 2 and 3. Use a compatible mod build.");
+        }
+        if (revision < 3 && settings.buriedRock().finishing().enabled()) {
+            throw new IllegalArgumentException("Massif finishing and cliff cavities require terrain algorithm 3");
         }
         if (revision == DEV1 && (settings.buriedRock().erosion().morphology().enabled()
                 || settings.buriedRock().talus().coherentSources())) {

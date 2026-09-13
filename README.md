@@ -2,19 +2,26 @@
 
 Standalone NeoForge 1.21.1 development project for the Minecraft: Dune mod.
 
-Current development version: **0.6.0-dev.2.1 — world validation and terrain compatibility**
+Current development version: **0.6.0-dev.3 — massif finishing and exterior cliff cavities**
 
-Dev.2.1 fixes dev-world folder naming and adds an isolated Minecraft generation/save/reload
-check with four fixed screenshot views. New worlds persist `terrain_algorithm_revision: 2`
-within profile 6000. Unversioned dev.1 settings resolve to revision 1; ambiguous unversioned
-dev.2 saves are rejected rather than silently reinterpreted. Keep their original build or
-create a fresh world; do not relabel an old save. Terrain shape and numeric tuning are unchanged.
+Dev.3 corrects gravel-biased talus, blocks debris routes over ridges, reduces deposition on
+steep faces, and samples narrow sources more consistently. It retains dev.2 wall morphology
+with a modest weak-unit erosion boost, broad summit weathering and varied major fissures.
+Sparse exterior-connected alcoves cut into the final cliff envelope with bounded depth,
+continuous roofs and intact back/side supports. General underground caves remain deferred.
+See [dev.3 implementation, settings and validation](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.3.md).
+
+New worlds persist `terrain_algorithm_revision: 3` within profile **6000**. Saved revisions
+1 and 2 retain their historical formulas and frozen fingerprints. Unversioned dev.1 settings
+resolve to revision 1; ambiguous unversioned dev.2 saves remain rejected. Keep their original
+build or create a fresh world; do not relabel an old save. Dev.2.1 launcher and generation/
+save/reload checks are retained, with additional summit, southern-wall and cavity views.
 See [dev.2.1 compatibility and validation](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.2.1.md).
 
 Current development branch: `main`. The active terrain profile is **6000**: continuous
 subsurface geology, tectonic Shield-Wall uplift, signed fault displacement and an independent
 sediment surface. Analytical external exposure drives one fixed roof-recession pass, followed
-by erosion-derived colluvium. Rock fills the entire column below its eroded roof; there is no
+by erosion-derived colluvium. Rock fills below its eroded roof except for bounded exterior cavities; there is no
 remnant/front-shell cleanup or basal concealment in this path. Saved profile 5148 worlds keep
 their legacy generator. Use a **fresh Arrakis Dev Seed-0 world**; never relabel an old save 6000.
 Dev.2 adds broad differential recession, wandering gullies, stratigraphic resistance response
@@ -25,8 +32,7 @@ the downhill profile, and apply resistance through the depth actually reached. U
 created world when comparing these fixes with the initial dev.2 implementation.
 See the [dev.2 diagnosis, settings and validation report](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.2.md)
 and [original buried-rock architecture](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.1.md).
-The dev.2.1 report records live validation and screenshot review separately from analytical
-tests. True undercuts are deferred.
+Historical reports retain the acceptance evidence and limitations of their respective versions.
 
 Operators can use `/dune terrain inspect` at their current position, or
 `/dune terrain inspect 3053 65 190`, to copy a report from the same analytical evaluator
@@ -77,7 +83,7 @@ other development/test mods can be installed manually.
 **Create a new Arrakis Dev world for profile-6000 buried-rock testing.**
 
 Y64 is the graded basin sediment datum, not the geological root. Bottom bedrock remains at
-Y=-64; coherent rock fills from -63 through Re, sediment fills any interval up to its independent
+Y=-64; coherent rock fills from -63 through Re except for controlled cliff cavities, sediment fills any interval up to its independent
 surface S, and bounded erosion-derived debris may overlie both. Surface height is max(Re,S,C).
 The active JSON uses `buried_rock` controls; the old flat substrate is overwritten entirely.
 `/dune geology profile` shows the new settings; `/dune terrain inspect` reports R0/S/Re/H.

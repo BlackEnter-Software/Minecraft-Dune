@@ -10,7 +10,14 @@ import java.util.function.Predicate;
 public record BuriedTerrainColumn(long seed, int x, int z, RawRockSurfaceField.Sample raw,
         SedimentSurfaceField.Sample sediment, RockErosionField.Sample erosion,
         MassifFractureField.Sample fracture, LithologyField.Column lithology,
-        TalusColluviumField.Sample talus, int compactionDepth) {
+        TalusColluviumField.Sample talus, int compactionDepth, ExposedCliffCavityField.Column cavities,
+        double sourceClastFraction, double summitRemoval) {
+    public BuriedTerrainColumn(long seed, int x, int z, RawRockSurfaceField.Sample raw, SedimentSurfaceField.Sample sediment,
+            RockErosionField.Sample erosion, MassifFractureField.Sample fracture, LithologyField.Column lithology,
+            TalusColluviumField.Sample talus, int compactionDepth) {
+        this(seed, x, z, raw, sediment, erosion, fracture, lithology, talus, compactionDepth,
+                ExposedCliffCavityField.Column.NONE, 0, 0);
+    }
     public int rockTopY() { return (int) Math.floor(erosion.rockTop()); }
     public double sedimentThickness() { return Math.max(0, sediment.surfaceY() - erosion.rockTop()); }
     public double externalSurface() { return Math.max(rockTopY(), sediment.surfaceY()); }
@@ -29,10 +36,12 @@ public record BuriedTerrainColumn(long seed, int x, int z, RawRockSurfaceField.S
         if (y < worldBottom) return Cell.AIR;
         // Keep the existing bottom bedrock layer. Geology starts above it, not at Y65.
         if (y == worldBottom) return Cell.BEDROCK;
-        if (y <= rockTopY()) return new Cell(Kind.ROCK, lithology.sample(y).material(), 0);
+        if (y <= rockTopY()) return cavities.removes(y) ? Cell.AIR : new Cell(Kind.ROCK, lithology.sample(y).material(), 0);
         if (talus.active() && y >= talus.bottomY() && y <= talus.topY()) {
             if (TalusColluviumField.isDistalSand(seed, x, y, z, talus)) return Cell.SAND;
-            return new Cell(Kind.TALUS, TalusColluviumField.materialAt(seed, x, y, z, talus), 0);
+            return new Cell(Kind.TALUS, sourceClastFraction > 0
+                    ? StableTalusField.materialAt(seed, x, y, z, talus, sourceClastFraction)
+                    : TalusColluviumField.materialAt(seed, x, y, z, talus), 0);
         }
         if (y <= sediment.fullTopY()) {
             return sediment.fullTopY() - y >= compactionDepth ? Cell.SANDSTONE : Cell.SAND;

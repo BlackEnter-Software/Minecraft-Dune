@@ -11,9 +11,13 @@ final class BuriedRockTerrain {
     private final int capacity;
     private final TerrainGenerationMetrics.Evaluation metrics;
     private final Long2ObjectLinkedOpenHashMap<Entry> cache = new Long2ObjectLinkedOpenHashMap<>();
+    private final Long2ObjectLinkedOpenHashMap<Entry> erodedCache = new Long2ObjectLinkedOpenHashMap<>();
+    private final Long2ObjectLinkedOpenHashMap<ExposedCliffCavityField.Feature> cavityCache = new Long2ObjectLinkedOpenHashMap<>();
+    private final boolean finishing;
 
     BuriedRockTerrain(long seed, ArrakisTerrainSettings settings, int capacity, TerrainGenerationMetrics.Evaluation metrics) {
         this.seed = seed; this.settings = settings; this.capacity = capacity; this.metrics = metrics;
+        finishing = settings.terrainAlgorithmRevision() == 3 && settings.buriedRock().finishing().enabled();
     }
 
     private Entry entry(int x, int z) {
@@ -37,6 +41,11 @@ final class BuriedRockTerrain {
     }
 
     private Entry eroded(int x, int z) {
+        long key = ChunkPos.asLong(x, z);
+        if (finishing) {
+            var existing = erodedCache.getAndMoveToLast(key);
+            if (existing != null) return existing;
+        }
         Entry entry = entry(x, z);
         if (entry.erosion != null) return entry;
         var config = settings.buriedRock().erosion();
@@ -47,16 +56,26 @@ final class BuriedRockTerrain {
         var face = RockFaceExposure.external(x + .5, z + .5, entry.raw.rockTop(), entry.sediment.surfaceY(),
                 Math.max(2, config.surfaceRetreat() + 1), farProbe, config.minimumRelief(),
                 (sx, sz) -> interpolate(sx, sz, true));
-        entry.fracture = MassifFractureField.structural(seed, x + .5, z + .5,
-                entry.lithology.sample(entry.raw.rockTop()).resistance(), settings.fractures());
+        var resistance = entry.lithology.sample(entry.raw.rockTop()).resistance();
+        entry.fracture = finishing ? MassifFractureField.surface(seed, x + .5, z + .5, resistance,
+                settings.fractures(), settings.buriedRock().finishing().fissureVariation())
+                : MassifFractureField.structural(seed, x + .5, z + .5, resistance, settings.fractures());
+        entry.summitRemoval = finishing ? SummitWeatheringField.removal(seed, x + .5, z + .5,
+                entry.raw.rockTop(), entry.sediment.surfaceY(), entry.raw.geography().physicalMassifWeight(),
+                face, resistance, settings.buriedRock()) : 0;
         entry.erosion = RockErosionField.sample(seed, x + .5, z + .5, entry.raw.rockTop(), entry.sediment.surfaceY(),
                 face, entry.fracture, entry.lithology, entry.raw.fault().damage(), settings.nativeDunes().windAngleDegrees(),
                 settings.buriedRock(), (sx, sz) -> interpolate(sx, sz, false),
                 WallErosionMorphology.sample(seed, x + .5, z + .5, entry.raw.rockTop(), entry.sediment.surfaceY(),
-                        face, entry.raw.geography(), settings));
+                        face, entry.raw.geography(), settings), entry.summitRemoval,
+                finishing ? settings.buriedRock().finishing().erosionWorkBoost() : 0);
         metrics.stage(TerrainGenerationMetrics.Stage.EXPOSURE);
         if (config.morphology().enabled()) metrics.stage(TerrainGenerationMetrics.Stage.MORPHOLOGY);
         metrics.stage(TerrainGenerationMetrics.Stage.EROSION);
+        if (finishing && capacity > 0) {
+            if (erodedCache.size() == capacity * 4) erodedCache.removeFirst();
+            erodedCache.put(key, entry);
+        }
         return entry;
     }
 
@@ -81,7 +100,11 @@ final class BuriedRockTerrain {
         Entry entry = eroded(x, z);
         if (entry.complete != null) return entry.complete;
         double external = Math.max(Math.floor(entry.erosion.rockTop()), entry.sediment.surfaceY());
-        var talus = TalusColluviumField.sample(seed, x, z, external, settings.buriedRock().talus(), (sx, sz) -> {
+        TalusColluviumField.SourceLookup sourceLookup = (sx, sz) -> {
+            if (finishing) {
+                var rawSource = entry(sx, sz);
+                if (rawSource.raw.rockTop() < rawSource.sediment.surfaceY()) return NO_SUPPLY;
+            }
             Entry source = eroded(sx, sz);
             var face = source.erosion.face();
             var morphology = source.erosion.morphology();
@@ -90,15 +113,61 @@ final class BuriedRockTerrain {
                     ? source.erosion.removedAmount() : 0;
             return new TalusColluviumField.Source(source.erosion.rockTop(), exposedSupply,
                     face.outwardNormalX(), face.outwardNormalZ(), source.lithology.sample(source.erosion.rockTop()).material());
-        });
+        };
+        var talus = finishing ? StableTalusField.sample(seed, x, z, external, settings.buriedRock(), sourceLookup,
+                (sx, sz) -> {
+                    var surface = eroded(sx, sz);
+                    return Math.max(Math.floor(surface.erosion.rockTop()), surface.sediment.surfaceY());
+                }) : TalusColluviumField.sample(seed, x, z, external, settings.buriedRock().talus(), sourceLookup);
+        var cavities = finishing ? cavityColumn(x, z) : ExposedCliffCavityField.Column.NONE;
         metrics.stage(TerrainGenerationMetrics.Stage.TALUS);
         metrics.stage(TerrainGenerationMetrics.Stage.COMPOSITION);
         return entry.complete = new BuriedTerrainColumn(seed, x, z, entry.raw, entry.sediment, entry.erosion,
-                entry.fracture, entry.lithology, talus, settings.buriedRock().sediment().compactionDepth());
+                entry.fracture, entry.lithology, talus, settings.buriedRock().sediment().compactionDepth(), cavities,
+                finishing ? settings.buriedRock().finishing().sourceClastFraction() : 0, entry.summitRemoval);
+    }
+
+    private ExposedCliffCavityField.Column cavityColumn(int x, int z) {
+        if (capacity < 512) return ExposedCliffCavityField.column(seed, x, z,
+                settings.buriedRock().finishing().cliffCavities(), cavityLookup());
+        return cavityFeature(Math.floorDiv(x, ExposedCliffCavityField.CELL_SIZE),
+                Math.floorDiv(z, ExposedCliffCavityField.CELL_SIZE)).column(x, z);
+    }
+
+    ExposedCliffCavityField.Feature cavityFeature(int cx, int cz) {
+        var config = settings.buriedRock().finishing().cliffCavities();
+        if (!finishing || !config.enabled()) return new ExposedCliffCavityField.Feature(cx, cz, 0, 0, 0, 0, 0, 0, 0, 0, new long[0]);
+        long key = ChunkPos.asLong(cx, cz);
+        var feature = cavityCache.getAndMoveToLast(key);
+        if (feature == null) {
+            feature = ExposedCliffCavityField.sample(seed, cx, cz, config, cavityLookup());
+            metrics.stage(TerrainGenerationMetrics.Stage.CAVITY_FEATURE);
+            if (capacity > 0) {
+                if (cavityCache.size() == 16) cavityCache.removeFirst();
+                cavityCache.put(key, feature);
+            }
+        }
+        return feature;
+    }
+
+    private ExposedCliffCavityField.SurfaceLookup cavityLookup() {
+        return new ExposedCliffCavityField.SurfaceLookup() {
+                public ExposedCliffCavityField.Surface sample(int sx, int sz) {
+                    var e = eroded(sx, sz);
+                    return new ExposedCliffCavityField.Surface(e.erosion.rockTop(), e.sediment.surfaceY(),
+                            e.raw.geography().physicalMassifWeight(), Math.max(e.fracture.strength(), e.raw.fault().damage()),
+                            settings.buriedRock().talus().enabled() ? settings.buriedRock().talus().maximumThickness() : 0);
+                }
+                public LithologyField.ResistanceClass resistance(int sx, int y, int sz) {
+                    return entry(sx, sz).lithology.sample(y).resistance();
+                }
+            };
     }
 
     int rockTopY(int x, int z) { return (int) Math.floor(eroded(x, z).erosion.rockTop()); }
     int size() { return cache.size(); }
+    private static final TalusColluviumField.Source NO_SUPPLY = new TalusColluviumField.Source(
+            Double.NEGATIVE_INFINITY, 0, 0, 0, LithologyField.Material.STONE);
 
     private static final class Entry {
         final RawRockSurfaceField.Sample raw;
@@ -106,6 +175,7 @@ final class BuriedRockTerrain {
         final LithologyField.Column lithology;
         RockErosionField.Sample erosion;
         MassifFractureField.Sample fracture;
+        double summitRemoval;
         BuriedTerrainColumn complete;
         Entry(RawRockSurfaceField.Sample raw, SedimentSurfaceField.Sample sediment, LithologyField.Column lithology) {
             this.raw = raw; this.sediment = sediment; this.lithology = lithology;

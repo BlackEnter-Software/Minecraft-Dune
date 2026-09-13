@@ -1,5 +1,29 @@
 # Minecraft: Dune patch notes
 
+## Minecraft: Dune 0.6.0-dev.3 - Massif finishing and exterior cliff cavities
+
+- Correct the old gravel-default selector: coherent source-colored clasts dominate proximal
+  deposits, with increasing gravel distally. Preserve source palettes and distal sand behavior.
+- Generate talus using downhill stability, concavity and a bounded analytical route check;
+  reject intervening uphill barriers. Integrate two-block source samples with area normalization
+  to reduce alignment misses without increasing the global yield or cleaning deposits afterward.
+- Add up to 15% work to weak-unit recesses/incision while retaining dev.2 erosion morphology,
+  resistant units, faults, raw geology, basin grading, sediment and dune settings.
+- Add broad erosional summit relief up to eight blocks and refine the surface expression of
+  existing major fissures with coherent depth/width variation, lateral wandering and finite
+  tapered splays. Preserve historical structural fracture formulas for old revisions.
+- Add a dedicated sparse cliff cavity field after Re. Exterior-started prefix cuts cannot
+  restart behind rock, exceed penetration limits, or carve through their continuous roof.
+  Retain back walls and cell-edge supports; reserve opening clearance above possible deposits.
+- Feed cavity occupancy into the shared column composer, actual generation and base-column
+  queries. Keep top heightmaps consistent. Cavity debris accounting and general caves are deferred.
+- Select algorithm revision 3 within profile 6000. Preserve revisions 1/2 byte-for-byte at frozen
+  fixtures and add a revision-3 fixture including native southern-wall cavity columns.
+- Add material, transport, slope, source translation, fissure taper, cavity connection/support,
+  cache-order and composer checks. Extend isolated Minecraft save/reload validation with two
+  native cavity chunks and eight screenshot views in total.
+- See [measurements, runtime evidence and limitations](docs/BURIED_ROCK_TERRAIN_0.6.0-dev.3.md).
+
 ## Minecraft: Dune 0.6.0-dev.2.1 - World validation and terrain compatibility
 
 - Normalize dev save folder names using underscores so creation, reopening and `--fresh`

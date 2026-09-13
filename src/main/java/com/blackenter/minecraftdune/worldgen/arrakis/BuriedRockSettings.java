@@ -7,7 +7,11 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 /** Profile-6000 controls. No native-root, occupancy-repair, or concealment settings. */
 public record BuriedRockSettings(RockSurface rockSurface, Sediment sediment,
-        FaultDisplacement faults, Erosion erosion, Talus talus) {
+        FaultDisplacement faults, Erosion erosion, Talus talus, Finishing finishing) {
+    public BuriedRockSettings(RockSurface rockSurface, Sediment sediment, FaultDisplacement faults,
+            Erosion erosion, Talus talus) {
+        this(rockSurface, sediment, faults, erosion, talus, Finishing.LEGACY);
+    }
     public static final RockSurface DEFAULT_ROCK = new RockSurface(36, 14, 1200, 4, 280, 1.15, 1, -48, 300);
     public static final Sediment DEFAULT_SEDIMENT = new Sediment(64, 3, 2400, 8);
     public static final FaultDisplacement DEFAULT_FAULTS = new FaultDisplacement(32, 12, 220, 40);
@@ -22,8 +26,37 @@ public record BuriedRockSettings(RockSurface rockSurface, Sediment sediment,
             Sediment.CODEC.optionalFieldOf("sediment", DEFAULT_SEDIMENT).forGetter(BuriedRockSettings::sediment),
             FaultDisplacement.CODEC.optionalFieldOf("fault_displacement", DEFAULT_FAULTS).forGetter(BuriedRockSettings::faults),
             Erosion.CODEC.optionalFieldOf("erosion", DEFAULT_EROSION).forGetter(BuriedRockSettings::erosion),
-            Talus.CODEC.optionalFieldOf("talus", DEFAULT_TALUS).forGetter(BuriedRockSettings::talus)
+            Talus.CODEC.optionalFieldOf("talus", DEFAULT_TALUS).forGetter(BuriedRockSettings::talus),
+            Finishing.CODEC.optionalFieldOf("finishing", Finishing.LEGACY).forGetter(BuriedRockSettings::finishing)
     ).apply(i, BuriedRockSettings::new));
+
+    public record Finishing(boolean enabled, double erosionWorkBoost, double summitRelief, double summitScale,
+            double fissureVariation, double sourceClastFraction, double maximumStableSlope, CliffCavities cliffCavities) {
+        public static final Finishing LEGACY = new Finishing(false, .15, 8, 180, .85, .82, 1.1, CliffCavities.DEFAULT);
+        public static final Codec<Finishing> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.BOOL.optionalFieldOf("enabled", false).forGetter(Finishing::enabled),
+                number(0, .25).optionalFieldOf("erosion_work_boost", .15).forGetter(Finishing::erosionWorkBoost),
+                number(0, 16).optionalFieldOf("summit_relief", 8.0).forGetter(Finishing::summitRelief),
+                number(80, 600).optionalFieldOf("summit_scale", 180.0).forGetter(Finishing::summitScale),
+                number(0, 1).optionalFieldOf("fissure_variation", .85).forGetter(Finishing::fissureVariation),
+                number(.5, .95).optionalFieldOf("source_clast_fraction", .82).forGetter(Finishing::sourceClastFraction),
+                number(.3, 2).optionalFieldOf("maximum_stable_slope", 1.1).forGetter(Finishing::maximumStableSlope),
+                CliffCavities.CODEC.optionalFieldOf("cliff_cavities", CliffCavities.DEFAULT).forGetter(Finishing::cliffCavities)
+        ).apply(i, Finishing::new));
+    }
+
+    public record CliffCavities(boolean enabled, int maximumPenetration, int maximumHeight, double frequency,
+            double strength, int minimumRoofThickness) {
+        public static final CliffCavities DEFAULT = new CliffCavities(false, 12, 12, .4, .9, 3);
+        public static final Codec<CliffCavities> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.BOOL.optionalFieldOf("enabled", false).forGetter(CliffCavities::enabled),
+                Codec.intRange(2, 16).optionalFieldOf("maximum_penetration", 12).forGetter(CliffCavities::maximumPenetration),
+                Codec.intRange(3, 16).optionalFieldOf("maximum_height", 12).forGetter(CliffCavities::maximumHeight),
+                number(0, 1).optionalFieldOf("frequency", .4).forGetter(CliffCavities::frequency),
+                number(0, 1).optionalFieldOf("strength", .9).forGetter(CliffCavities::strength),
+                Codec.intRange(3, 6).optionalFieldOf("minimum_roof_thickness", 3).forGetter(CliffCavities::minimumRoofThickness)
+        ).apply(i, CliffCavities::new));
+    }
 
     private static Codec<Double> number(double low, double high) {
         return Codec.DOUBLE.flatXmap(v -> Double.isFinite(v) && v >= low && v <= high

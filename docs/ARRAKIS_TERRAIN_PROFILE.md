@@ -1,6 +1,40 @@
-# Arrakis terrain profile — parameter reference (0.6.0-dev.2)
+# Arrakis terrain profile — parameter reference (0.6.0-dev.3)
 
 ## Current profile 6000
+
+The current preset uses algorithm revision **3**, independent of profile 6000. Revision 1/2
+settings continue using their historical implementations. Never change a saved revision to
+opt into new formulas; create a fresh world. Missing finishing settings are disabled.
+
+Dev.3 adds `buried_rock.finishing`. Existing dev.2 numeric preset values remain unchanged.
+All fields below are relative to that group; numeric defaults match the dev.3 preset and both
+`enabled` switches default to false when omitted. See the [dev.3 report](BURIED_ROCK_TERRAIN_0.6.0-dev.3.md)
+for architecture, evidence and performance limits.
+
+| Field | Default | Dev.3 preset | Range / purpose |
+| --- | ---: | ---: | --- |
+| `enabled` | false | true | Revision-3 finishing; rejected if enabled in revision 1/2. |
+| `erosion_work_boost` | 0.15 | 0.15 | 0–0.25; extra weak-unit recess/gully work. |
+| `summit_relief` | 8 | 8 | 0–16 blocks; bounded additional summit lowering. |
+| `summit_scale` | 180 | 180 | 80–600 blocks; broad weathering scale. |
+| `fissure_variation` | 0.85 | 0.85 | 0–1; major fissure surface depth/wander refinement. |
+| `source_clast_fraction` | 0.82 | 0.82 | 0.5–0.95; proximal selector threshold, not an exact measured proportion. |
+| `maximum_stable_slope` | 1.1 | 1.1 | 0.3–2; characteristic downhill gradient for deposition. |
+| `cliff_cavities.enabled` | false | true | Sparse exterior erosion only. |
+| `cliff_cavities.maximum_penetration` | 12 | 12 | 2–16 blocks; absolute carved-rock depth cap. |
+| `cliff_cavities.maximum_height` | 12 | 12 | 3–16 blocks; bounded vertical evaluation. |
+| `cliff_cavities.frequency` | 0.4 | 0.4 | 0–1; candidate probability before geometric rejection. |
+| `cliff_cavities.strength` | 0.9 | 0.9 | 0–1; resistance-integrated penetration budget. |
+| `cliff_cavities.minimum_roof_thickness` | 3 | 3 | 3–6 blocks; continuous roof to intact back wall. |
+
+Talus uses its existing reach, yield and maximum thickness (preset 16, 0.4, 4). Two-block
+transport steps and source spacing are bounded implementation choices. Cavity frequency is
+not a percentage of cliff blocks: most candidates fail exposure/support/clearance gates.
+With finishing enabled, the stable talus solver supersedes both historical source modes;
+`talus.coherent_sources` continues to select those modes when finishing is disabled. The
+finishing master switch must be enabled for its cavity switch to take effect.
+
+### Retained dev.1 / dev.2 controls
 
 The active development JSON now selects `profile_version: 6000`. New controls are grouped
 under `buried_rock.rock_surface`, `buried_rock.sediment`, `buried_rock.fault_displacement`,
@@ -27,8 +61,9 @@ vertical. Integrated susceptibility through the reached strata determines achiev
 diagnostics report that separately from the input budgets. Existing erosion
 and talus enable flags still apply. Both new opt-ins must be false for exact dev.1 behavior;
 missing fields decode that way. Create a fresh dev.2 world; saved worlds are not migrated.
-The review fixes change generation when morphology is enabled, including in newly generated
-chunks of earlier dev.2 saves. Use a newly created world to compare the fixes without mixed terrain.
+Historical note: the original dev.2 review fixes changed the pre-revision implementation.
+Explicit algorithm revision 2 now freezes that corrected behavior; dev.3 does not change it.
+Unversioned dev.2 saves are ambiguous and rejected. Use a fresh world for new algorithms.
 
 Rock and sediment are independent absolute surfaces. Existing geometry/dune/material controls
 are reused, but legacy repair groups are absent from the active preset and cannot run in 6000.
